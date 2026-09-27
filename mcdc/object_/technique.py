@@ -254,7 +254,7 @@ class WeightWindows(MCDCBase):
             Strictly increasing polar cosine bounds from -1 to 1. The default
             is one bin from -1 to 1.
         azimuthal : ndarray, optional
-            Strictly increasing azimuthal angle bounds from -pi to pi. The 
+            Strictly increasing azimuthal angle bounds from -pi to pi. The
             default is one bin from -pi to pi.
 
         Examples

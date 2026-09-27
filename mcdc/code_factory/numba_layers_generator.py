@@ -1168,7 +1168,7 @@ def generate_mcdc_access(targets):
                     *shape[1:],
                     True,
                 )
-            
+
             text_getter += _accessor_chunk(object_name, attribute_name)
             text_setter += _accessor_chunk(object_name, attribute_name, True)
 
@@ -1393,12 +1393,13 @@ def _accessor_8d_element(
     text += f'    stride_6 = {object_name}["{stride_6}"]\n'
     text += f'    stride_7 = {object_name}["{stride_7}"]\n'
     text += f'    stride_8 = {object_name}["{stride_8}"]\n'
-    text += f'    index = offset + ((((((index_1 * stride_2 + index_2 ) * stride_3 + index_3) * stride_4 + index_4) * stride_5 + index_5) * stride_6 + index_6) * stride_7 + index_7) * stride_8 + index_8\n'
+    text += f"    index = offset + ((((((index_1 * stride_2 + index_2 ) * stride_3 + index_3) * stride_4 + index_4) * stride_5 + index_5) * stride_6 + index_6) * stride_7 + index_7) * stride_8 + index_8\n"
     if setter:
         text += f"    data[index] = value\n\n\n"
     else:
         text += f"    return data[index]\n\n\n"
     return text
+
 
 # ======================================================================================
 # Misc.
