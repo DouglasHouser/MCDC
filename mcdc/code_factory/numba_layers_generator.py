@@ -1053,9 +1053,9 @@ def validate_accessor_targets(targets):
     for object_name, attributes in targets.items():
         for attribute in attributes:
             rank = len(attribute.shape)
-            if rank not in [1, 2, 3, 4, 7, 8]:
+            if not 1 <= rank <= 4 and rank != 8:
                 raise ValueError(
-                    f"Generated accessors support one through four or seven or eight dimensions, "
+                    f"Generated accessors support one through four or eight dimensions, "
                     f"but {object_name}.{attribute.name} has rank {rank}."
                 )
 
