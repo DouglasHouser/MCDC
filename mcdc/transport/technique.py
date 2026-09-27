@@ -119,9 +119,9 @@ def query_weight_window(particle_container, simulation, data):
     ww_obj = simulation["technique"]["weight_windows"]
     indices = get_ww_indices(particle_container, ww_obj, simulation, data)
     # grab the actual ww parameters
-    lower = ww_get.lower_weights(*indices, ww_obj, data)
-    target = ww_get.target_weights(*indices, ww_obj, data)
-    upper = ww_get.upper_weights(*indices, ww_obj, data)
+    lower = ww_get.weights(*indices, 0, ww_obj, data)
+    target = ww_get.weights(*indices, 1, ww_obj, data)
+    upper = ww_get.weights(*indices, 2, ww_obj, data)
     return lower, target, upper
 
 

@@ -206,15 +206,7 @@ class WeightWindows(MCDCBase):
     polar_reference: Annotated[NDArray[np.float64], (3,)]
 
     # arrays of ww params
-    lower_weights: Annotated[
-        NDArray[np.float64], ("Nt", "Ne", "Nmu", "Na", "Nx", "Ny", "Nz")
-    ]
-    target_weights: Annotated[
-        NDArray[np.float64], ("Nt", "Ne", "Nmu", "Na", "Nx", "Ny", "Nz")
-    ]
-    upper_weights: Annotated[
-        NDArray[np.float64], ("Nt", "Ne", "Nmu", "Na", "Nx", "Ny", "Nz")
-    ]
+    WW: int = 3
     weights: Annotated[
         NDArray[np.float64], ("Nt", "Ne", "Nmu", "Na", "Nx", "Ny", "Nz", "WW")
     ]
@@ -233,10 +225,8 @@ class WeightWindows(MCDCBase):
         self.Nx, self.Ny, self.Nz = 1, 1, 1
         self.Nt = 1
         self.polar_reference = np.array([0.0, 0.0, 1.0])
-        shape = (self.Nt, self.Ne, self.Nmu, self.Na, self.Nx, self.Ny, self.Nz)
-        self.lower_weights = np.array([1.0]).reshape(*shape)
-        self.target_weights = np.array([1.0]).reshape(*shape)
-        self.upper_weights = np.array([1.0]).reshape(*shape)
+        shape = (self.Nt, self.Ne, self.Nmu, self.Na, self.Nx, self.Ny, self.Nz, 3)
+        self.weights = np.zeros(shape)
 
     def __call__(
         self,
@@ -352,20 +342,18 @@ class WeightWindows(MCDCBase):
         self.Na = na
         self.mesh = mesh
         self.Nx, self.Ny, self.Nz = (nx, ny, nz)
-        self.lower_weights = weight_windows[..., 0]
-        self.target_weights = weight_windows[..., 1]
-        self.upper_weights = weight_windows[..., 2]
+        self.weights = weight_windows
 
         # check weight windows are valid
-        if (self.lower_weights <= 0.0).any():
+        if (self.weights[..., 0] <= 0.0).any():
             print_error(
                 "Lower bound weights must be strictly positive to avoid invalid roulette behavior"
             )
-        if (self.lower_weights > self.target_weights).any():
+        if (self.weights[..., 0] > self.weights[..., 1]).any():
             print_error(
                 "Lower bound weight can not be greater than the target weight for any weight window"
             )
-        if (self.target_weights > self.upper_weights).any():
+        if (self.weights[..., 1] > self.weights[..., 2]).any():
             print_error(
                 "Target weight can not be greater than the upper bound weight for any weight window"
             )

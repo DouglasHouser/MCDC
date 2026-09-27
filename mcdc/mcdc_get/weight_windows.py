@@ -126,66 +126,6 @@ def azi_bounds_chunk(start, length, weight_windows, data):
 
 
 @njit
-def lower_weights(index_1, index_2, index_3, index_4, index_5, index_6, index_7, weight_windows, data):
-    offset = weight_windows["lower_weights_offset"]
-    stride_2 = weight_windows["Ne"]
-    stride_3 = weight_windows["Nmu"]
-    stride_4 = weight_windows["Na"]
-    stride_5 = weight_windows["Nx"]
-    stride_6 = weight_windows["Ny"]
-    stride_7 = weight_windows["Nz"]
-    index = ((((((offset + index_1) * stride_2 + index_2 ) * stride_3 + index_3) * stride_4 + index_4) * stride_5 + index_5) * stride_6 + index_6) * stride_7 + index_7
-    return data[index]
-
-
-@array_return(nb.types.float64)
-def lower_weights_chunk(start, length, weight_windows, data):
-    start += weight_windows["lower_weights_offset"]
-    end = start + length
-    return array_result(data[start:end])
-
-
-@njit
-def target_weights(index_1, index_2, index_3, index_4, index_5, index_6, index_7, weight_windows, data):
-    offset = weight_windows["target_weights_offset"]
-    stride_2 = weight_windows["Ne"]
-    stride_3 = weight_windows["Nmu"]
-    stride_4 = weight_windows["Na"]
-    stride_5 = weight_windows["Nx"]
-    stride_6 = weight_windows["Ny"]
-    stride_7 = weight_windows["Nz"]
-    index = ((((((offset + index_1) * stride_2 + index_2 ) * stride_3 + index_3) * stride_4 + index_4) * stride_5 + index_5) * stride_6 + index_6) * stride_7 + index_7
-    return data[index]
-
-
-@array_return(nb.types.float64)
-def target_weights_chunk(start, length, weight_windows, data):
-    start += weight_windows["target_weights_offset"]
-    end = start + length
-    return array_result(data[start:end])
-
-
-@njit
-def upper_weights(index_1, index_2, index_3, index_4, index_5, index_6, index_7, weight_windows, data):
-    offset = weight_windows["upper_weights_offset"]
-    stride_2 = weight_windows["Ne"]
-    stride_3 = weight_windows["Nmu"]
-    stride_4 = weight_windows["Na"]
-    stride_5 = weight_windows["Nx"]
-    stride_6 = weight_windows["Ny"]
-    stride_7 = weight_windows["Nz"]
-    index = ((((((offset + index_1) * stride_2 + index_2 ) * stride_3 + index_3) * stride_4 + index_4) * stride_5 + index_5) * stride_6 + index_6) * stride_7 + index_7
-    return data[index]
-
-
-@array_return(nb.types.float64)
-def upper_weights_chunk(start, length, weight_windows, data):
-    start += weight_windows["upper_weights_offset"]
-    end = start + length
-    return array_result(data[start:end])
-
-
-@njit
 def weights(index_1, index_2, index_3, index_4, index_5, index_6, index_7, index_8, weight_windows, data):
     offset = weight_windows["weights_offset"]
     stride_2 = weight_windows["Ne"]
@@ -195,7 +135,7 @@ def weights(index_1, index_2, index_3, index_4, index_5, index_6, index_7, index
     stride_6 = weight_windows["Ny"]
     stride_7 = weight_windows["Nz"]
     stride_8 = weight_windows["WW"]
-    index = (((((((offset + index_1) * stride_2 + index_2 ) * stride_3 + index_3) * stride_4 + index_4) * stride_5 + index_5) * stride_6 + index_6) * stride_7 + index_7) * stride_8 + index_8
+    index = offset + ((((((index_1 * stride_2 + index_2 ) * stride_3 + index_3) * stride_4 + index_4) * stride_5 + index_5) * stride_6 + index_6) * stride_7 + index_7) * stride_8 + index_8
     return data[index]
 
 
