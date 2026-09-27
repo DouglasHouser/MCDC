@@ -56,16 +56,15 @@ The development branch integrates work for the next minor release, while the mai
      - Purpose
    * - Feature (minor-release) workflow
      - ``upstream/dev``
-     - release branch → ``upstream/dev`` → ``upstream/main``
+     - Fork feature branch → ``upstream/dev`` → ``upstream/main``
      - Includes the compatible features, improvements, and fixes accumulated for the next minor version.
    * - Patch workflow
      - ``upstream/main``
-     - patch branch → ``upstream/main``
+     - Fork patch branch → ``upstream/patch/X.Y.Z`` → ``upstream/main``
      - Releases selected fixes from the current stable line without including unreleased features already present on ``upstream/dev``.
 
-If a patch fix was first developed on ``upstream/dev``, transfer only the fix and its necessary tests, documentation, and supporting changes onto a branch based on ``upstream/main``.
-Do not merge ``upstream/dev`` into the patch branch.
-After publishing the patch, merge ``upstream/main`` back into ``upstream/dev`` so subsequent minor releases retain the fix.
+The upstream ``patch/X.Y.Z`` branch is temporary and specific to the intended patch version ``X.Y.Z``.
+See the :ref:`release_checklist` for branch preparation, validation, publication, and the return to development.
 
 .. _release_checklist:
 
@@ -73,37 +72,42 @@ Release Checklist
 -----------------
 
 Use this checklist for every minor and patch release.
-Here, ``upstream`` refers to the canonical ``mcdc-project/mcdc`` repository and ``release_branch`` refers to the release-preparation branch.
+Here, ``upstream`` refers to the canonical ``mcdc-project/mcdc`` repository and ``release_branch`` refers to the contributor's release-preparation branch in their fork for either workflow.
+Upstream integration branches are named explicitly as ``upstream/dev``, ``upstream/patch/X.Y.Z``, or ``upstream/main``.
 
 Prepare the Release
 ^^^^^^^^^^^^^^^^^^^
 
 #. Confirm the intended version and scope against the release policy above.
-#. Select the appropriate :ref:`release_branch_routes` and create ``release_branch`` from ``upstream/dev`` for a minor release or the current stable commit on ``upstream/main`` for a patch release.
-   For a patch, include only the selected fixes and necessary supporting changes.
+#. Select the appropriate :ref:`release_branch_routes`.
+   Create ``release_branch`` in your fork from ``upstream/dev`` for a minor release or the current stable commit on ``upstream/main`` for a patch release.
+   For a patch release, check whether ``patch/X.Y.Z`` already exists in ``upstream``.
+   If it does not exist, create it from the current stable commit on ``upstream/main``; otherwise, use the existing branch.
+   Prepare the selected fixes and necessary supporting changes on your fork's ``release_branch`` and target ``upstream/patch/X.Y.Z`` when opening the patch pull request.
+   If a fix was first developed on ``upstream/dev``, transfer only the fix and its necessary tests, documentation, and supporting changes onto ``release_branch``.
+   Do not merge ``upstream/dev`` into either patch branch.
 #. Review the ``Unreleased`` section of ``CHANGELOG.md``.
    Ensure every user-visible change is included under the correct heading, remove empty headings, and add contributor attribution where appropriate.
    For a patch release, place ``Fixed`` first and confirm that it is non-empty and clearly states the defect that justifies the release.
-#. Finalize the release version and date in ``CHANGELOG.md`` and ``CITATION.cff``, and update the stable entry's display name in ``docs/source/_static/switcher.json`` to the full ``X.Y.Z (stable)`` version while retaining ``stable`` as its version identifier and URL.
+#. Finalize the release version and date in ``CHANGELOG.md`` and the ``version`` and ``date-released`` fields of ``CITATION.cff``, and update the stable entry's display name in ``docs/source/_static/switcher.json`` to the full ``X.Y.Z (stable)`` version while retaining ``stable`` as its version identifier and URL.
+#. Review and update ``CITATION.cff``; it supplies GitHub citation guidance and Zenodo metadata.
+   Validate the CFF file from the repository root with ``cffconvert --validate``.
 #. Review the release diff for user-facing behavior.
    Confirm that each affected interface or workflow is reflected in the relevant documentation and examples.
    If existing users must change how they use MC/DC, include the necessary deprecation notice or migration guidance.
-#. Confirm whether the release changes the supported Python versions.
-   If it does, update ``pyproject.toml``, the compatibility workflows, installation documentation, and ``CHANGELOG.md``.
+#. If ``release_branch`` requires a newer Python version, add that version to the ``Python Compatibility Tests`` matrix in ``.github/workflows/python_compatibility.yml`` so it is tested during integration.
 #. Confirm the required local checks, continuous-integration workflows, and distribution artifact tests pass on the release candidate; resolve any dependency incompatibilities they expose and update ``pyproject.toml`` and ``CHANGELOG.md`` as needed.
 
 Integrate the Release
 ^^^^^^^^^^^^^^^^^^^^^
 
-For a minor release using the feature workflow:
+Follow these steps for both minor and patch releases:
 
-#. Merge the completed ``release_branch`` into ``upstream/dev`` through a reviewed pull request.
-#. Merge ``upstream/dev`` into ``upstream/main`` through a reviewed pull request.
-#. Use the resulting ``upstream/main`` commit as the release base.
-
-For a patch release using the dev-bypass workflow:
-
-#. Merge the completed ``release_branch`` directly into ``upstream/main`` through a reviewed pull request, without routing it through ``upstream/dev``.
+#. Merge the completed ``release_branch`` through a reviewed pull request with passing checks into ``upstream/dev`` for a minor release or ``upstream/patch/X.Y.Z`` for a patch release.
+#. Manually run the ``Python Compatibility Tests`` workflow in the upstream repository (``dev`` or ``patch/X.Y.Z``).
+   Confirm that the unit and Python/Numba regression tests pass for every Python version in the workflow matrix on the final release candidate.
+   Resolve any failures and rerun the affected checks if the candidate changes.
+#. Open a pull request from the validated upstream branch (``dev`` or ``patch/X.Y.Z``) to ``upstream/main`` and merge it after review and passing checks.
 #. Use the resulting ``upstream/main`` commit as the release base.
 
 Publish from Main
@@ -119,6 +123,8 @@ Publish from Main
    * **Finish:** click **Publish release** when creating the release, or **Update release** when editing an existing release.
 
 #. Confirm that the automatically triggered `Publish Python Package to PyPI <https://github.com/mcdc-project/mcdc/actions/workflows/publish-pypi.yml>`_ and `Check citation metadata <https://github.com/mcdc-project/mcdc/actions/workflows/check_citation.yml>`_ workflows complete successfully, and that the release is available from the `stable Read the Docs site <https://mcdc.readthedocs.io/en/stable/>`_.
+#. Verify the Zenodo archive's version, date, authors, license, and DOI.
+   Submit the record to the CARRE community (``carre``) through Zenodo and confirm inclusion; CFF does not configure community submission.
 #. Smoke-test the published PyPI package in a clean environment with ``python -m pip install "mcdc==X.Y.Z"``, then run a minimal MC/DC simulation.
 
 Return to Development
@@ -127,4 +133,5 @@ Return to Development
 #. Merge ``upstream/main`` back into ``upstream/dev`` after the release is published and verified.
 #. For a patch release, confirm that the back-merge retains the patch while preserving the unreleased feature work already on ``upstream/dev``.
 #. Prepare ``upstream/dev`` for the next development cycle and confirm its required checks pass.
-#. Remove the merged ``release_branch`` when it is no longer needed.
+#. Remove the merged ``release_branch`` from your fork when it is no longer needed.
+#. For a patch release, also delete ``upstream/patch/X.Y.Z`` after publication, verification, and the back-merge into ``dev`` are complete.
