@@ -215,7 +215,7 @@ def test_mcdc_object_compiles_object_members_and_lists():
 
 def test_simulation_compiles_objects_owned_by_embedded_configuration():
     mesh = mcdc.MeshUniform()
-    weight_windows = np.ones((1, 1, 1, 1, 1, 1, 1, 3))
+    weight_windows = np.ones((3,))
     simulation = mcdc.Simulation()
     simulation.set_model([mcdc.Cell()])
     simulation.technique.weight_windows(weight_windows, mesh=mesh)
