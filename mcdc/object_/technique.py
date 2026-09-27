@@ -264,23 +264,37 @@ class WeightWindows(MCDCBase):
         >>> import numpy as np
         >>> import mcdc
         >>> simulation = mcdc.Simulation()
-        >>> windows = np.array([0.5, 1.0, 2.0]).reshape(1, 1, 1, 1, 3)
+        >>> windows = np.array([0.5, 1.0, 2.0]).reshape(1, 1, 1, 1, 1, 1, 1, 3)
         >>> simulation.technique.weight_windows(windows)
 
         Configure weight windows on a uniform spatial mesh:
 
         >>> mesh = mcdc.MeshUniform(x=(-5.0, 1.0, 10))
-        >>> windows = np.tile([0.25, 0.5, 1.0], (1, 10, 1, 1, 1))
+        >>> windows = np.tile([0.25, 0.5, 1.0], (1, 1, 1, 1, 10, 1, 1, 1))
         >>> simulation.technique.weight_windows(windows, mesh=mesh)
 
         Configure both energy- and space-dependent windows:
 
         >>> energy = np.array([0.0, 0.625, 20.0e6])
-        >>> windows = np.tile([0.25, 0.5, 1.0], (2, 10, 1, 1, 1))
+        >>> windows = np.tile([0.25, 0.5, 1.0], (1, 2, 1, 1, 10, 1, 1, 1))
         >>> simulation.technique.weight_windows(
         ...     windows,
         ...     mesh=mesh,
         ...     energy=energy,
+        ... )
+
+        Configure full phase-dependent windows
+        >>> time = np.array([0.0, 10, 100, 1000])
+        >>> mu = np.array([-1.0, -0.5, 0.0, 0.5, 1.0])
+        >>> azi = np.array([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
+        >>> windows = np.tile([0.25, 0.5, 1.0], (3, 2, 4, 4, 10, 1, 1, 1))
+        >>> simulation.technique.weight_windows(
+        ...     windows,
+        ...     mesh=mesh,
+        ...     energy=energy,
+        ...     mu=mu,
+        ...     azimuthal=azi,
+        ...     time=time,
         ... )
         """
         # fill in defaults
