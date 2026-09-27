@@ -117,7 +117,7 @@ def make_ww_model_distinct(prepare_simulation):
         # incorrect size
         (
             {"mess_up_size": True},
-            "Weight window array has shape (1, 1, 1, 1, 3, 3, 4, 3), but expected (1, 1, 1, 1, 3, 3, 3, 3)",
+            "Could not reshape weight window array from (1, 1, 1, 1, 3, 3, 4, 3) to (1, 1, 1, 1, 3, 3, 3, 3)",
         ),
         # negative lower
         (
