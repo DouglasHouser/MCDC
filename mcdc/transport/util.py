@@ -218,8 +218,8 @@ def _calculate_azimuthal(ux, uy, uz, px, py, pz):
     # get two orthonormal basis vectors u1, u2 perpendicular to p
     # u1 done via gram-schmidt, u2 done via cross product
 
-    # choose arbitrary guess v1, check to make sure its not accidentally parallel to p
-    if px < 0.9:
+    # Choose a seed vector that is neither parallel nor antiparallel to p.
+    if abs(px) < 0.9:
         v1x, v1y, v1z = 1.0, 0.0, 0.0
     else:
         v1x, v1y, v1z = 0.0, 1.0, 0.0
