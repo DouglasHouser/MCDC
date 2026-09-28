@@ -101,8 +101,6 @@ class Material(MCDCObject):
     nuclide_densities: NDArray[float64]
     element_densities: NDArray[float64]
 
-
-
     def __init__(
         self,
         name: str = "",

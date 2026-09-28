@@ -157,7 +157,7 @@ class Nuclide(MCDCObject):
             self.atomic_weight_ratio = file["atomic_weight_ratio"][()]
             self.fissionable = bool(file["fissionable"][()])
             self.excitation_level = int(file["excitation_level"][()])
-            self.radiation_length = float(file["radiation_length"][()])        
+            self.radiation_length = float(file["radiation_length"][()])
         return super()._compile_into_simulation(simulation)
 
     def set_neutron_data(self, simulation):
@@ -315,7 +315,6 @@ class Nuclide(MCDCObject):
         for spectrum in self.neutron_fission_delayed_spectra:
             spectrum._compile_into_simulation(simulation)
 
-
     def set_proton_data(self, simulation):
         nuclide_name = self.name
         temperature = self.temperature
@@ -332,7 +331,9 @@ class Nuclide(MCDCObject):
             self.stopping_power = file["stopping_power"]["total_stopping_power"][()]
             self.stopping_power_energy_grid = file["stopping_power"]["energy"][()]
         elif simulation.settings.csda:
-            raise ValueError(f"CSDA cannot be used if no stopping power is provided for nuclide {self.name}")
+            raise ValueError(
+                f"CSDA cannot be used if no stopping power is provided for nuclide {self.name}"
+            )
 
         # Only CSDA data available - no nuclear rxn xs
         if "proton_reactions" not in file:
@@ -389,9 +390,9 @@ class Nuclide(MCDCObject):
                 xs = file[f"proton_reactions/{rx_name}/{MT}/xs"]
                 xs_container[xs.attrs["offset"] :] += xs[()]
 
-        self.proton_total_xs = (self.proton_elastic_xs + 
-                                self.proton_inelastic_xs + 
-                                self.proton_capture_xs)
+        self.proton_total_xs = (
+            self.proton_elastic_xs + self.proton_inelastic_xs + self.proton_capture_xs
+        )
 
         # ==========================================================================
         # The reactions

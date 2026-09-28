@@ -34,9 +34,11 @@ import mcdc.mcdc_get.structured_mesh as structured_mesh
 
 import mcdc.mcdc_get.neutron_reaction as neutron_reaction
 
-import mcdc.mcdc_get.proton_reaction as proton_reaction
-
 import mcdc.mcdc_get.neutron_inelastic_scattering_reaction as neutron_inelastic_scattering_reaction
+
+import mcdc.mcdc_get.proton_inelastic_scattering_reaction as proton_inelastic_scattering_reaction
+
+import mcdc.mcdc_get.proton_reaction as proton_reaction
 
 import mcdc.mcdc_get.settings as settings
 

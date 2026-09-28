@@ -114,7 +114,6 @@ def scattering(particle_container, program, data):
         weight_production = particle["w"] / weight_target
         weight_product = weight_target
 
-
     # TODO: make this better for protons, add secondary particle generation to non-MG materials
     # Get number of secondaries
     nu_s = mcdc_get.multigroup_material.mgxs_nu_s(g, material, data)

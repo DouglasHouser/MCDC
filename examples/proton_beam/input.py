@@ -8,7 +8,7 @@ simulation = mcdc.Simulation("proton_beam_test")
 # ======================================================================================
 
 # Set materials
-material_density = 2.33 # g/cm^3
+material_density = 2.33  # g/cm^3
 molar_mass = 28.085
 atom_density = material_density * 1e-24 * 1 / molar_mass * 6.022e23
 silicon = mcdc.Material("Si", {"Si28": atom_density}, temperature=0.0)
@@ -29,10 +29,10 @@ simulation.set_model([si_cell])
 # Set source
 # ======================================================================================
 E_mean = 6.5e7
-E_sigma = 0.01*E_mean
+E_sigma = 0.01 * E_mean
 
 # Discretize the Gaussian over +/- 5 sigma
-E_values = np.linspace(E_mean - 5*E_sigma, E_mean + 5*E_sigma, 200)
+E_values = np.linspace(E_mean - 5 * E_sigma, E_mean + 5 * E_sigma, 200)
 pdf_weights = np.exp(-0.5 * ((E_values - E_mean) / E_sigma) ** 2)
 pdf_weights /= np.trapezoid(pdf_weights, E_values)
 

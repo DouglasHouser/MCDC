@@ -354,6 +354,7 @@ def step_particle(particle_container, program, data):
     if simulation["technique"]["global_weight_roulette"]["active"]:
         technique.global_weight_roulette(particle_container, simulation)
 
+
 @njit
 def move_to_event(particle_container, simulation, data):
     settings = simulation["settings"]
@@ -446,9 +447,9 @@ def move_to_event(particle_container, simulation, data):
             particle["event"] += EVENT_CSDA_EDEP
 
     if distance < 0.0:
-        print(f'distance = {distance}')
-        print(f'd_coll = {d_collision}, d_csda = {d_csda}, d_bnd = {d_boundary}')
-        raise ValueError(f"Negative distance")
+        print(f"distance = {distance}")
+        print(f"d_coll = {d_collision}, d_csda = {d_csda}, d_bnd = {d_boundary}")
+        raise ValueError(f"Negative distance calculated in move_to_event")
 
     # ==================================================================================
     # Move particle
@@ -474,7 +475,7 @@ def move_to_event(particle_container, simulation, data):
 
     # CSDA calculates energy loss after particle has moved
     if settings["csda"]:
-        collision_data_container = np.zeros(1, type_.collision_data)
+        collision_data_container = util.local_array(1, type_.collision_data)
         physics.csda_edep(
             particle_container, collision_data_container, distance, simulation, data
         )
@@ -493,6 +494,7 @@ def move_to_event(particle_container, simulation, data):
                     simulation,
                     data,
                 )
+
 
 @njit
 def surface_crossing(particle_container, simulation, data):

@@ -301,6 +301,9 @@ def _sample_multi_table(E, rng_state, multi_table, simulation, data, scale):
     # Default interpolation factor
     f = 0.0
 
+    print(f"multi_table = {multi_table}")
+    print(f"multi_table dtype names = {multi_table.dtype.names}")
+
     # Below grid: use first table without unit-base scaling.
     if E < grid[0]:
         idx = 0

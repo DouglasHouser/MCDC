@@ -758,7 +758,7 @@ def set_object(
     # Check structure-record compatibility
     missing = set([x[0] for x in structure]) - set(record.keys())
     if len(missing) > 0:
-        print(f'record keys = {record.keys()}')
+        print(f"record keys = {record.keys()}")
         print_error(f"Missing structure keys in record for {class_.label}: {missing}")
 
     # Register the record
@@ -889,8 +889,10 @@ def align(field_list):
     pad_id = 0
     for field in field_list:
         if len(field) > 3:
-            print_error("Unexpected struct field specification. Specifications \
-                        usually only consist of 3 or fewer members")
+            print_error(
+                "Unexpected struct field specification. Specifications \
+                        usually only consist of 3 or fewer members"
+            )
         multiplier = 1
         if len(field) == 3:
             field = (field[0], field[1], fixup_dims(field[2]))
