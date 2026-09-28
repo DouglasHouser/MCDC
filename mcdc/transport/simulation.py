@@ -446,11 +446,6 @@ def move_to_event(particle_container, simulation, data):
         elif geometry.check_coincidence(d_csda, distance):
             particle["event"] += EVENT_CSDA_EDEP
 
-    if distance < 0.0:
-        print(f"distance = {distance}")
-        print(f"d_coll = {d_collision}, d_csda = {d_csda}, d_bnd = {d_boundary}")
-        raise ValueError(f"Negative distance calculated in move_to_event")
-
     # ==================================================================================
     # Move particle
     # ==================================================================================
@@ -486,8 +481,8 @@ def move_to_event(particle_container, simulation, data):
             cell = simulation["cells"][particle["cell_ID"]]
             for i in range(cell["N_collision_tally"]):
                 tally_ID = int(mcdc_get.cell.collision_tally_IDs(i, cell, data))
-                tally = simulation["collision_tallies"][tally_ID]
-                tally_module.score.collision_tally(
+                tally = simulation["tallies"][tally_ID]
+                tally_module.score.collision(
                     particle_container,
                     collision_data_container,
                     tally,

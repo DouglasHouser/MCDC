@@ -43,6 +43,7 @@ from mcdc.transport.data import evaluate_data
 from mcdc.transport.distribution import (
     sample_correlated_distribution_with_scale,
     sample_distribution_with_scale,
+    sample_distribution,
     sample_isotropic_cosine,
     sample_isotropic_direction,
     sample_multi_table,
@@ -284,9 +285,6 @@ def collision(particle_container, collision_data_container, program, data):
                     mcdc_get.nuclide.proton_capture_reaction_IDs(i, nuclide, data)
                 )
             reaction = simulation["proton_reactions"][reaction_ID]
-            # reaction = simulation["proton_capture_reactions"][reaction_ID]
-            # reaction_base_ID = reaction["parent_ID"]
-            # reaction_base = simulation["proton_reactions"][reaction_base_ID]
             xs = reaction_micro_xs(E, reaction, nuclide, data)
             total += xs
 
@@ -313,9 +311,6 @@ def collision(particle_container, collision_data_container, program, data):
                 )
             )
             reaction = simulation["proton_reactions"][reaction_ID]
-            # reaction = simulation["proton_inelastic_scattering_reactions"][reaction_ID]
-            # reaction_base_ID = reaction["parent_ID"]
-            # reaction_base = simulation["proton_reactions"][reaction_base_ID]
             xs = reaction_micro_xs(E, reaction, nuclide, data)
             total += xs
 
@@ -475,8 +470,7 @@ def elastic_scattering(
     uz = vz / speed
 
     mu_distribution = simulation["distributions"][elastic_scattering["mu_table_ID"]]
-    # multi_table = simulation["multi_table_distributions"][reaction["mu_table_ID"]]
-    mu0 = sample_multi_table(E, particle_container, mu_distribution, simulation, data)
+    mu0 = sample_distribution(E, mu_distribution, particle_container, simulation, data)
     # Scatter the direction in COM
     azi = 2.0 * PI * rng.lcg(particle_container)
     ux_new, uy_new, uz_new = scatter_direction(ux, uy, uz, mu0, azi)
@@ -595,8 +589,8 @@ def inelastic_scattering(
     # ===========================================================================
 
     # Number of outgoing protons and spectra
-    N_proton = reaction["multiplicity"]
-    N_spectrum = reaction["N_spectrum"]
+    N_proton = inelastic_scattering["multiplicity"]
+    N_spectrum = inelastic_scattering["N_spectrum"]
     use_all_spectrum = N_proton == N_spectrum
 
     # Set up secondary particle container
@@ -612,7 +606,7 @@ def inelastic_scattering(
         # Sample angle (if not energy-correlated)
         # ==============================================================================
 
-        angle_type = reaction["angle_type"]
+        angle_type = inelastic_scattering["angle_type"]
         if angle_type == ANGLE_ENERGY_CORRELATED:
             pass
         elif angle_type == ANGLE_ISOTROPIC:
@@ -714,13 +708,15 @@ def inelastic_scattering(
     # ===========================================================================
     # 2. Sample SECONDARY PARTICLES from secondary_particles groups
     # ===========================================================================
-    for i in range(reaction["N_secondary_product"]):
+    for i in range(inelastic_scattering["N_secondary_product"]):
         product_ID = int(
             mcdc_get.proton_inelastic_scattering_reaction.secondary_product_IDs(
                 i, reaction, data
             )
         )
         product = simulation["proton_secondary_products"][product_ID]
+
+        print(f'inelastic scattering product = {product}')
 
         # The primary proton above is sampled from the reaction's primary
         # energy-angle distribution. Do not create it a second time here.

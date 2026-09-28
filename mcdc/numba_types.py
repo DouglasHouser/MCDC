@@ -93,6 +93,13 @@ material = into_dtype([
     ('nuclide_densities_length', int64),
     ('element_densities_offset', int64),
     ('element_densities_length', int64),
+    ('stopping_power_provided', bool_),
+    ('stopping_power_offset', int64),
+    ('stopping_power_length', int64),
+    ('stopping_power_energy_grid_offset', int64),
+    ('stopping_power_energy_grid_length', int64),
+    ('radiation_length', float64),
+    ('radiation_length_provided', bool_),
     ('ID', int64),
 ])
 
