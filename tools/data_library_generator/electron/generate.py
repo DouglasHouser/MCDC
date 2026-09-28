@@ -11,10 +11,6 @@ from tqdm import tqdm
 import util
 from util import print_error
 
-import sys
-
-sys.path.append("/Users/melekderman/Documents/GitHub/branch/Acetk-e/ACEtk/build/python")
-
 parser = argparse.ArgumentParser(description="MC/DC electron data generator")
 parser.add_argument("--rewrite", dest="rewrite", action="store_true", default=False)
 parser.add_argument("--verbose", dest="verbose", action="store_true", default=False)
