@@ -315,16 +315,6 @@ class Material(MCDCObject):
         if file["radiation_length"]["radiation_length"][()]:
             self.radiation_length = file["radiation_length"]["radiation_length"][()]
 
-        # Calculate the material's radiation length (for proton transport purposes)
-        nuclide_mass = nuclide.mass_number
-        nuclide_X0 = nuclide.radiation_length
-
-        total_mass += nuclide_mass * nuclide_density
-        X0_weighted_mass += nuclide_mass * nuclide_density / nuclide_X0
-
-        # Set the material radiation length
-        self.radiation_length = total_mass / X0_weighted_mass
-
         file.close()
 
     def __repr__(self) -> str:
