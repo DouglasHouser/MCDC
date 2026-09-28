@@ -142,6 +142,7 @@ Return to Development
 ^^^^^^^^^^^^^^^^^^^^^
 
 #. Merge ``upstream/main`` back into ``upstream/dev`` after the release is published and verified.
+   If a patch release causes merge conflicts, resolve them locally with ``dev`` checked out and push only ``dev`` so that ``main`` remains unchanged.
 #. For a patch release, confirm that the back-merge retains the patch while preserving the unreleased feature work already on ``upstream/dev``.
 #. Prepare ``upstream/dev`` for the next development cycle and confirm its required checks pass.
 #. Remove the merged ``release_branch`` from your fork when it is no longer needed.
