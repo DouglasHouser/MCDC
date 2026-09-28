@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Changed
 
+- Unify polar–azimuthal basis construction across angle conversion, source direction sampling, and scattering, with robust Z-pole handling; the shared convention changes seeded particle trajectories, from [@nglaser3] and [@ilhamv]
 - Add standard `performance/` output metrics and replace `--runtime_output` with `--no-tally_output` to omit tally results, from [@ilhamv]
 - Filter out empty numba support accessors from creation, from [@ilhamv]
 - Update GPU transport support for the current MC/DC data model and Harmonize runtime, including GPU-compatible state access, particle-bank operations, array accessors, and torus intersections, from [@braxtoncuneo].
