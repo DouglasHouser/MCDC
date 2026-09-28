@@ -72,6 +72,11 @@ def macro_xs(reaction_type, particle_container, simulation, data):
 @njit
 def total_micro_xs(reaction_type, E, element, data):
     idx, E0, E1 = evaluate_electron_xs_energy_grid(E, element, data)
+    return _total_micro_xs(reaction_type, E, idx, E0, E1, element, data)
+
+
+@njit
+def _total_micro_xs(reaction_type, E, idx, E0, E1, element, data):
     if reaction_type == ELECTRON_REACTION_TOTAL:
         xs0 = mcdc_get.element.electron_total_xs(idx, element, data)
         xs1 = mcdc_get.element.electron_total_xs(idx + 1, element, data)
@@ -93,7 +98,11 @@ def total_micro_xs(reaction_type, E, element, data):
 @njit
 def reaction_micro_xs(E, reaction, element, data):
     idx, E0, E1 = evaluate_electron_xs_energy_grid(E, element, data)
+    return _reaction_micro_xs(E, idx, E0, E1, reaction, data)
 
+
+@njit
+def _reaction_micro_xs(E, idx, E0, E1, reaction, data):
     # Apply offset
     offset = reaction["xs_offset_"]
     if idx < offset:
@@ -141,7 +150,8 @@ def collision(particle_container, collision_data_container, program, data):
         element = simulation["elements"][element_ID]
 
         element_density = mcdc_get.material.element_densities(i, material, data)
-        sigmaT = total_micro_xs(ELECTRON_REACTION_TOTAL, E, element, data)
+        idx, E0, E1 = evaluate_electron_xs_energy_grid(E, element, data)
+        sigmaT = _total_micro_xs(ELECTRON_REACTION_TOTAL, E, idx, E0, E1, element, data)
 
         total += element_density * sigmaT
 
@@ -152,14 +162,18 @@ def collision(particle_container, collision_data_container, program, data):
     # Sample and perform reaction
     # ==================================================================================
 
-    sigma_ionization = total_micro_xs(ELECTRON_REACTION_IONIZATION, E, element, data)
-    sigma_elastic = total_micro_xs(
-        ELECTRON_REACTION_ELASTIC_SCATTERING, E, element, data
+    sigma_ionization = _total_micro_xs(
+        ELECTRON_REACTION_IONIZATION, E, idx, E0, E1, element, data
     )
-    sigma_bremsstrahlung = total_micro_xs(
-        ELECTRON_REACTION_BREMSSTRAHLUNG, E, element, data
+    sigma_elastic = _total_micro_xs(
+        ELECTRON_REACTION_ELASTIC_SCATTERING, E, idx, E0, E1, element, data
     )
-    sigma_excitation = total_micro_xs(ELECTRON_REACTION_EXCITATION, E, element, data)
+    sigma_bremsstrahlung = _total_micro_xs(
+        ELECTRON_REACTION_BREMSSTRAHLUNG, E, idx, E0, E1, element, data
+    )
+    sigma_excitation = _total_micro_xs(
+        ELECTRON_REACTION_EXCITATION, E, idx, E0, E1, element, data
+    )
 
     xi = rng.lcg(particle_container) * sigmaT
     total = 0.0
@@ -173,7 +187,7 @@ def collision(particle_container, collision_data_container, program, data):
                 i, element, data
             )
             reaction = simulation["electron_reactions"][reaction_ID]
-            total += reaction_micro_xs(E, reaction, element, data)
+            total += _reaction_micro_xs(E, idx, E0, E1, reaction, data)
 
             if xi < total:
                 sample_ionization(
@@ -195,11 +209,17 @@ def collision(particle_container, collision_data_container, program, data):
                 i, element, data
             )
             reaction = simulation["electron_reactions"][reaction_ID]
-            total += reaction_micro_xs(E, reaction, element, data)
+            reaction_xs = _reaction_micro_xs(E, idx, E0, E1, reaction, data)
+            total += reaction_xs
 
             if xi < total:
                 sample_elastic_scattering(
-                    reaction, particle_container, element, simulation, data
+                    reaction,
+                    reaction_xs,
+                    particle_container,
+                    element,
+                    simulation,
+                    data,
                 )
                 return
 
@@ -212,7 +232,7 @@ def collision(particle_container, collision_data_container, program, data):
                 i, element, data
             )
             reaction = simulation["electron_reactions"][reaction_ID]
-            total += reaction_micro_xs(E, reaction, element, data)
+            total += _reaction_micro_xs(E, idx, E0, E1, reaction, data)
 
             if xi < total:
                 sample_bremsstrahlung(
@@ -233,7 +253,7 @@ def collision(particle_container, collision_data_container, program, data):
                 i, element, data
             )
             reaction = simulation["electron_reactions"][reaction_ID]
-            total += reaction_micro_xs(E, reaction, element, data)
+            total += _reaction_micro_xs(E, idx, E0, E1, reaction, data)
 
             if xi < total:
                 sample_excitation(
@@ -252,7 +272,9 @@ def collision(particle_container, collision_data_container, program, data):
 
 
 @njit
-def sample_elastic_scattering(reaction, particle_container, element, simulation, data):
+def sample_elastic_scattering(
+    reaction, xs_total, particle_container, element, simulation, data
+):
     particle = particle_container[0]
 
     sub_ID = reaction["sub_ID"]
@@ -260,12 +282,6 @@ def sample_elastic_scattering(reaction, particle_container, element, simulation,
 
     # Current energy
     E = particle["E"]
-
-    # -------------------------------------------------------------------------
-    # Total elastic xs
-    # -------------------------------------------------------------------------
-
-    xs_total = reaction_micro_xs(E, reaction, element, data)
 
     # If large-angle, xs from data table
     xs_large = elastic_large_xs(E, elastic_scattering, simulation, data)
