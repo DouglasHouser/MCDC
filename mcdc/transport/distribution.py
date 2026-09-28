@@ -308,8 +308,7 @@ def _sample_multi_table(E, rng_state, multi_table, simulation, data, scale):
         scale = False
 
     # Above grid: use last table without unit-base scaling.
-    # At the last point, no table interpolation is needed either.
-    elif E >= grid[-1]:
+    elif E > grid[-1]:
         idx = len(grid) - 1
         scale = False
 

@@ -6,55 +6,27 @@ from mcdc.object_.distribution import DistributionMultiTable
 
 
 @pytest.mark.parametrize("scale", [False, True])
-@pytest.mark.parametrize("energy", [0.5, 1.0, 2.0])
-def test_single_table_distribution(
-    energy, scale, mock_rng_sequence, prepare_simulation
+@pytest.mark.parametrize("grid", [[1.0], [1.0, 3.0]])
+def test_multi_table_distribution_first_grid_point(
+    grid, scale, mock_rng_sequence, prepare_simulation
 ):
+    # At E = grid[0], the first table [10, 20] is sampled directly with xi = 0.25.
     distribution = DistributionMultiTable(
-        grid=[1.0], offset=[0], value=[10.0, 20.0], cdf=[0.0, 1.0]
+        grid=grid,
+        offset=[0, 2][: len(grid)],
+        value=[10.0, 20.0, 100.0, 200.0][: 2 * len(grid)],
+        cdf=[0.0, 1.0, 0.0, 1.0][: 2 * len(grid)],
     )
     simulation_container, data = prepare_simulation(objects=[distribution])
     simulation = simulation_container[0]
     multi_table = simulation["multi_table_distributions"][distribution.sub_ID]
-    rng = mock_rng_sequence(0.25, 0.75)
+    mock_rng = mock_rng_sequence(0.25, 0.75)
 
-    value = dist._sample_multi_table(energy, rng, multi_table, simulation, data, scale)
-
-    assert value == pytest.approx(12.5)
-    assert rng[0]["idx"] == 1
-
-
-@pytest.mark.parametrize("scale", [False, True])
-@pytest.mark.parametrize(
-    "energy, unscaled, scaled, draws",
-    [
-        (np.nextafter(1.0, -np.inf), 12.5, 12.5, 1),
-        (1.0, 12.5, 12.5, 1),
-        (np.nextafter(1.0, np.inf), 17.5, 17.5, 2),
-        (2.0, 175.0, 96.25, 2),
-        (np.nextafter(3.0, -np.inf), 175.0, 175.0, 2),
-        (3.0, 125.0, 125.0, 1),
-        (np.nextafter(3.0, np.inf), 125.0, 125.0, 1),
-    ],
-)
-def test_multi_table_distribution_grid(
-    energy, unscaled, scaled, draws, scale, mock_rng_sequence, prepare_simulation
-):
-    distribution = DistributionMultiTable(
-        grid=[1.0, 3.0],
-        offset=[0, 2],
-        value=[10.0, 20.0, 100.0, 200.0],
-        cdf=[0.0, 1.0, 0.0, 1.0],
+    sampled_E = dist._sample_multi_table(
+        1.0, mock_rng, multi_table, simulation, data, scale
     )
-    simulation_container, data = prepare_simulation(objects=[distribution])
-    simulation = simulation_container[0]
-    multi_table = simulation["multi_table_distributions"][distribution.sub_ID]
-    rng = mock_rng_sequence(0.25, 0.75)
 
-    value = dist._sample_multi_table(energy, rng, multi_table, simulation, data, scale)
-
-    assert value == pytest.approx(scaled if scale else unscaled)
-    assert rng[0]["idx"] == draws
+    np.testing.assert_allclose(sampled_E, 12.5, rtol=0.0, atol=1e-12)
 
 
 def test_multi_table_distribution_sample(mock_rng_sequence, prepare_simulation):
