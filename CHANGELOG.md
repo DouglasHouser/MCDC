@@ -35,6 +35,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Security
 
+## [0.15.3] - 2026-09-27
+
+### Fixed
+
+- Correct Zenodo release metadata and update software authors in `CITATION.cff`, from [@melekderman] and [@ilhamv]
+
+### Added
+
+- Include `cffconvert` in the development dependencies for release citation validation, from [@ilhamv]
+
 ## [0.15.2] - 2026-08-15
 
 ### Fixed
@@ -201,6 +211,7 @@ The pre-refactor implementation remains available in the `cement` branch as a re
 - Multi-table distribution table selection sampling from [@melekderman]
 
 [Unreleased]: https://github.com/mcdc-project/mcdc/tree/dev
+[0.15.3]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.3
 [0.15.2]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.2
 [0.15.1]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.1
 [0.15.0]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.0
