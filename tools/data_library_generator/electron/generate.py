@@ -137,7 +137,7 @@ for zaid, Z, symbol, mcdc_name in pbar:
     # ==================================================================================
     # Cross sections
     # ==================================================================================
-    
+
     xs0_block = ace_table.electron_cross_section_block
     elastic_xs_block = ace_table.electron_elastic_cross_section_block
 
@@ -213,7 +213,7 @@ for zaid, Z, symbol, mcdc_name in pbar:
     # EPRDATA14 BREML stores EPICS2014's mean photon energy despite ACEtk's old name
     # https://mcnp.lanl.gov/pdf_files/TechReport_2016_LANL_LA-UR-16-20840_Hughes.pdf section 3.3
     dataset = brems_group.create_dataset(
-        "value", data=breml_energy - np.array(breml_block.energy_after_bremsstrahlung) * 1e6
+        "value", data=np.array(breml_block.energy_after_bremsstrahlung) * 1e6
     )
     dataset.attrs["unit"] = "eV"
 
