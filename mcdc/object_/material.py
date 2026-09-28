@@ -9,7 +9,7 @@ from mcdc.object_.base import MCDCObject
 from mcdc.object_.element import Element
 from mcdc.object_.transport_model_data import NeutronMultigroupData
 from mcdc.object_.nuclide import Nuclide
-from mcdc.object_.util import ISOTOPIC_ABUNDANCE
+from mcdc.object_.util import ISOTOPIC_ABUNDANCE, element_symbol_from_nuclide_name
 from mcdc.print_ import print_error
 
 # ======================================================================================
@@ -335,35 +335,26 @@ def set_nuclides_from_elements(material, simulation):
 
 def set_elements_from_nuclides(material, simulation):
     """Collapse a nuclide composition and register its elements."""
+    # Accumulate nuclide densities by exact element symbol (e.g., C12 -> C, Cr52 -> Cr)
+    element_densities = {}
+    for nuclide, nuclide_density in material.nuclide_composition.items():
+        element_name = element_symbol_from_nuclide_name(nuclide.name)
+        element_densities[element_name] = (
+            element_densities.get(element_name, 0.0) + nuclide_density
+        )
+
+    # Register each element's canonical object
     material.elements = []
     material.element_composition = {}
-
-    # Gather the unique element names represented by the nuclides
-    element_names = []
-    for nuclide in material.nuclides:
-        element_name = nuclide.name[:2]
-        if element_name[1].isdigit():
-            element_name = element_name[0]
-        if element_name not in element_names:
-            element_names.append(element_name)
-    element_densities = np.zeros(len(element_names), dtype=float64)
-
-    # Accumulate each element's density and register its canonical object
-    for i, element_name in enumerate(element_names):
+    for element_name, density in element_densities.items():
         element = _get_or_create_element(element_name, simulation)
         element._compile_into_simulation(simulation)
         material.elements.append(element)
-
-        density = 0.0
-        for nuclide, nuclide_density in material.nuclide_composition.items():
-            if nuclide.name[: len(element_name)] != element_name:
-                continue
-            density += nuclide_density
-
-        element_densities[i] = density
         material.element_composition[element] = density
 
-    material.element_densities = element_densities
+    material.element_densities = np.asarray(
+        list(element_densities.values()), dtype=float64
+    )
 
 
 def _get_supported_temperature(temperature):
