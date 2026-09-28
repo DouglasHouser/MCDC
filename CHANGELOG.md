@@ -32,8 +32,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 - Correct ACEtk electron data loading units, elastic cross-section assignments, and CDF dataset names, from [@massimolarsen]
 - Improve tally variance accuracy with stable online statistics and parallel moment merging; require multiple batches for fixed-source time-census and GPU transport, from [@ilhamv]
+- Fix UCX transport errors in MPI runs on the unit-test and Numba-support CI workflows by restricting `UCX_TLS` to `self,sm,tcp`, from [@melekderman]
 
 ### Security
+
+## [0.15.3] - 2026-09-27
+
+### Fixed
+
+- Correct Zenodo release metadata and update software authors in `CITATION.cff`, from [@melekderman] and [@ilhamv]
+
+### Added
+
+- Include `cffconvert` in the development dependencies for release citation validation, from [@ilhamv]
 
 ## [0.15.2] - 2026-08-15
 
@@ -201,6 +212,7 @@ The pre-refactor implementation remains available in the `cement` branch as a re
 - Multi-table distribution table selection sampling from [@melekderman]
 
 [Unreleased]: https://github.com/mcdc-project/mcdc/tree/dev
+[0.15.3]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.3
 [0.15.2]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.2
 [0.15.1]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.1
 [0.15.0]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.0
