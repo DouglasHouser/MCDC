@@ -1,10 +1,13 @@
 import pytest
+from types import SimpleNamespace
 
 import mcdc
 from mcdc.constant import FILL_MATERIAL
 from mcdc.object_.base import MCDCObject, MCDCPolymorphic
-from mcdc.object_.material import Material
+from mcdc.object_.material import Material, set_elements_from_nuclides
 from mcdc.object_.nuclide import Nuclide
+from mcdc.object_.element import Element
+from mcdc.object_.util import element_symbol_from_nuclide_name
 
 
 def test_material_is_the_only_public_non_polymorphic_material_type():
@@ -158,3 +161,22 @@ def test_multigroup_factory_rejects_zero_group_data(capsys):
         Material.multigroup()
 
     assert "must define at least one energy group" in capsys.readouterr().out
+
+
+def test_element_symbol_from_nuclide_name():
+    assert element_symbol_from_nuclide_name("C12") == "C"
+    assert element_symbol_from_nuclide_name("Cr52") == "Cr"
+    assert element_symbol_from_nuclide_name("Am242m1") == "Am"
+    with pytest.raises(ValueError):
+        element_symbol_from_nuclide_name("c12")
+
+
+def test_elements_from_nuclides_do_not_merge_prefix_symbols(monkeypatch):
+    monkeypatch.setattr(Element, "_compile_into_simulation", lambda self, sim: True)
+    material = Material(
+        nuclide_composition={"C12": 1.0, "Cr52": 10.0, "H1": 100.0, "He4": 1000.0}
+    )
+    set_elements_from_nuclides(material, SimpleNamespace(elements=[]))
+
+    densities = {e.name: d for e, d in material.element_composition.items()}
+    assert densities == {"C": 1.0, "Cr": 10.0, "H": 100.0, "He": 1000.0}

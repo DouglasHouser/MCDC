@@ -14,6 +14,7 @@ from mcdc.print_ import print_error
 
 _DIMENSION_EXPRESSION_RE = re.compile(r"^\s*([A-Za-z_]\w*)\s*(?:([+-])\s*(\d+))?\s*$")
 _ANNOTATED_RE = re.compile(r"^\s*(?:typing\.)?Annotated\[(.*)\]\s*$")
+_NUCLIDE_NAME_RE = re.compile(r"([A-Z][a-z]?)(\d+)(?:m(\d+))?")
 
 
 def parse_dimension_expression(expression: str) -> tuple[str, int]:
@@ -35,6 +36,19 @@ def parse_dimension_expression(expression: str) -> tuple[str, int]:
             offset *= -1
 
     return attribute, offset
+
+
+def element_symbol_from_nuclide_name(nuclide_name: str) -> str:
+    """Return the element symbol of a nuclide name.
+
+    Nuclide names follow the data-library convention ``<symbol><A>`` or
+    ``<symbol><A>m<S>`` (e.g., ``"C12"``, ``"Cr52"``, ``"Am242m1"``).
+    """
+    match = _NUCLIDE_NAME_RE.fullmatch(nuclide_name)
+    if match is None:
+        raise ValueError(f"Invalid nuclide name: {nuclide_name!r}")
+
+    return match.group(1)
 
 
 def normalize_ndarray_hint(hint):
