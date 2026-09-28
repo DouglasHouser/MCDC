@@ -128,14 +128,14 @@ def query_weight_window(particle_container, simulation, data):
 @njit
 def get_ww_indices(particle_container, ww_obj, simulation, data):
     """
-    Get flattened weight window index from particle information
+    Get the particle's bin index in each weight-window dimension.
 
     Parameters
     ----------
     particle_container : ndarray
         Container holding the particle.
-    weight_window_object : object
-        The weight window object containing index information
+    ww_obj : object
+        The weight window object containing index information.
     simulation : object
         Simulation state containing weight window and mesh data.
     data : object
@@ -143,8 +143,8 @@ def get_ww_indices(particle_container, ww_obj, simulation, data):
 
     Returns
     -------
-    indices: Tuple[int]
-        the flattened index in the weight window array
+    indices : tuple of int
+        Seven bin indices in (time, energy, mu, azimuthal, x, y, z) order.
     """
     particle = particle_container[0]
 
