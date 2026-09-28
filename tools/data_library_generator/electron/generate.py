@@ -165,11 +165,9 @@ for zaid, Z, symbol, mcdc_name in pbar:
     dataset = large_angle_group.create_dataset("xs_energy", data=xs_energy)
     dataset.attrs["unit"] = "eV"
 
-    dataset = large_angle_group.create_dataset(
-    "xs", data=np.array(xs0_block.elastic)
-    )
+    dataset = large_angle_group.create_dataset("xs", data=np.array(xs0_block.elastic))
     dataset.attrs["unit"] = "barns"
-    
+
     dataset = elastic_MT.create_dataset(
         "transport", data=np.array(elastic_xs_block.transport)
     )
@@ -187,7 +185,9 @@ for zaid, Z, symbol, mcdc_name in pbar:
     excit_block = ace_table.electron_excitation_energy_loss_block
     excit_group = excitation_MT.create_group("energy_loss")
 
-    dataset = excit_group.create_dataset("energy", data=np.array(excit_block.energies) * 1e6)
+    dataset = excit_group.create_dataset(
+        "energy", data=np.array(excit_block.energies) * 1e6
+    )
     dataset.attrs["unit"] = "eV"
 
     dataset = excit_group.create_dataset(
