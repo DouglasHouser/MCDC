@@ -284,8 +284,44 @@ def source_closeout(simulation, idx_work, N_prog, data):
 def particle_loop(particle_container, simulation, data):
     particle = particle_container[0]
 
+    if particle["particle_type"] != PARTICLE_ELECTRON:
+        while particle["alive"]:
+            step_particle(particle_container, simulation, data)
+        return
+
+    bank = simulation["bank_active"]
+    saved = util.local_array(1, type_.particle_data)
+
     while particle["alive"]:
+        size_before = particle_bank_module.get_bank_size(bank)
+
         step_particle(particle_container, simulation, data)
+
+        if not particle["alive"]:
+            break
+
+        size_after = particle_bank_module.get_bank_size(bank)
+        if size_after <= size_before:
+            continue
+
+        # Inspect the banked particle
+        secondary = bank["particle_data"][size_after - 1 : size_after]
+
+        if secondary[0]["particle_type"] != PARTICLE_ELECTRON:
+            continue
+        if secondary[0]["E"] >= particle["E"]:
+            continue
+
+        # Continue the lower-energy particle; defer the higher-energy particle
+        particle_module.copy(saved, particle_container)
+        particle_module.copy(particle_container, secondary)
+        particle_module.copy(secondary, saved)
+
+        # Rebuild geometry state for the new active particle
+        particle["material_ID"] = -1
+        particle["cell_ID"] = -1
+        particle["surface_ID"] = -1
+        particle["event"] = -1
 
 
 @njit
