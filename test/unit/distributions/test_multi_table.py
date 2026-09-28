@@ -1,7 +1,32 @@
 import numpy as np
+import pytest
 
 import mcdc.transport.distribution as dist
 from mcdc.object_.distribution import DistributionMultiTable
+
+
+@pytest.mark.parametrize("scale", [False, True])
+@pytest.mark.parametrize("grid", [[1.0], [1.0, 3.0]])
+def test_multi_table_distribution_first_grid_point(
+    grid, scale, mock_rng_sequence, prepare_simulation
+):
+    # At E = grid[0], the first table [10, 20] is sampled directly with xi = 0.25.
+    distribution = DistributionMultiTable(
+        grid=grid,
+        offset=[0, 2][: len(grid)],
+        value=[10.0, 20.0, 100.0, 200.0][: 2 * len(grid)],
+        cdf=[0.0, 1.0, 0.0, 1.0][: 2 * len(grid)],
+    )
+    simulation_container, data = prepare_simulation(objects=[distribution])
+    simulation = simulation_container[0]
+    multi_table = simulation["multi_table_distributions"][distribution.sub_ID]
+    mock_rng = mock_rng_sequence(0.25, 0.75)
+
+    sampled_E = dist._sample_multi_table(
+        1.0, mock_rng, multi_table, simulation, data, scale
+    )
+
+    np.testing.assert_allclose(sampled_E, 12.5, rtol=0.0, atol=1e-12)
 
 
 def test_multi_table_distribution_sample(mock_rng_sequence, prepare_simulation):
