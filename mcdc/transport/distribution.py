@@ -242,6 +242,7 @@ def sample_pmf(pmf, rng_state, data):
 
 @njit
 def sample_white_direction(nx, ny, nz, rng_state):
+    """Sample a cosine-weighted hemisphere about the normalized reference."""
     # Sample polar cosine
     mu = math.sqrt(rng.lcg(rng_state))
 
@@ -249,24 +250,12 @@ def sample_white_direction(nx, ny, nz, rng_state):
     azi = 2.0 * PI * rng.lcg(rng_state)
     cos_azi = math.cos(azi)
     sin_azi = math.sin(azi)
-    Ac = (1.0 - mu**2) ** 0.5
+    sin_polar = math.sqrt(max(0.0, 1.0 - mu * mu))
+    u1x, u1y, u1z, u2x, u2y, u2z = make_direction_basis(nx, ny, nz)
 
-    if abs(nz) != 1.0:
-        B = (1.0 - nz**2) ** 0.5
-        C = Ac / B
-
-        x = nx * mu + (nx * nz * cos_azi - ny * sin_azi) * C
-        y = ny * mu + (ny * nz * cos_azi + nx * sin_azi) * C
-        z = nz * mu - cos_azi * Ac * B
-
-    # If dir = 0i + 0j + k, interchange z and y in the formula
-    else:
-        B = (1.0 - ny**2) ** 0.5
-        C = Ac / B
-
-        x = nx * mu + (nx * ny * cos_azi - nz * sin_azi) * C
-        z = nz * mu + (nz * ny * cos_azi + nx * sin_azi) * C
-        y = ny * mu - cos_azi * Ac * B
+    x = sin_polar * cos_azi * u1x + sin_polar * sin_azi * u2x + mu * nx
+    y = sin_polar * cos_azi * u1y + sin_polar * sin_azi * u2y + mu * ny
+    z = sin_polar * cos_azi * u1z + sin_polar * sin_azi * u2z + mu * nz
     return x, y, z
 
 
