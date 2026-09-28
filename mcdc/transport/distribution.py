@@ -278,7 +278,8 @@ def _sample_multi_table(E, rng_state, multi_table, simulation, data, scale):
     f = 0.0
 
     # Below grid: use first table without unit-base scaling.
-    if E < grid[0]:
+    # Include equality: find_bin returns -1 at the first point.
+    if E <= grid[0]:
         idx = 0
         scale = False
 
