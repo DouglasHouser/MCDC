@@ -18,11 +18,11 @@ message: >-
   The JOSS article below describes MC/DC v0.9.1 and its
   neutron transport capabilities.
 
-# Uncomment once the Zenodo archive DOI for v0.15.3 is generated:
-# identifiers:
-#   - description: This is the archived snapshot of version 0.15.3 of MC/DC
-#     type: doi
-#     value: 10.5281/zenodo.XXXXXXXX
+identifiers:
+  - description: This is the archived snapshot of version 0.15.3 of MC/DC
+    type: doi
+    value: https://doi.org/10.5281/zenodo.22985220
+
 authors:
   - name: >-
       Center for Advancing the Radiation Resilience of Electronics
