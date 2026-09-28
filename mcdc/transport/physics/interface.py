@@ -130,9 +130,7 @@ def csda_distance(particle_container, simulation, data):
 
     if material["stopping_power_provided"]:
         dedx_values = mcdc_get.material.stopping_power_all(material, data)
-        dedx_energies = mcdc_get.material.stopping_power_energy_grid_all(
-            material, data
-        )
+        dedx_energies = mcdc_get.material.stopping_power_energy_grid_all(material, data)
         dedx = np.interp(E / 1e6, dedx_energies, dedx_values)
         total_dedx = dedx * 1e6
 

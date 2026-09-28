@@ -716,7 +716,7 @@ def inelastic_scattering(
         )
         product = simulation["proton_secondary_products"][product_ID]
 
-        print(f'inelastic scattering product = {product}')
+        print(f"inelastic scattering product = {product}")
 
         # The primary proton above is sampled from the reaction's primary
         # energy-angle distribution. Do not create it a second time here.
