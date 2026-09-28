@@ -182,68 +182,52 @@ def calculate_angles(particle_container, polar_reference):
 
     mu = ux * px + uy * py + uz * pz
 
-    azimuthal = _calculate_azimuthal(ux, uy, uz, px, py, pz)
+    # Make azimuthal direction basis for the polar reference
+    u1x, u1y, u1z, u2x, u2y, u2z = make_direction_basis(px, py, pz)
+
+    # Particle vector in terms of u1 and u2 (dot products)
+    rel_ux = ux * u1x + uy * u1y + uz * u1z
+    rel_uy = ux * u2x + uy * u2y + uz * u2z
+
+    azimuthal = math.atan2(rel_uy, rel_ux)
 
     return mu, azimuthal
 
 
 @njit
-def _calculate_azimuthal(ux, uy, uz, px, py, pz):
-    """
-    Calculates the azimuthal angle of a particle relative to a reference vector.
-    This is done by finding two orthonormal basis vectors perpendicular to the reference vector.
-    The first orthonormal vector, u1, is found using the graham-schmidt procedure.
-    The second, u2, is found from the cross product of the reference vector and u1.
+def make_direction_basis(px, py, pz):
+    """Define the azimuthal basis for a normalized polar reference.
 
     Parameters
     ----------
-    ux : float
-      X-component of particle's direction
-    uy : float
-      Y-component of particle's direction
-    uz : float
-      Z-component of particle's direction
-    px : float
-      X-component of reference vector
-    py : float
-      Y-component of reference vector
-    pz : float
-      Z-component of reference vector
+    px, py, pz : float
+        Components of a normalized polar reference vector.
 
     Returns
     -------
-    azimuthal : float
-      Azimuthal angle of particle relative to reference vector
+    e1x, e1y, e1z, e2x, e2y, e2z : float
+        Components of the zero-azimuth and pi/2-azimuth basis vectors.
+
+    Notes
+    -----
+    When the reference has a nonzero XY projection, e1 is normalized Z
+    cross reference and e2 is reference cross e1. At either exact Z pole,
+    e1 is positive X and e2 is positive Y. The basis is orthonormal and
+    transverse in all cases; (e1, e2, reference) is left-handed at negative Z.
     """
-    # get two orthonormal basis vectors u1, u2 perpendicular to p
-    # u1 done via gram-schmidt, u2 done via cross product
+    r = math.hypot(px, py)
+    if r == 0.0:
+        return 1.0, 0.0, 0.0, 0.0, 1.0, 0.0
 
-    # Choose a seed vector that is neither parallel nor antiparallel to p.
-    if abs(px) < 0.9:
-        v1x, v1y, v1z = 1.0, 0.0, 0.0
-    else:
-        v1x, v1y, v1z = 0.0, 1.0, 0.0
-
-    # u1 = (v1 - proj(v1, p)) / ||u1||
-    v1dotp = v1x * px + v1y * py + v1z * pz
-    u1x = v1x - v1dotp * px
-    u1y = v1y - v1dotp * py
-    u1z = v1z - v1dotp * pz
-    u1norm = math.sqrt(u1x * u1x + u1y * u1y + u1z * u1z)
-    u1x /= u1norm
-    u1y /= u1norm
-    u1z /= u1norm
-
-    # u2 = p x u1
-    u2x = py * u1z - pz * u1y
-    u2y = pz * u1x - px * u1z
-    u2z = px * u1y - py * u1x
-
-    # particle vector in terms of u1 and u2 (dot products)
-    rel_ux = ux * u1x + uy * u1y + uz * u1z
-    rel_uy = ux * u2x + uy * u2y + uz * u2z
-
-    return math.atan2(rel_uy, rel_ux)
+    cx = px / r
+    cy = py / r
+    e1x = -cy
+    e1y = cx
+    e1z = 0.0
+    e2x = -pz * cx
+    e2y = -pz * cy
+    e2z = r
+    return e1x, e1y, e1z, e2x, e2y, e2z
 
 
 # ======================================================================================

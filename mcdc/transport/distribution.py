@@ -21,7 +21,7 @@ from mcdc.constant import (
     PI,
 )
 from mcdc.transport.data import evaluate_data
-from mcdc.transport.util import find_bin
+from mcdc.transport.util import find_bin, make_direction_basis
 
 # ======================================================================================
 # General distribution samplers
@@ -149,20 +149,7 @@ def sample_direction(polar_cosine, azimuthal, polar_coordinate, rng_state):
     wx = polar_coordinate[0]
     wy = polar_coordinate[1]
     wz = polar_coordinate[2]
-    if abs(wz) >= 0.999:
-        # Axis nearly parallel to z: use a fixed transverse basis
-        ux, uy, uz = 1.0, 0.0, 0.0
-        vx, vy, vz = 0.0, 1.0, 0.0
-    else:
-        inv = 1.0 / math.sqrt(wx * wx + wy * wy)
-
-        ux = -wy * inv
-        uy = wx * inv
-        uz = 0.0
-
-        vx = -wz * wx * inv
-        vy = -wz * wy * inv
-        vz = math.sqrt(wx * wx + wy * wy)
+    ux, uy, uz, vx, vy, vz = make_direction_basis(wx, wy, wz)
 
     # Rotate into lab frame
     s = math.sqrt(max(0.0, 1.0 - mu * mu))

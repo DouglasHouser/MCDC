@@ -40,19 +40,20 @@ def test_calculate_angles(ux, uy, uz, expected_mu, expected_phi):
     "polar_reference, direction, expected_azimuthal",
     [
         ((1.0, 0.0, 0.0), (0.0, 0.0, 1.0), np.pi / 2.0),
-        ((-1.0, 0.0, 0.0), (0.0, 0.0, 1.0), -np.pi / 2.0),
-        ((0.0, 1.0, 0.0), (0.0, 0.0, 1.0), -np.pi / 2.0),
+        ((-1.0, 0.0, 0.0), (0.0, 0.0, 1.0), np.pi / 2.0),
+        ((0.0, 1.0, 0.0), (0.0, 0.0, 1.0), np.pi / 2.0),
         ((0.0, -1.0, 0.0), (0.0, 0.0, 1.0), np.pi / 2.0),
         ((0.0, 0.0, 1.0), (0.0, 1.0, 0.0), np.pi / 2.0),
-        ((0.0, 0.0, -1.0), (0.0, 1.0, 0.0), -np.pi / 2.0),
-        ((-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), 0.0),
-        ((-1.0, 0.0, 1.0e-12), (0.0, 1.0, 0.0), 0.0),
+        ((0.0, 0.0, -1.0), (0.0, 1.0, 0.0), np.pi / 2.0),
+        ((-1.0, 0.0, 0.0), (0.0, 1.0, 0.0), np.pi),
+        ((-1.0, 0.0, 1.0e-12), (0.0, 1.0, 0.0), np.pi),
+        ((0.0, 1.0, 0.0), (-1.0, 0.0, 0.0), 0.0),
     ],
 )
 def test_calculate_angles_reference_axes(
     polar_reference, direction, expected_azimuthal
 ):
-    """Check angular orientation for positive and negative reference axes.
+    """Check the shared azimuthal-basis convention for signed reference axes.
 
     Exact and near-negative-X references must produce valid angles without
     a degenerate transverse basis. All test directions are perpendicular
