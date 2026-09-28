@@ -30,6 +30,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Fix element densities when collapsing a nuclide composition into elements, which counted nuclides with a shared symbol prefix (e.g., `Cr52` as carbon, `He4` as hydrogen), from [@melekderman]
 - Improve tally variance accuracy with stable online statistics and parallel moment merging; require multiple batches for fixed-source time-census and GPU transport, from [@ilhamv]
 
 ### Security
