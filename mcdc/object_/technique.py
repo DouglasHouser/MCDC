@@ -206,9 +206,10 @@ class WeightWindows(MCDCBase):
     polar_reference: Annotated[NDArray[np.float64], (3,)]
 
     # arrays of ww params
-    WW: int = 3
+    N_WW_parameters: int = 3
     weights: Annotated[
-        NDArray[np.float64], ("Nt", "Ne", "Nmu", "Na", "Nx", "Ny", "Nz", "WW")
+        NDArray[np.float64],
+        ("Nt", "Ne", "Nmu", "Na", "Nx", "Ny", "Nz", "N_WW_parameters"),
     ]
 
     def __init__(self) -> None:
@@ -225,7 +226,16 @@ class WeightWindows(MCDCBase):
         self.Nx, self.Ny, self.Nz = 1, 1, 1
         self.Nt = 1
         self.polar_reference = np.array([0.0, 0.0, 1.0])
-        shape = (self.Nt, self.Ne, self.Nmu, self.Na, self.Nx, self.Ny, self.Nz, 3)
+        shape = (
+            self.Nt,
+            self.Ne,
+            self.Nmu,
+            self.Na,
+            self.Nx,
+            self.Ny,
+            self.Nz,
+            self.N_WW_parameters,
+        )
         self.weights = np.zeros(shape)
 
     def __call__(
@@ -325,20 +335,20 @@ class WeightWindows(MCDCBase):
                     f"{type(mesh).__name__} is not supported for weight windows"
                 )
         # validate energy and get size
-        self.__check_array(energy, "Energy")
+        self._validate_bin_boundaries(energy, "Energy")
         ne = energy.shape[0] - 1
         # validate mu and get size
-        self.__check_array(mu, "Mu")
+        self._validate_bin_boundaries(mu, "Mu")
         nmu = mu.shape[0] - 1
         # validate azimuthal and get size
-        self.__check_array(azimuthal, "Azimuthal")
+        self._validate_bin_boundaries(azimuthal, "Azimuthal")
         na = azimuthal.shape[0] - 1
         # validate time and get size
-        self.__check_array(time, "Time")
+        self._validate_bin_boundaries(time, "Time")
         nt = time.shape[0] - 1
 
         # check correct shape
-        expected_shape = (nt, ne, nmu, na, nx, ny, nz, 3)
+        expected_shape = (nt, ne, nmu, na, nx, ny, nz, self.N_WW_parameters)
         ww_shape = weight_windows.shape
         if ww_shape != expected_shape:
             try:
@@ -380,7 +390,7 @@ class WeightWindows(MCDCBase):
         self.polar_reference = polar_reference / np.linalg.norm(polar_reference)
 
     @staticmethod
-    def __check_array(array: NDArray[np.float64], name: str):
+    def _validate_bin_boundaries(array: NDArray[np.float64], name: str):
         if not (np.diff(array) > 0).all():
             print_error(f"{name} bounds must be strictly increasing")
         if len(array.shape) != 1:

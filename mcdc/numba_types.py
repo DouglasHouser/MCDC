@@ -582,7 +582,7 @@ weight_windows = into_dtype([
     ('Ny', int64),
     ('Nz', int64),
     ('polar_reference', float64, (3,)),
-    ('WW', int64),
+    ('N_WW_parameters', int64),
     ('weights_offset', int64),
     ('weights_length', int64),
 ])

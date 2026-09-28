@@ -134,7 +134,7 @@ def weights(index_1, index_2, index_3, index_4, index_5, index_6, index_7, index
     stride_5 = weight_windows["Nx"]
     stride_6 = weight_windows["Ny"]
     stride_7 = weight_windows["Nz"]
-    stride_8 = weight_windows["WW"]
+    stride_8 = weight_windows["N_WW_parameters"]
     index = offset + ((((((index_1 * stride_2 + index_2 ) * stride_3 + index_3) * stride_4 + index_4) * stride_5 + index_5) * stride_6 + index_6) * stride_7 + index_7) * stride_8 + index_8
     return data[index]
 
