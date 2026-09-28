@@ -25,6 +25,7 @@ from mcdc.constant import (
 from mcdc.transport.data import evaluate_data
 from mcdc.transport.distribution import (
     sample_distribution,
+    sample_distribution_with_scale,
 )
 from mcdc.transport.physics.util import (
     evaluate_electron_xs_energy_grid,
@@ -439,6 +440,10 @@ def sample_ionization(
 
     # Sample subshell
     N = int(ionization["N_subshell"])
+    # ENDF subshells K through Q3 (MT 534--572); fixed size for GPU local storage.
+    cumulative_xs = util.local_array(39, type_.float64)
+    if N < 1 or N > len(cumulative_xs):
+        raise ValueError("Unsupported number of electron ionization subshells")
     total = 0.0
     for i in range(N):
         xs_sub_ID = mcdc_get.electron_ionization_reaction.subshell_x_IDs(
@@ -446,17 +451,15 @@ def sample_ionization(
         )
         xs_sub_table = simulation["data"][xs_sub_ID]
         total += evaluate_data(E, xs_sub_table, simulation, data)
+        cumulative_xs[i] = total
+
+    if total <= 0.0:
+        raise ValueError("Cannot sample ionization with zero subshell cross section")
 
     xi = rng.lcg(particle_container) * total
-    total_acc = 0.0
     chosen = 0
     for i in range(N):
-        xs_sub_ID = mcdc_get.electron_ionization_reaction.subshell_x_IDs(
-            i, ionization, data
-        )
-        xs_sub_table = simulation["data"][xs_sub_ID]
-        total_acc += evaluate_data(E, xs_sub_table, simulation, data)
-        if total_acc >= xi:
+        if xi < cumulative_xs[i]:
             chosen = i
             break
 
@@ -475,7 +478,9 @@ def sample_ionization(
         chosen, ionization, data
     )
     T_dist = simulation["distributions"][dist_ID]
-    T_delta = sample_distribution(E, T_dist, particle_container, simulation, data)
+    T_delta = sample_distribution_with_scale(
+        E, T_dist, particle_container, simulation, data
+    )
 
     # Primary outgoing energy
     E_out = E - B - T_delta
