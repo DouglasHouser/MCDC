@@ -374,14 +374,14 @@ class Simulation(MCDCBase):
                 for material in self.materials[1:]
             )
 
-        self.technique.neutron_multigroup.hybrid = not (
+        self.settings.neutron_multigroup.hybrid = not (
             not materials_have_native_composition
             and materials_have_multigroup
             and multigroup_grids_are_identical
         )
 
         # Require physical energy boundaries wherever energy selects local groups.
-        if self.technique.neutron_multigroup.hybrid:
+        if self.settings.neutron_multigroup.hybrid:
             for material in self.materials:
                 model = material.neutron_multigroup
                 if model.G > 0 and not np.any(model.energy_grid):

@@ -105,7 +105,7 @@ def collision(particle_container, collision_data_container, program, data):
 
 @njit
 def csda_distance(particle_container, simulation, data):
-    condensed_history = simulation["technique"]["condensed_history"]
+    condensed_history = simulation["settings"]["condensed_history"]
     particle = particle_container[0]
     material = simulation["materials"][particle["material_ID"]]
     E = particle["E"]

@@ -8,6 +8,7 @@ import numpy as np
 
 import mcdc.mcdc_get as mcdc_get
 import mcdc.print_ as print_module
+from mcdc.object_.base import MCDCBase
 
 from mcdc.constant import (
     MESH_UNIFORM,
@@ -93,12 +94,15 @@ def generate_output(mcdc, data, simulationPy, no_tally_output=False):
 
 
 def create_object_dataset(file, group_name, object_):
-    for name in [
-        x
-        for x in dir(object_)
-        if (not x.startswith("__") and not callable(getattr(object_, x)))
-    ]:
-        file[f"{group_name}/{name}"] = getattr(object_, name)
+    """Write configuration fields, including nested configuration objects."""
+    for name in dir(object_):
+        if name.startswith("__"):
+            continue
+        value = getattr(object_, name)
+        if isinstance(value, MCDCBase):
+            create_object_dataset(file, f"{group_name}/{name}", value)
+        elif not callable(value):
+            file[f"{group_name}/{name}"] = value
 
 
 # ======================================================================================

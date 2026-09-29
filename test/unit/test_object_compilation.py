@@ -55,7 +55,7 @@ def test_simulation_derives_hybrid_for_local_multigroup_grids():
 
     simulation.compile()
 
-    assert simulation.technique.neutron_multigroup.hybrid
+    assert simulation.settings.neutron_multigroup.hybrid
 
 
 @pytest.mark.parametrize("explicit_grid", [False, True])
@@ -71,7 +71,7 @@ def test_simulation_derives_standard_multigroup_for_shared_grid(
     )
 
     simulation = simulation_container[0]
-    assert not simulation["technique"]["neutron_multigroup"]["hybrid"]
+    assert not simulation["settings"]["neutron_multigroup"]["hybrid"]
 
 
 def test_hybrid_multigroup_requires_explicit_energy_grids(capsys):
@@ -104,7 +104,7 @@ def test_standard_multigroup_accepts_integer_group_coordinates(source):
 
     simulation.compile()
 
-    assert not simulation.technique.neutron_multigroup.hybrid
+    assert not simulation.settings.neutron_multigroup.hybrid
 
 
 @pytest.mark.parametrize(
@@ -164,7 +164,7 @@ def test_standard_neutron_multigroup_does_not_validate_electron_source_energy():
 
     simulation.compile()
 
-    assert not simulation.technique.neutron_multigroup.hybrid
+    assert not simulation.settings.neutron_multigroup.hybrid
 
 
 def test_native_only_simulation_remains_hybrid(monkeypatch):
@@ -181,7 +181,7 @@ def test_native_only_simulation_remains_hybrid(monkeypatch):
 
     simulation.compile()
 
-    assert simulation.technique.neutron_multigroup.hybrid
+    assert simulation.settings.neutron_multigroup.hybrid
 
 
 def test_local_multigroup_grids_pack_hybrid(prepare_simulation):
@@ -193,7 +193,7 @@ def test_local_multigroup_grids_pack_hybrid(prepare_simulation):
     )
 
     simulation = simulation_container[0]
-    assert simulation["technique"]["neutron_multigroup"]["hybrid"]
+    assert simulation["settings"]["neutron_multigroup"]["hybrid"]
 
 
 def test_mcdc_object_compiles_object_members_and_lists():

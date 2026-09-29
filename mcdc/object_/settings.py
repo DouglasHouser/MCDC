@@ -12,6 +12,83 @@ from mcdc.object_.util import is_sorted
 from mcdc.print_ import print_error
 
 # ======================================================================================
+# Neutron multigroup
+# ======================================================================================
+
+
+class NeutronMultigroup(MCDCBase):
+    """Describe whether neutron multigroup transport is standard or hybrid."""
+
+    # MC/DC framework metadata
+    label = "neutron_multigroup"
+
+    hybrid: bool  # Whether neutron multigroup transport is hybrid
+
+    def __init__(self) -> None:
+        self.hybrid = True
+
+
+# ======================================================================================
+# Condensed history
+# ======================================================================================
+
+
+class CondensedHistory(MCDCBase):
+    """Simulation-owned condensed-history configuration."""
+
+    # MC/DC framework metadata
+    label = "condensed_history"
+
+    proton: bool  # Whether proton condensed-history transport is enabled
+    max_fractional_energy_loss: float  # Step limit based on mean energy loss
+
+    def __init__(self) -> None:
+        self.proton = False
+        self.max_fractional_energy_loss = 1.0
+
+    def __call__(
+        self,
+        proton: bool = True,
+        max_fractional_energy_loss: float = 1.0,
+    ) -> None:
+        """Configure condensed-history transport.
+
+        Calling without arguments enables all supported particle types.
+        Currently, only protons are supported.
+
+        Parameters
+        ----------
+        proton : bool, optional
+            Whether proton condensed-history transport is enabled. Defaults to true.
+        max_fractional_energy_loss : float, optional
+            Maximum expected fraction of kinetic energy lost per step, shared
+            by all supported particle types.
+            Must be in (0, 1]. Defaults to 1.0. This limits the step length,
+            not the sampled energy loss after straggling.
+
+        Examples
+        --------
+        Enable condensed history for all supported particle types:
+
+        >>> import mcdc
+        >>> simulation = mcdc.Simulation()
+        >>> simulation.settings.condensed_history()
+
+        Disable proton condensed-history transport:
+
+        >>> simulation.settings.condensed_history(proton=False)
+        """
+        max_fractional_energy_loss = float(max_fractional_energy_loss)
+        if not np.isfinite(max_fractional_energy_loss) or not (
+            0.0 < max_fractional_energy_loss <= 1.0
+        ):
+            print_error("max_fractional_energy_loss must be finite and in (0, 1].")
+
+        self.proton = proton
+        self.max_fractional_energy_loss = max_fractional_energy_loss
+
+
+# ======================================================================================
 # Settings
 # ======================================================================================
 
@@ -80,6 +157,10 @@ class Settings(MCDCBase):
     neutron_transport: bool = True
     electron_transport: bool = False
     proton_transport: bool = False
+
+    # Transport models
+    neutron_multigroup: NeutronMultigroup = field(default_factory=NeutronMultigroup)
+    condensed_history: CondensedHistory = field(default_factory=CondensedHistory)
 
     # Neutron transport modes
     neutron_eigenvalue_mode: bool = False

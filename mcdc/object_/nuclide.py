@@ -330,7 +330,7 @@ class Nuclide(MCDCObject):
         if "stopping_power" in file:
             self.stopping_power = file["stopping_power"]["total_stopping_power"][()]
             self.stopping_power_energy_grid = file["stopping_power"]["energy"][()]
-        elif simulation.technique.condensed_history.proton:
+        elif simulation.settings.condensed_history.proton:
             raise ValueError(
                 f"Proton condensed history requires stopping power for nuclide {self.name}"
             )

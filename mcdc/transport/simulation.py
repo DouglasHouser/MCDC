@@ -358,7 +358,7 @@ def step_particle(particle_container, program, data):
 @njit
 def move_to_event(particle_container, simulation, data):
     settings = simulation["settings"]
-    condensed_history = simulation["technique"]["condensed_history"]
+    condensed_history = simulation["settings"]["condensed_history"]
 
     # ==================================================================================
     # Preparation (as needed)
@@ -410,7 +410,9 @@ def move_to_event(particle_container, simulation, data):
 
     # Distance to max energy loss as dictated by CSDA
     if use_condensed_history:
-        d_csda = physics.csda_distance(particle_container, simulation, data)
+        d_condensed_history = physics.csda_distance(
+            particle_container, simulation, data
+        )
 
     # ==================================================================================
     # Determine event(s)
@@ -443,11 +445,11 @@ def move_to_event(particle_container, simulation, data):
 
     # Check distance to max energy loss from CSDA
     if use_condensed_history:
-        if d_csda < distance - COINCIDENCE_TOLERANCE:
-            distance = d_csda
+        if d_condensed_history < distance - COINCIDENCE_TOLERANCE:
+            distance = d_condensed_history
             particle["event"] = EVENT_CSDA_EDEP
             particle["surface_ID"] = -1
-        elif geometry.check_coincidence(d_csda, distance):
+        elif geometry.check_coincidence(d_condensed_history, distance):
             particle["event"] += EVENT_CSDA_EDEP
 
     # ==================================================================================

@@ -590,6 +590,15 @@ proton_reaction = into_dtype([
     ('sub_ID', int64),
 ])
 
+neutron_multigroup = into_dtype([
+    ('hybrid', bool_),
+])
+
+condensed_history = into_dtype([
+    ('proton', bool_),
+    ('max_fractional_energy_loss', float64),
+])
+
 settings = into_dtype([
     ('N_particle', int64),
     ('N_batch', int64),
@@ -618,14 +627,12 @@ settings = into_dtype([
     ('neutron_transport', bool_),
     ('electron_transport', bool_),
     ('proton_transport', bool_),
+    ('neutron_multigroup', neutron_multigroup),
+    ('condensed_history', condensed_history),
     ('neutron_eigenvalue_mode', bool_),
     ('gpu_strategy', int64),
     ('gpu_async_type', int64),
     ('gpu_storage', int64),
-])
-
-neutron_multigroup = into_dtype([
-    ('hybrid', bool_),
 ])
 
 implicit_capture = into_dtype([
@@ -671,19 +678,12 @@ population_control = into_dtype([
     ('active', bool_),
 ])
 
-condensed_history = into_dtype([
-    ('proton', bool_),
-    ('max_fractional_energy_loss', float64),
-])
-
 technique = into_dtype([
-    ('neutron_multigroup', neutron_multigroup),
     ('implicit_capture', implicit_capture),
     ('weighted_emission', weighted_emission),
     ('global_weight_roulette', global_weight_roulette),
     ('weight_windows', weight_windows),
     ('population_control', population_control),
-    ('condensed_history', condensed_history),
 ])
 
 source = into_dtype([

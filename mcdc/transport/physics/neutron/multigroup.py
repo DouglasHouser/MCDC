@@ -40,7 +40,7 @@ def applicable(particle_container, simulation, data):
     if not material["has_neutron_multigroup"]:
         return False
 
-    if simulation["technique"]["neutron_multigroup"]["hybrid"]:
+    if simulation["settings"]["neutron_multigroup"]["hybrid"]:
         mgxs_ID = material["neutron_multigroup_ID"]
         mgxs = simulation["neutron_multigroup_data"][mgxs_ID]
 
@@ -428,7 +428,7 @@ def fission(particle_container, program, data):
 
 @njit
 def _get_energy_group(E, mgxs, simulation, data):
-    if simulation["technique"]["neutron_multigroup"]["hybrid"]:
+    if simulation["settings"]["neutron_multigroup"]["hybrid"]:
         offset = mgxs["energy_grid_offset"]
         length = mgxs["energy_grid_length"]
         E_grid = data[offset : offset + length]
@@ -442,7 +442,7 @@ def _get_energy_group(E, mgxs, simulation, data):
 
 @njit
 def _get_group_energy(group, rng_state, mgxs, simulation, data):
-    if simulation["technique"]["neutron_multigroup"]["hybrid"]:
+    if simulation["settings"]["neutron_multigroup"]["hybrid"]:
         E_low = mcdc_get.neutron_multigroup_data.energy_grid(group, mgxs, data)
         E_high = mcdc_get.neutron_multigroup_data.energy_grid(group + 1, mgxs, data)
         representation = mgxs["energy_representation"]

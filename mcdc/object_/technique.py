@@ -8,23 +8,6 @@ from numpy.typing import NDArray
 from typing import Annotated
 
 # ======================================================================================
-# Neutron multigroup
-# ======================================================================================
-
-
-class NeutronMultigroup(MCDCBase):
-    """Describe whether neutron multigroup transport is standard or hybrid."""
-
-    # MC/DC framework metadata
-    label = "neutron_multigroup"
-
-    hybrid: bool  # Whether neutron multigroup transport is hybrid
-
-    def __init__(self) -> None:
-        self.hybrid = True
-
-
-# ======================================================================================
 # Implicit capture
 # ======================================================================================
 
@@ -439,66 +422,6 @@ class PopulationControl(MCDCBase):
 
 
 # ======================================================================================
-# Condensed history
-# ======================================================================================
-
-
-class CondensedHistory(MCDCBase):
-    """Simulation-owned condensed-history configuration."""
-
-    # MC/DC framework metadata
-    label = "condensed_history"
-
-    proton: bool  # Whether proton condensed-history transport is enabled
-    max_fractional_energy_loss: float  # Step limit based on mean energy loss
-
-    def __init__(self) -> None:
-        self.proton = False
-        self.max_fractional_energy_loss = 1.0
-
-    def __call__(
-        self,
-        proton: bool = True,
-        max_fractional_energy_loss: float = 1.0,
-    ) -> None:
-        """Configure condensed-history transport.
-
-        Calling without arguments enables all supported particle types.
-        Currently, only protons are supported.
-
-        Parameters
-        ----------
-        proton : bool, optional
-            Whether proton condensed-history transport is enabled. Defaults to true.
-        max_fractional_energy_loss : float, optional
-            Maximum expected fraction of kinetic energy lost per step, shared
-            by all supported particle types.
-            Must be in (0, 1]. Defaults to 1.0. This limits the step length,
-            not the sampled energy loss after straggling.
-
-        Examples
-        --------
-        Enable condensed history for all supported particle types:
-
-        >>> import mcdc
-        >>> simulation = mcdc.Simulation()
-        >>> simulation.technique.condensed_history()
-
-        Disable proton condensed-history transport:
-
-        >>> simulation.technique.condensed_history(proton=False)
-        """
-        max_fractional_energy_loss = float(max_fractional_energy_loss)
-        if not np.isfinite(max_fractional_energy_loss) or not (
-            0.0 < max_fractional_energy_loss <= 1.0
-        ):
-            print_error("max_fractional_energy_loss must be finite and in (0, 1].")
-
-        self.proton = proton
-        self.max_fractional_energy_loss = max_fractional_energy_loss
-
-
-# ======================================================================================
 # Simulation technique collection
 # ======================================================================================
 
@@ -514,20 +437,16 @@ class Technique(MCDCBase):
     # MC/DC framework metadata
     label = "technique"
 
-    neutron_multigroup: NeutronMultigroup
     implicit_capture: ImplicitCapture
     weighted_emission: WeightedEmission
     global_weight_roulette: GlobalWeightRoulette
     weight_windows: WeightWindows
     population_control: PopulationControl
-    condensed_history: CondensedHistory
 
     def __init__(self) -> None:
         # Construct every simulation-wide technique configuration
-        self.neutron_multigroup = NeutronMultigroup()
         self.implicit_capture = ImplicitCapture()
         self.weighted_emission = WeightedEmission()
         self.global_weight_roulette = GlobalWeightRoulette()
         self.weight_windows = WeightWindows()
         self.population_control = PopulationControl()
-        self.condensed_history = CondensedHistory()
