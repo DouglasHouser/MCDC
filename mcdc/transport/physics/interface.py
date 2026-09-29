@@ -80,6 +80,9 @@ def collision_distance(particle_container, simulation, data):
 def collision(particle_container, collision_data_container, program, data):
     particle = particle_container[0]
 
+    collision_data = collision_data_container[0]
+    collision_data["incident_energy"] = particle["E"]
+
     if particle["particle_type"] == PARTICLE_NEUTRON:
         neutron.collision(particle_container, collision_data_container, program, data)
     elif particle["particle_type"] == PARTICLE_ELECTRON:

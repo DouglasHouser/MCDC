@@ -39,6 +39,7 @@ class CollisionData(MCDCBase):
     label = "collision_data"
 
     energy_deposition: float = 0.0
+    incident_energy: float = 0.0
 
 
 @dataclass
