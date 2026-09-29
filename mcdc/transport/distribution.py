@@ -21,7 +21,7 @@ from mcdc.constant import (
     PI,
 )
 from mcdc.transport.data import evaluate_data
-from mcdc.transport.util import find_bin
+from mcdc.transport.util import find_bin, make_direction_basis
 
 # ======================================================================================
 # General distribution samplers
@@ -149,20 +149,7 @@ def sample_direction(polar_cosine, azimuthal, polar_coordinate, rng_state):
     wx = polar_coordinate[0]
     wy = polar_coordinate[1]
     wz = polar_coordinate[2]
-    if abs(wz) >= 0.999:
-        # Axis nearly parallel to z: use a fixed transverse basis
-        ux, uy, uz = 1.0, 0.0, 0.0
-        vx, vy, vz = 0.0, 1.0, 0.0
-    else:
-        inv = 1.0 / math.sqrt(wx * wx + wy * wy)
-
-        ux = -wy * inv
-        uy = wx * inv
-        uz = 0.0
-
-        vx = -wz * wx * inv
-        vy = -wz * wy * inv
-        vz = math.sqrt(wx * wx + wy * wy)
+    ux, uy, uz, vx, vy, vz = make_direction_basis(wx, wy, wz)
 
     # Rotate into lab frame
     s = math.sqrt(max(0.0, 1.0 - mu * mu))
@@ -255,6 +242,7 @@ def sample_pmf(pmf, rng_state, data):
 
 @njit
 def sample_white_direction(nx, ny, nz, rng_state):
+    """Sample a cosine-weighted hemisphere about the normalized reference."""
     # Sample polar cosine
     mu = math.sqrt(rng.lcg(rng_state))
 
@@ -262,24 +250,12 @@ def sample_white_direction(nx, ny, nz, rng_state):
     azi = 2.0 * PI * rng.lcg(rng_state)
     cos_azi = math.cos(azi)
     sin_azi = math.sin(azi)
-    Ac = (1.0 - mu**2) ** 0.5
+    sin_polar = math.sqrt(max(0.0, 1.0 - mu * mu))
+    u1x, u1y, u1z, u2x, u2y, u2z = make_direction_basis(nx, ny, nz)
 
-    if abs(nz) != 1.0:
-        B = (1.0 - nz**2) ** 0.5
-        C = Ac / B
-
-        x = nx * mu + (nx * nz * cos_azi - ny * sin_azi) * C
-        y = ny * mu + (ny * nz * cos_azi + nx * sin_azi) * C
-        z = nz * mu - cos_azi * Ac * B
-
-    # If dir = 0i + 0j + k, interchange z and y in the formula
-    else:
-        B = (1.0 - ny**2) ** 0.5
-        C = Ac / B
-
-        x = nx * mu + (nx * ny * cos_azi - nz * sin_azi) * C
-        z = nz * mu + (nz * ny * cos_azi + nx * sin_azi) * C
-        y = ny * mu - cos_azi * Ac * B
+    x = sin_polar * cos_azi * u1x + sin_polar * sin_azi * u2x + mu * nx
+    y = sin_polar * cos_azi * u1y + sin_polar * sin_azi * u2y + mu * ny
+    z = sin_polar * cos_azi * u1z + sin_polar * sin_azi * u2z + mu * nz
     return x, y, z
 
 
@@ -302,7 +278,8 @@ def _sample_multi_table(E, rng_state, multi_table, simulation, data, scale):
     f = 0.0
 
     # Below grid: use first table without unit-base scaling.
-    if E < grid[0]:
+    # Include equality: find_bin returns -1 at the first point.
+    if E <= grid[0]:
         idx = 0
         scale = False
 
