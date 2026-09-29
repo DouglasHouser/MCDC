@@ -647,19 +647,26 @@ global_weight_roulette = into_dtype([
 
 weight_windows = into_dtype([
     ('active', bool_),
+    ('time_bounds_offset', int64),
+    ('time_bounds_length', int64),
+    ('Nt', int64),
     ('energy_bounds_offset', int64),
     ('energy_bounds_length', int64),
     ('Ne', int64),
+    ('mu_bounds_offset', int64),
+    ('mu_bounds_length', int64),
+    ('Nmu', int64),
+    ('azi_bounds_offset', int64),
+    ('azi_bounds_length', int64),
+    ('Na', int64),
     ('mesh_ID', int64),
     ('Nx', int64),
     ('Ny', int64),
     ('Nz', int64),
-    ('lower_weights_offset', int64),
-    ('lower_weights_length', int64),
-    ('target_weights_offset', int64),
-    ('target_weights_length', int64),
-    ('upper_weights_offset', int64),
-    ('upper_weights_length', int64),
+    ('polar_reference', float64, (3,)),
+    ('N_WW_parameters', int64),
+    ('weights_offset', int64),
+    ('weights_length', int64),
 ])
 
 population_control = into_dtype([

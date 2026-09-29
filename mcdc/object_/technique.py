@@ -1,6 +1,6 @@
 import numpy as np
 
-from mcdc.constant import INF
+from mcdc.constant import INF, PI
 from mcdc.object_.base import MCDCBase
 from mcdc.object_.mesh import MeshBase, MeshUniform
 from mcdc.print_ import print_error
@@ -185,37 +185,67 @@ class WeightWindows(MCDCBase):
 
     active: bool
 
+    # time
+    time_bounds: NDArray[np.float64]
+    Nt: int
     # energy
     energy_bounds: NDArray[np.float64]
     Ne: int
+    # angle
+    mu_bounds: NDArray[np.float64]
+    Nmu: int
+    azi_bounds: NDArray[np.float64]
+    Na: int
     # space
     mesh: MeshBase
     Nx: int
     Ny: int
     Nz: int
 
+    # reference vector for calculating mu and azimuthal angle
+    polar_reference: Annotated[NDArray[np.float64], (3,)]
+
     # arrays of ww params
-    lower_weights: Annotated[NDArray[np.float64], ("Ne", "Nx", "Ny", "Nz")]
-    target_weights: Annotated[NDArray[np.float64], ("Ne", "Nx", "Ny", "Nz")]
-    upper_weights: Annotated[NDArray[np.float64], ("Ne", "Nx", "Ny", "Nz")]
+    N_WW_parameters: int = 3
+    weights: Annotated[
+        NDArray[np.float64],
+        ("Nt", "Ne", "Nmu", "Na", "Nx", "Ny", "Nz", "N_WW_parameters"),
+    ]
 
     def __init__(self) -> None:
         self.active = False
-        self.energy_bounds = np.array([0.0, 1.0])
+        self.time_bounds = np.array([0.0, INF])
+        self.Nt = 1
+        self.azi_bounds = np.array([-PI, PI])
+        self.Na = 1
+        self.mu_bounds = np.array([-1.0, 1.0])
+        self.Nmu = 1
+        self.energy_bounds = np.array([-0.5, INF])
         self.Ne = 1
         self.mesh_ID = -1  # skirt around having to create a MeshBase instance
         self.Nx, self.Ny, self.Nz = 1, 1, 1
         self.Nt = 1
-        shape = (self.Ne, self.Nx, self.Ny, self.Nz)
-        self.lower_weights = np.array([1.0]).reshape(*shape)
-        self.target_weights = np.array([1.0]).reshape(*shape)
-        self.upper_weights = np.array([1.0]).reshape(*shape)
+        self.polar_reference = np.array([0.0, 0.0, 1.0])
+        shape = (
+            self.Nt,
+            self.Ne,
+            self.Nmu,
+            self.Na,
+            self.Nx,
+            self.Ny,
+            self.Nz,
+            self.N_WW_parameters,
+        )
+        self.weights = np.zeros(shape)
 
     def __call__(
         self,
         weight_windows: NDArray[np.float64],
         mesh: MeshBase | None = None,
         energy: NDArray[np.float64] | None = None,
+        mu: NDArray[np.float64] | None = None,
+        azimuthal: NDArray[np.float64] | None = None,
+        time: NDArray[np.float64] | None = None,
     ) -> None:
         """Configure lower, target, and upper particle weights.
 
@@ -230,6 +260,12 @@ class WeightWindows(MCDCBase):
         energy : ndarray, optional
             Strictly increasing energy boundaries in eV. The default is one
             all-energy bin.
+        mu : ndarray, optional
+            Strictly increasing polar cosine bounds from -1 to 1. The default
+            is one bin from -1 to 1.
+        azimuthal : ndarray, optional
+            Strictly increasing azimuthal angle bounds from -pi to pi. The
+            default is one bin from -pi to pi.
 
         Examples
         --------
@@ -238,23 +274,37 @@ class WeightWindows(MCDCBase):
         >>> import numpy as np
         >>> import mcdc
         >>> simulation = mcdc.Simulation()
-        >>> windows = np.array([0.5, 1.0, 2.0]).reshape(1, 1, 1, 1, 3)
+        >>> windows = np.array([0.5, 1.0, 2.0])
         >>> simulation.technique.weight_windows(windows)
 
         Configure weight windows on a uniform spatial mesh:
 
         >>> mesh = mcdc.MeshUniform(x=(-5.0, 1.0, 10))
-        >>> windows = np.tile([0.25, 0.5, 1.0], (1, 10, 1, 1, 1))
+        >>> windows = np.tile([0.25, 0.5, 1.0], (10,))
         >>> simulation.technique.weight_windows(windows, mesh=mesh)
 
         Configure both energy- and space-dependent windows:
 
         >>> energy = np.array([0.0, 0.625, 20.0e6])
-        >>> windows = np.tile([0.25, 0.5, 1.0], (2, 10, 1, 1, 1))
+        >>> windows = np.tile([0.25, 0.5, 1.0], (2, 10))
         >>> simulation.technique.weight_windows(
         ...     windows,
         ...     mesh=mesh,
         ...     energy=energy,
+        ... )
+
+        Configure full phase-dependent windows
+        >>> time = np.array([0.0, 10, 100, 1000])
+        >>> mu = np.array([-1.0, -0.5, 0.0, 0.5, 1.0])
+        >>> azi = np.array([-np.pi, -np.pi/2, 0, np.pi/2, np.pi])
+        >>> windows = np.tile([0.25, 0.5, 1.0], (3, 2, 4, 4, 10))
+        >>> simulation.technique.weight_windows(
+        ...     windows,
+        ...     mesh=mesh,
+        ...     energy=energy,
+        ...     mu=mu,
+        ...     azimuthal=azi,
+        ...     time=time,
         ... )
         """
         # fill in defaults
@@ -263,6 +313,12 @@ class WeightWindows(MCDCBase):
         if energy is None:
             # usable for both groups and max energy
             energy = np.array([-0.5, INF])
+        if mu is None:
+            mu = np.array([-1.0, 1.0])
+        if azimuthal is None:
+            azimuthal = np.array([-PI, PI])
+        if time is None:
+            time = np.array([0, INF])
 
         # get mesh size
         match mesh.label:
@@ -278,47 +334,68 @@ class WeightWindows(MCDCBase):
                 print_error(
                     f"{type(mesh).__name__} is not supported for weight windows"
                 )
-        # validate energy as strictly increasing
-        if not (np.diff(energy) > 0).all():
-            print_error("Energy bounds must be strictly increasing")
-        # get energy size
-        if len(energy.shape) != 1:
-            print_error(
-                f"Invalid shape for energy; expected 1D got {len(energy.shape)}D"
-            )
+        # validate energy and get size
+        self._validate_bin_boundaries(energy, "Energy")
         ne = energy.shape[0] - 1
+        # validate mu and get size
+        self._validate_bin_boundaries(mu, "Mu")
+        nmu = mu.shape[0] - 1
+        # validate azimuthal and get size
+        self._validate_bin_boundaries(azimuthal, "Azimuthal")
+        na = azimuthal.shape[0] - 1
+        # validate time and get size
+        self._validate_bin_boundaries(time, "Time")
+        nt = time.shape[0] - 1
 
         # check correct shape
-        mesh_shape = (nx, ny, nz)
+        expected_shape = (nt, ne, nmu, na, nx, ny, nz, self.N_WW_parameters)
         ww_shape = weight_windows.shape
-        expected_shape = (ne, *mesh_shape, 3)
         if ww_shape != expected_shape:
-            print_error(
-                f"Weight window array has shape {ww_shape}, but expected {expected_shape}"
-            )
+            try:
+                weight_windows = weight_windows.reshape(expected_shape)
+            except:
+                print_error(
+                    f"Could not reshape weight window array from {ww_shape} to {expected_shape}!"
+                )
 
         self.active = True
+        self.time_bounds = time
+        self.Nt = nt
         self.energy_bounds = energy
         self.Ne = ne
+        self.mu_bounds = mu
+        self.Nmu = nmu
+        self.azi_bounds = azimuthal
+        self.Na = na
         self.mesh = mesh
-        self.Nx, self.Ny, self.Nz = mesh_shape
-        shape = (self.Ne, *mesh_shape)
-        self.lower_weights = weight_windows[..., 0]
-        self.target_weights = weight_windows[..., 1]
-        self.upper_weights = weight_windows[..., 2]
+        self.Nx, self.Ny, self.Nz = (nx, ny, nz)
+        self.weights = weight_windows
 
         # check weight windows are valid
-        if (self.lower_weights <= 0.0).any():
+        if (self.weights[..., 0] <= 0.0).any():
             print_error(
                 "Lower bound weights must be strictly positive to avoid invalid roulette behavior"
             )
-        if (self.lower_weights > self.target_weights).any():
+        if (self.weights[..., 0] > self.weights[..., 1]).any():
             print_error(
                 "Lower bound weight can not be greater than the target weight for any weight window"
             )
-        if (self.target_weights > self.upper_weights).any():
+        if (self.weights[..., 1] > self.weights[..., 2]).any():
             print_error(
                 "Target weight can not be greater than the upper bound weight for any weight window"
+            )
+
+    def set_polar_reference(self, px, py, pz):
+        polar_reference = np.array([px, py, pz])
+        self.polar_reference = polar_reference / np.linalg.norm(polar_reference)
+
+    @staticmethod
+    def _validate_bin_boundaries(array: NDArray[np.float64], name: str):
+        if not (np.diff(array) > 0).all():
+            print_error(f"{name} bounds must be strictly increasing")
+        if len(array.shape) != 1:
+            print_error(
+                f"Invalid shape for {name} bounds; expected 1D got {len(array.shape)}D"
             )
 
 

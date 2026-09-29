@@ -119,23 +119,23 @@ def query_weight_window(particle_container, simulation, data):
     ww_obj = simulation["technique"]["weight_windows"]
     indices = get_ww_indices(particle_container, ww_obj, simulation, data)
     # grab the actual ww parameters
-    lower = ww_get.lower_weights(*indices, ww_obj, data)
-    target = ww_get.target_weights(*indices, ww_obj, data)
-    upper = ww_get.upper_weights(*indices, ww_obj, data)
+    lower = ww_get.weights(*indices, 0, ww_obj, data)
+    target = ww_get.weights(*indices, 1, ww_obj, data)
+    upper = ww_get.weights(*indices, 2, ww_obj, data)
     return lower, target, upper
 
 
 @njit
 def get_ww_indices(particle_container, ww_obj, simulation, data):
     """
-    Get flattened weight window index from particle information
+    Get the particle's bin index in each weight-window dimension.
 
     Parameters
     ----------
     particle_container : ndarray
         Container holding the particle.
-    weight_window_object : object
-        The weight window object containing index information
+    ww_obj : object
+        The weight window object containing index information.
     simulation : object
         Simulation state containing weight window and mesh data.
     data : object
@@ -143,21 +143,36 @@ def get_ww_indices(particle_container, ww_obj, simulation, data):
 
     Returns
     -------
-    indices: Tuple[int]
-        the flattened index in the weight window array
+    indices : tuple of int
+        Seven bin indices in (time, energy, mu, azimuthal, x, y, z) order.
     """
     particle = particle_container[0]
+
+    # get time index
+    time_bounds = ww_get.time_bounds_all(ww_obj, data)
+    it = util.find_bin(particle["t"], time_bounds)
 
     # get energy index
     energy_bounds = ww_get.energy_bounds_all(ww_obj, data)
     energy = particle["E"]
     ie = util.find_bin(energy, energy_bounds)
 
+    # get angular indices
+    mu, azimuthal = util.calculate_angles(particle_container, ww_obj["polar_reference"])
+
+    # mu
+    mu_bounds = ww_get.mu_bounds_all(ww_obj, data)
+    imu = util.find_bin(mu, mu_bounds)
+
+    # azimuthal
+    azi_bounds = ww_get.azi_bounds_all(ww_obj, data)
+    ia = util.find_bin(azimuthal, azi_bounds)
+
     # get spatial index
     mesh = simulation["meshes"][ww_obj["mesh_ID"]]
     idx, idy, idz = get_mesh_indices(particle_container, mesh, simulation, data)
 
-    return (ie, idx, idy, idz)
+    return (it, ie, imu, ia, idx, idy, idz)
 
 
 @njit
