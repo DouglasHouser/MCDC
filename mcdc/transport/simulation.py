@@ -406,7 +406,7 @@ def move_to_event(particle_container, simulation, data):
 
     # Distance to max energy loss as dictated by condensed history
     if use_condensed_history:
-        d_condensed_history = physics.condensed_history.distance(
+        d_condensed_history = physics.max_condensed_history_distance(
             particle_container, simulation, data
         )
 
@@ -471,7 +471,7 @@ def move_to_event(particle_container, simulation, data):
     # Condensed history calculates energy loss after particle has moved
     if use_condensed_history:
         collision_data_container = util.local_array(1, type_.collision_data)
-        physics.condensed_history.apply(
+        physics.condensed_history(
             particle_container, collision_data_container, distance, simulation, data
         )
 

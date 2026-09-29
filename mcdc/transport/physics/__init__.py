@@ -8,4 +8,4 @@ from .interface import (
 import mcdc.transport.physics.electron as electron
 import mcdc.transport.physics.neutron as neutron
 import mcdc.transport.physics.proton as proton
-import mcdc.transport.physics.condensed_history as condensed_history
+from .condensed_history import condensed_history, max_condensed_history_distance

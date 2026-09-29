@@ -9,7 +9,7 @@ from mcdc.constant import PROTON_CUTOFF_ENERGY, PROTON_MASS
 
 
 @njit
-def distance(particle_container, simulation, data):
+def max_condensed_history_distance(particle_container, simulation, data):
     """Return the maximum proton condensed-history step length."""
     condensed_history = simulation["settings"]["condensed_history"]
     particle = particle_container[0]
@@ -46,7 +46,9 @@ def distance(particle_container, simulation, data):
 
 
 @njit
-def apply(particle_container, collision_data_container, distance, simulation, data):
+def condensed_history(
+    particle_container, collision_data_container, distance, simulation, data
+):
     """Apply proton condensed interactions over the traveled distance."""
     particle = particle_container[0]
     collision_data = collision_data_container[0]

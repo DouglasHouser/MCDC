@@ -5,4 +5,4 @@ from .interface import (
 )
 import mcdc.transport.physics.proton.native as native
 import mcdc.transport.physics.proton.multigroup as multigroup
-import mcdc.transport.physics.proton.condensed_history as condensed_history
+from .condensed_history import condensed_history, max_condensed_history_distance
