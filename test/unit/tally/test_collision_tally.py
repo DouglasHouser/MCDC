@@ -44,9 +44,7 @@ def test_collision_tally_without_spatial_filter():
     [12000.0, 0.0],
     ids=["energy-loss", "stopped"],
 )
-def test_collision_tally_uses_incident_energy(
-    prepare_simulation, outgoing_energy
-):
+def test_collision_tally_uses_incident_energy(prepare_simulation, outgoing_energy):
     tally_object = mcdc.Tally(
         scores=["energy_deposition"],
         particle_type="electron",
@@ -69,9 +67,7 @@ def test_collision_tally_uses_incident_energy(
     deposited_energy = (20000.0 - outgoing_energy) * particle["w"]
     collision_data["energy_deposition"] = deposited_energy
 
-    score_collision(
-        particle_container, collision_container, tally, simulation, data
-    )
+    score_collision(particle_container, collision_container, tally, simulation, data)
 
     offset = tally["bin_offset"]
     stride = tally["stride_energy"]
@@ -80,6 +76,7 @@ def test_collision_tally_uses_incident_energy(
         [0.0, deposited_energy],
     )
     assert particle["E"] == outgoing_energy
+
 
 def test_collision_captures_energy_before_electron_cutoff(
     prepare_simulation, material_mg
@@ -124,9 +121,7 @@ def test_collision_captures_energy_before_electron_cutoff(
         incident_energy * 2.0
     )
 
-    score_collision(
-        particle_container, collision_container, tally, simulation, data
-    )
+    score_collision(particle_container, collision_container, tally, simulation, data)
 
     offset = tally["bin_offset"]
     stride = tally["stride_energy"]
