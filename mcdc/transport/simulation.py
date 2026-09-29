@@ -334,10 +334,6 @@ def step_particle(particle_container, program, data):
     if particle["event"] & EVENT_TIME_BOUNDARY:
         particle["alive"] = False
 
-    # Condensed-history energy deposition
-    if particle["event"] & EVENT_CONDENSED_HISTORY_EDEP:
-        pass
-
     # ==================================================================================
     # Apply techniques
     # ==================================================================================
@@ -443,14 +439,12 @@ def move_to_event(particle_container, simulation, data):
         particle["event"] = EVENT_TIME_BOUNDARY
         particle["surface_ID"] = -1
 
-    # Check distance to max energy loss from condensed history
+    # Limit the step for condensed history, preserving coincident physical events
     if use_condensed_history:
         if d_condensed_history < distance - COINCIDENCE_TOLERANCE:
             distance = d_condensed_history
-            particle["event"] = EVENT_CONDENSED_HISTORY_EDEP
+            particle["event"] = EVENT_NONE
             particle["surface_ID"] = -1
-        elif geometry.check_coincidence(d_condensed_history, distance):
-            particle["event"] += EVENT_CONDENSED_HISTORY_EDEP
 
     # ==================================================================================
     # Move particle
