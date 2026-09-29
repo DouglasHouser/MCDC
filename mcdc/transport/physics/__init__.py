@@ -4,9 +4,8 @@ from .interface import (
     neutron_production_xs,
     collision_distance,
     collision,
-    condensed_history_distance,
-    condensed_history_edep,
 )
 import mcdc.transport.physics.electron as electron
 import mcdc.transport.physics.neutron as neutron
 import mcdc.transport.physics.proton as proton
+import mcdc.transport.physics.condensed_history as condensed_history
