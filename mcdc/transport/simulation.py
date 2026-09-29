@@ -354,6 +354,7 @@ def step_particle(particle_container, program, data):
     if simulation["technique"]["global_weight_roulette"]["active"]:
         technique.global_weight_roulette(particle_container, simulation)
 
+
 @njit
 def move_to_event(particle_container, simulation, data):
     settings = simulation["settings"]
@@ -445,11 +446,6 @@ def move_to_event(particle_container, simulation, data):
         elif geometry.check_coincidence(d_csda, distance):
             particle["event"] += EVENT_CSDA_EDEP
 
-    if distance < 0.0:
-        print(f'distance = {distance}')
-        print(f'd_coll = {d_collision}, d_csda = {d_csda}, d_bnd = {d_boundary}')
-        raise ValueError(f"Negative distance")
-
     # ==================================================================================
     # Move particle
     # ==================================================================================
@@ -474,7 +470,7 @@ def move_to_event(particle_container, simulation, data):
 
     # CSDA calculates energy loss after particle has moved
     if settings["csda"]:
-        collision_data_container = np.zeros(1, type_.collision_data)
+        collision_data_container = util.local_array(1, type_.collision_data)
         physics.csda_edep(
             particle_container, collision_data_container, distance, simulation, data
         )
@@ -485,14 +481,15 @@ def move_to_event(particle_container, simulation, data):
             cell = simulation["cells"][particle["cell_ID"]]
             for i in range(cell["N_collision_tally"]):
                 tally_ID = int(mcdc_get.cell.collision_tally_IDs(i, cell, data))
-                tally = simulation["collision_tallies"][tally_ID]
-                tally_module.score.collision_tally(
+                tally = simulation["tallies"][tally_ID]
+                tally_module.score.collision(
                     particle_container,
                     collision_data_container,
                     tally,
                     simulation,
                     data,
                 )
+
 
 @njit
 def surface_crossing(particle_container, simulation, data):

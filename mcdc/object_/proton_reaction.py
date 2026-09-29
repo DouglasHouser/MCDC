@@ -108,10 +108,13 @@ class ProtonReactionElasticScattering(ProtonReactionBase):
             h5_group["angular_cosine_distribution"], simulation
         )
         return cls(MT, xs, xs_offset, reference_frame, mu)
-    
+
     def __repr__(self):
         text = super().__repr__()
-        text += f"  - Scattering cosine: {distribution.decode_type(self.mu_table.type)} [ID: {self.mu_table.ID}]\n"
+        text += f"  - mu: {self.mu_table}\n"
+        text += f"  - sub_type: {self.sub_type}\n"
+        text += f"  - sub_ID: {self.sub_ID}\n"
+        # text += f"  - Scattering cosine: {distribution.decode_type(self.mu_table.type)} [ID: {self.mu_table.ID}]\n"
         return text
 
 
@@ -166,7 +169,10 @@ def set_secondary_product(h5_group, simulation):
 
     if "angular_cosine_distribution" in h5_group:
         angular_group = h5_group["angular_cosine_distribution"]
-        if angular_group.attrs.get("type", "isotropic") == "given_in_energy_distribution":
+        if (
+            angular_group.attrs.get("type", "isotropic")
+            == "given_in_energy_distribution"
+        ):
             angle_type, mu = set_angular_distribution_from_kalbach_mann(
                 energy_group, simulation
             )
@@ -233,7 +239,9 @@ class ProtonReactionInelasticScattering(ProtonReactionBase):
         MT, xs, xs_offset, reference_frame, q_value = set_basic_properties(h5_group)
         multiplicity = int(h5_group["multiplicity"][()])
 
-        ang_type_str = h5_group["angular_cosine_distribution"].attrs.get("type", "isotropic")
+        ang_type_str = h5_group["angular_cosine_distribution"].attrs.get(
+            "type", "isotropic"
+        )
         if ang_type_str == "given_in_energy_distribution":
             angle_type, mu = set_angular_distribution_from_kalbach_mann(
                 h5_group["energy_spectrum-1"], simulation
@@ -259,9 +267,20 @@ class ProtonReactionInelasticScattering(ProtonReactionBase):
                 product.multiplicity = 1
                 secondary_products.extend([product] * multiplicity)
 
-        return cls(MT, xs, xs_offset, reference_frame, q_value, multiplicity,
-                angle_type, mu, spectrum_probability_grid, spectrum_probability,
-                energy_spectra, secondary_products)
+        return cls(
+            MT,
+            xs,
+            xs_offset,
+            reference_frame,
+            q_value,
+            multiplicity,
+            angle_type,
+            mu,
+            spectrum_probability_grid,
+            spectrum_probability,
+            energy_spectra,
+            secondary_products,
+        )
 
     def __repr__(self):
         text = super().__repr__()
@@ -278,7 +297,6 @@ class ProtonReactionInelasticScattering(ProtonReactionBase):
         return text
 
 
-
 class ProtonReactionCapture(ProtonReactionBase):
     # Annotations for Numba mode
     label: str = "proton_capture_reaction"
@@ -291,7 +309,6 @@ class ProtonReactionCapture(ProtonReactionBase):
     def from_h5_group(cls, h5_group, simulation):
         MT, xs, xs_offset, reference_frame, q_value = set_basic_properties(h5_group)
         return cls(MT, xs, xs_offset, reference_frame, q_value)
-
 
 
 # ======================================================================================
@@ -327,8 +344,9 @@ def set_angular_distribution(h5_group, simulation):
         mu = simulation.distributions[0]
     elif mu_type == "given_in_energy_distribution":
         raise ValueError(
-        "set_angular_distribution called with given_in_energy_distribution; "
-        "use set_angular_distribution_from_kalbach_mann instead.")   
+            "set_angular_distribution called with given_in_energy_distribution; "
+            "use set_angular_distribution_from_kalbach_mann instead."
+        )
     elif mu_type == "tabulated":
         angle_type = ANGLE_DISTRIBUTED
 
@@ -375,16 +393,17 @@ def set_angular_distribution(h5_group, simulation):
 
     return angle_type, mu
 
+
 def set_angular_distribution_from_kalbach_mann(spectrum_group, simulation):
     """
     Build a DistributionMultiTable for Kalbach-Mann angular sampling.
-    The 'value' array holds the angular slope 'a'. The transport kernel 
+    The 'value' array holds the angular slope 'a'. The transport kernel
     uses these to sample cosines analytically via the Kalbach-Mann formula.
     """
-    grid   = spectrum_group["energy"][()] * 1e6   # MeV to eV
+    grid = spectrum_group["energy"][()] * 1e6  # MeV to eV
     offset = spectrum_group["offset"][()]
-    a      = spectrum_group["angular_slope"][()]
-    pdf    = spectrum_group["pdf"][()]
+    a = spectrum_group["angular_slope"][()]
+    pdf = spectrum_group["pdf"][()]
 
     mu = DistributionMultiTable(grid, offset, a, pdf)
     return ANGLE_ENERGY_CORRELATED, mu

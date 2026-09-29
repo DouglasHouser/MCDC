@@ -440,12 +440,6 @@ class Simulation(MCDCBase):
                 and len(material.elements) == 0
             ):
                 set_elements_from_nuclides(material, self)
-            # if (
-            #     settings.proton_transport
-            #     and material.nuclide_composition
-            #     and len(material.elements) == 0
-            # ):
-            #     set_elements_from_nuclides(material, self)
 
         # Load the physics data required by the completed material model
         if settings.neutron_transport:

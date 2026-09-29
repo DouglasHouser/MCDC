@@ -106,33 +106,34 @@ def collision(particle_container, collision_data_container, program, data):
 @njit
 def csda_distance(particle_container, simulation, data):
     particle = particle_container[0]
-    material = simulation["native_materials"][particle["material_ID"]]
+    material = simulation["materials"][particle["material_ID"]]
     E = particle["E"]
     total_rho = 0.0
     total_dedx = 0.0
 
     for i in range(material["N_nuclide"]):
-        nuclide_ID = int(mcdc_get.native_material.nuclide_IDs(i, material, data))
+        nuclide_ID = int(mcdc_get.material.nuclide_IDs(i, material, data))
         nuclide = simulation["nuclides"][nuclide_ID]
 
         if not material["stopping_power_provided"]:
             dedx_values = mcdc_get.nuclide.stopping_power_all(nuclide, data)
-            dedx_energies = mcdc_get.nuclide.stopping_power_energy_grid_all(nuclide, data)
+            dedx_energies = mcdc_get.nuclide.stopping_power_energy_grid_all(
+                nuclide, data
+            )
             dedx = np.interp(E / 1e6, dedx_energies, dedx_values)
-            total_dedx += dedx * 1e6            
+            total_dedx += dedx * 1e6
 
         atomic_mass = nuclide["atomic_weight_ratio"]
-        nuclide_density = mcdc_get.native_material.nuclide_densities(i, material, data)
+        nuclide_density = mcdc_get.material.nuclide_densities(i, material, data)
         density_gcm3 = nuclide_density * 1e24 * atomic_mass / (6.022e23)
         total_rho += density_gcm3
-    
+
     if material["stopping_power_provided"]:
-        dedx_values = mcdc_get.native_material.stopping_power_all(material, data)
-        dedx_energies = mcdc_get.native_material.stopping_power_energy_grid_all(material, data)
+        dedx_values = mcdc_get.material.stopping_power_all(material, data)
+        dedx_energies = mcdc_get.material.stopping_power_energy_grid_all(material, data)
         dedx = np.interp(E / 1e6, dedx_energies, dedx_values)
         total_dedx = dedx * 1e6
 
-    
     max_fractional_e_loss = simulation["settings"]["csda_max_fractional_e_loss"]
     return max_fractional_e_loss * E / total_dedx / total_rho
 

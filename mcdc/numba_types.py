@@ -347,26 +347,6 @@ element = into_dtype([
     ('ID', int64),
 ])
 
-native_material = into_dtype([
-    ('N_nuclide', int64),
-    ('nuclide_IDs_offset', int64),
-    ('N_element', int64),
-    ('element_IDs_offset', int64),
-    ('nuclide_densities_offset', int64),
-    ('nuclide_densities_length', int64),
-    ('element_densities_offset', int64),
-    ('element_densities_length', int64),
-    ('stopping_power_provided', bool_),
-    ('stopping_power_offset', int64),
-    ('stopping_power_length', int64),
-    ('stopping_power_energy_grid_offset', int64),
-    ('stopping_power_energy_grid_length', int64),
-    ('radiation_length', float64),
-    ('radiation_length_provided', bool_),
-    ('ID', int64),
-    ('parent_ID', int64),
-])
-
 neutron_multigroup_data = into_dtype([
     ('G', int64),
     ('J', int64),
@@ -551,14 +531,13 @@ neutron_inelastic_scattering_reaction = into_dtype([
 
 proton_capture_reaction = into_dtype([
     ('ID', int64),
-    ('parent_ID', int64),
+    ('base_ID', int64),
 ])
 
 proton_elastic_scattering_reaction = into_dtype([
     ('mu_table_ID', int64),
     ('ID', int64),
-    ('parent_ID', int64),
-    ('sub_ID', int64),
+    ('base_ID', int64),
 ])
 
 proton_inelastic_scattering_reaction = into_dtype([
@@ -576,7 +555,7 @@ proton_inelastic_scattering_reaction = into_dtype([
     ('N_secondary_product', int64),
     ('secondary_product_IDs_offset', int64),
     ('ID', int64),
-    ('parent_ID', int64),
+    ('base_ID', int64),
 ])
 
 proton_secondary_product = into_dtype([
@@ -598,7 +577,6 @@ particle_bank = into_dtype([
     ('size', int64, (1,)),
     ('tag', 'U32'),
 ])
-
 
 proton_reaction = into_dtype([
     ('MT', int64),
@@ -898,6 +876,14 @@ def make_simulation_type(N: dict):
         ('N_electron_excitation_reaction', int64),
         ('electron_ionization_reactions', electron_ionization_reaction, (N['electron_ionization_reaction'])),
         ('N_electron_ionization_reaction', int64),
+        ('proton_capture_reactions', proton_capture_reaction, (N['proton_capture_reaction'])),
+        ('N_proton_capture_reaction', int64),
+        ('proton_elastic_scattering_reactions', proton_elastic_scattering_reaction, (N['proton_elastic_scattering_reaction'])),
+        ('N_proton_elastic_scattering_reaction', int64),
+        ('proton_inelastic_scattering_reactions', proton_inelastic_scattering_reaction, (N['proton_inelastic_scattering_reaction'])),
+        ('N_proton_inelastic_scattering_reaction', int64),
+        ('proton_reactions', proton_reaction, (N['proton_reaction'])),
+        ('N_proton_reaction', int64),
         ('nuclides', nuclide, (N['nuclide'])),
         ('N_nuclide', int64),
         ('elements', element, (N['element'])),
@@ -908,24 +894,16 @@ def make_simulation_type(N: dict):
         ('N_neutron_multigroup_data', int64),
         ('sources', source, (N['source'])),
         ('N_source', int64),
-        ('proton_capture_reactions', proton_capture_reaction, (N['proton_capture_reaction'])),
-        ('N_proton_capture_reaction', int64),
-        ('proton_elastic_scattering_reactions', proton_elastic_scattering_reaction, (N['proton_elastic_scattering_reaction'])),
-        ('N_proton_elastic_scattering_reaction', int64),
-        ('proton_inelastic_scattering_reactions', proton_inelastic_scattering_reaction, (N['proton_inelastic_scattering_reaction'])),
-        ('N_proton_inelastic_scattering_reaction', int64),
-        ('proton_reactions', proton_reaction, (N['proton_reaction'])),
-        ('N_proton_reaction', int64),
         ('proton_secondary_products', proton_secondary_product, (N['proton_secondary_product'])),
         ('N_proton_secondary_product', int64),
-        ('cells', cell, (N['cell'])),
-        ('N_cell', int64),
-        ('lattices', lattice, (N['lattice'])),
-        ('N_lattice', int64),
         ('surfaces', surface, (N['surface'])),
         ('N_surface', int64),
+        ('cells', cell, (N['cell'])),
+        ('N_cell', int64),
         ('universes', universe, (N['universe'])),
         ('N_universe', int64),
+        ('lattices', lattice, (N['lattice'])),
+        ('N_lattice', int64),
         ('meshes', mesh, (N['mesh'])),
         ('N_mesh', int64),
         ('structured_meshes', structured_mesh, (N['structured_mesh'])),
