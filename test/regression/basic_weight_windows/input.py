@@ -59,7 +59,7 @@ tally = mcdc.Tally(mesh=mesh, scores=["flux"])
 simulation.set_tallies([tally])
 
 # Weight windows
-ww_array = np.ones((1, 20, 20, 1, 3))
+ww_array = np.ones((20, 20, 3))
 # Actual bounds are set to arbitrary numbers
 ww_array[..., 0] = 0.55  # Forces roulette on split particles from 1.0
 ww_array[..., 1] = 0.7  # arbitrary in the middle

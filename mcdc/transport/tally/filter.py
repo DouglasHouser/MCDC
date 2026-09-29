@@ -13,7 +13,11 @@ from mcdc.constant import (
     COINCIDENCE_TOLERANCE_TIME,
     PARTICLE_ANY,
 )
-from mcdc.transport.util import find_bin_with_tolerance, find_bin_with_rules
+from mcdc.transport.util import (
+    find_bin_with_tolerance,
+    find_bin_with_rules,
+    calculate_angles,
+)
 
 
 @njit
@@ -41,26 +45,8 @@ def get_filter_indices(particle_container, tally, data):
 
 @njit
 def get_direction_index(particle_container, tally, data):
-    particle = particle_container[0]
-
-    # Particle properties
-    ux = particle["ux"]
-    uy = particle["uy"]
-    uz = particle["uz"]
-
     # Polar reference
-    nx = tally["polar_reference"][0]
-    ny = tally["polar_reference"][1]
-    nz = tally["polar_reference"][2]
-
-    # TODO: Rotate direction based on the polar reference
-    if nz != 1.0:
-        pass
-
-    mu = uz
-    azi = math.acos(ux / math.sqrt(ux * ux + uy * uy))
-    if uy < 0.0:
-        azi *= -1
+    mu, azi = calculate_angles(particle_container, tally["polar_reference"])
 
     tolerance = COINCIDENCE_TOLERANCE_DIRECTION
 
