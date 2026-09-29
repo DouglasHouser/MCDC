@@ -335,7 +335,7 @@ class Nuclide(MCDCObject):
                 f"Proton condensed history requires stopping power for nuclide {self.name}"
             )
 
-        # Only CSDA data available - no nuclear rxn xs
+        # Only condensed history data available - no nuclear rxn xs
         if "proton_reactions" not in file:
             # Zero out all xs arrays
             xs_energy = np.array([0, 1.0e10])

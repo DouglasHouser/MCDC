@@ -328,12 +328,14 @@ def collision(particle_container, collision_data_container, program, data):
 
 
 # ======================================================================================
-# Continous Slowing Down Approximation (CSDA)
+# Condensed history
 # ======================================================================================
 
 
 @njit
-def csda_edep(particle_container, collision_data_container, distance, simulation, data):
+def condensed_history_edep(
+    particle_container, collision_data_container, distance, simulation, data
+):
     particle = particle_container[0]
     collision_data = collision_data_container[0]
     material = simulation["materials"][particle["material_ID"]]

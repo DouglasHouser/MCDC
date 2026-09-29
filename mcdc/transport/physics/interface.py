@@ -104,7 +104,7 @@ def collision(particle_container, collision_data_container, program, data):
 
 
 @njit
-def csda_distance(particle_container, simulation, data):
+def condensed_history_distance(particle_container, simulation, data):
     condensed_history = simulation["settings"]["condensed_history"]
     particle = particle_container[0]
     material = simulation["materials"][particle["material_ID"]]
@@ -140,13 +140,15 @@ def csda_distance(particle_container, simulation, data):
 
 
 @njit
-def csda_edep(particle_container, collision_data_container, distance, simulation, data):
+def condensed_history_edep(
+    particle_container, collision_data_container, distance, simulation, data
+):
     particle = particle_container[0]
     if particle["particle_type"] == PARTICLE_NEUTRON:
-        raise ValueError("CSDA not supported for neutrons")
+        raise ValueError("Condensed history not supported for neutrons")
     if particle["particle_type"] == PARTICLE_ELECTRON:
-        raise ValueError("CSDA not supported for electrons")
+        raise ValueError("Condensed history not supported for electrons")
     if particle["particle_type"] == PARTICLE_PROTON:
-        proton.csda_edep(
+        proton.condensed_history_edep(
             particle_container, collision_data_container, distance, simulation, data
         )

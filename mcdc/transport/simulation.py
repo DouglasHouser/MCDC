@@ -334,8 +334,8 @@ def step_particle(particle_container, program, data):
     if particle["event"] & EVENT_TIME_BOUNDARY:
         particle["alive"] = False
 
-    # CSDA energy depostiion
-    if particle["event"] & EVENT_CSDA_EDEP:
+    # Condensed-history energy deposition
+    if particle["event"] & EVENT_CONDENSED_HISTORY_EDEP:
         pass
 
     # ==================================================================================
@@ -408,9 +408,9 @@ def move_to_event(particle_container, simulation, data):
     # Distance to next collision
     d_collision = physics.collision_distance(particle_container, simulation, data)
 
-    # Distance to max energy loss as dictated by CSDA
+    # Distance to max energy loss as dictated by condensed history
     if use_condensed_history:
-        d_condensed_history = physics.csda_distance(
+        d_condensed_history = physics.condensed_history_distance(
             particle_container, simulation, data
         )
 
@@ -443,14 +443,14 @@ def move_to_event(particle_container, simulation, data):
         particle["event"] = EVENT_TIME_BOUNDARY
         particle["surface_ID"] = -1
 
-    # Check distance to max energy loss from CSDA
+    # Check distance to max energy loss from condensed history
     if use_condensed_history:
         if d_condensed_history < distance - COINCIDENCE_TOLERANCE:
             distance = d_condensed_history
-            particle["event"] = EVENT_CSDA_EDEP
+            particle["event"] = EVENT_CONDENSED_HISTORY_EDEP
             particle["surface_ID"] = -1
         elif geometry.check_coincidence(d_condensed_history, distance):
-            particle["event"] += EVENT_CSDA_EDEP
+            particle["event"] += EVENT_CONDENSED_HISTORY_EDEP
 
     # ==================================================================================
     # Move particle
@@ -474,15 +474,15 @@ def move_to_event(particle_container, simulation, data):
     # Move particle
     particle_module.move(particle_container, distance, simulation, data)
 
-    # CSDA calculates energy loss after particle has moved
+    # Condensed history calculates energy loss after particle has moved
     if use_condensed_history:
         collision_data_container = util.local_array(1, type_.collision_data)
-        physics.csda_edep(
+        physics.condensed_history_edep(
             particle_container, collision_data_container, distance, simulation, data
         )
 
         # Score collision tallies (edep is a collision tally)
-        # TODO: maybe make edep a potential tracklength tally for CSDA?
+        # TODO: maybe make edep a potential tracklength tally for condensed history?
         if simulation["cycle_active"]:
             cell = simulation["cells"][particle["cell_ID"]]
             for i in range(cell["N_collision_tally"]):

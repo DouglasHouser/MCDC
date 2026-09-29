@@ -43,7 +43,9 @@ def collision(particle_container, collision_data_container, program, data):
 
 
 @njit
-def csda_edep(particle_container, collision_data_container, distance, simulation, data):
-    native.csda_edep(
+def condensed_history_edep(
+    particle_container, collision_data_container, distance, simulation, data
+):
+    native.condensed_history_edep(
         particle_container, collision_data_container, distance, simulation, data
     )
