@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
+- Add time, polar-cosine, and azimuthal dependence to weight windows; consolidate lower, target, and upper weights into one array and extend flattened-data accessors to eight dimensions, from [@nglaser3]
 - Add a fissionable material and an outlet detector to the pulsed Kobayashi example, from [@ilhamv]
 - Add CI check requiring generated Numba support to match the rebuild script, from [@ilhamv]
 - Add piece-wise linear spatial distribution for source definition, from [@ilhamv]
