@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
+- Add a fissionable material and an outlet detector to the pulsed Kobayashi example, from [@ilhamv]
 - Add CI check requiring generated Numba support to match the rebuild script, from [@ilhamv]
 - Add piece-wise linear spatial distribution for source definition, from [@ilhamv]
 - Add overriding option N_active, from [@ilhamv]
@@ -16,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 ### Changed
 
 - Unify polar–azimuthal basis construction across angle conversion, source direction sampling, and scattering, with robust Z-pole handling; the shared convention changes seeded particle trajectories, from [@nglaser3] and [@ilhamv]
+- Organize the Kobayashi examples under `examples/kobayashi-dogleg/` as `steady_state`, `pulsed`, and `pulsed_with_fission`; use the fission variant in the pulsed tutorial and clarify its relation to the original PNE benchmark and the Zenodo transient adaptation, from [@ilhamv]
 - Add standard `performance/` output metrics and replace `--runtime_output` with `--no-tally_output` to omit tally results, from [@ilhamv]
 - Filter out empty numba support accessors from creation, from [@ilhamv]
 - Update GPU transport support for the current MC/DC data model and Harmonize runtime, including GPU-compatible state access, particle-bank operations, array accessors, and torus intersections, from [@braxtoncuneo].
@@ -31,9 +33,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Fix multi-table distribution sampling when the incident energy equals the first grid point, which used the last grid point as the lower bound and could fail or return wrong values, from [@melekderman]
+- Fix element densities when collapsing a nuclide composition into elements, which counted nuclides with a shared symbol prefix (e.g., `Cr52` as carbon, `He4` as hydrogen), from [@melekderman]
+- Correct ACEtk electron data loading units, elastic cross-section assignments, and CDF dataset names, from [@massimolarsen]
 - Improve tally variance accuracy with stable online statistics and parallel moment merging; require multiple batches for fixed-source time-census and GPU transport, from [@ilhamv]
+- Fix UCX transport errors in MPI runs on the unit-test and Numba-support CI workflows by restricting `UCX_TLS` to `self,sm,tcp`, from [@melekderman]
 
 ### Security
+
+## [0.15.3] - 2026-09-27
+
+### Fixed
+
+- Correct Zenodo release metadata and update software authors in `CITATION.cff`, from [@melekderman] and [@ilhamv]
+
+### Added
+
+- Include `cffconvert` in the development dependencies for release citation validation, from [@ilhamv]
 
 ## [0.15.2] - 2026-08-15
 
@@ -201,6 +217,7 @@ The pre-refactor implementation remains available in the `cement` branch as a re
 - Multi-table distribution table selection sampling from [@melekderman]
 
 [Unreleased]: https://github.com/mcdc-project/mcdc/tree/dev
+[0.15.3]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.3
 [0.15.2]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.2
 [0.15.1]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.1
 [0.15.0]: https://github.com/mcdc-project/mcdc/releases/tag/v0.15.0
