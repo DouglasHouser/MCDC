@@ -358,12 +358,16 @@ def step_particle(particle_container, program, data):
 @njit
 def move_to_event(particle_container, simulation, data):
     settings = simulation["settings"]
+    condensed_history = simulation["technique"]["condensed_history"]
 
     # ==================================================================================
     # Preparation (as needed)
     # ==================================================================================
 
     particle = particle_container[0]
+    use_condensed_history = (
+        particle["particle_type"] == PARTICLE_PROTON and condensed_history["proton"]
+    )
 
     # Locate the material before evaluating material-dependent transport data.
     if particle["material_ID"] == -1:
@@ -405,7 +409,7 @@ def move_to_event(particle_container, simulation, data):
     d_collision = physics.collision_distance(particle_container, simulation, data)
 
     # Distance to max energy loss as dictated by CSDA
-    if settings["csda"]:
+    if use_condensed_history:
         d_csda = physics.csda_distance(particle_container, simulation, data)
 
     # ==================================================================================
@@ -438,7 +442,7 @@ def move_to_event(particle_container, simulation, data):
         particle["surface_ID"] = -1
 
     # Check distance to max energy loss from CSDA
-    if settings["csda"]:
+    if use_condensed_history:
         if d_csda < distance - COINCIDENCE_TOLERANCE:
             distance = d_csda
             particle["event"] = EVENT_CSDA_EDEP
@@ -469,7 +473,7 @@ def move_to_event(particle_container, simulation, data):
     particle_module.move(particle_container, distance, simulation, data)
 
     # CSDA calculates energy loss after particle has moved
-    if settings["csda"]:
+    if use_condensed_history:
         collision_data_container = util.local_array(1, type_.collision_data)
         physics.csda_edep(
             particle_container, collision_data_container, distance, simulation, data

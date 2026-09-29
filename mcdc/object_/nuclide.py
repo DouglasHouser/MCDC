@@ -330,9 +330,9 @@ class Nuclide(MCDCObject):
         if "stopping_power" in file:
             self.stopping_power = file["stopping_power"]["total_stopping_power"][()]
             self.stopping_power_energy_grid = file["stopping_power"]["energy"][()]
-        elif simulation.settings.csda:
+        elif simulation.technique.condensed_history.proton:
             raise ValueError(
-                f"CSDA cannot be used if no stopping power is provided for nuclide {self.name}"
+                f"Proton condensed history requires stopping power for nuclide {self.name}"
             )
 
         # Only CSDA data available - no nuclear rxn xs

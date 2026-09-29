@@ -605,8 +605,6 @@ settings = into_dtype([
     ('time_boundary', float64),
     ('output_name', 'U32'),
     ('use_progress_bar', bool_),
-    ('csda', bool_),
-    ('csda_max_fractional_e_loss', float64),
     ('N_census', int64),
     ('census_time_offset', int64),
     ('census_time_length', int64),
@@ -673,6 +671,11 @@ population_control = into_dtype([
     ('active', bool_),
 ])
 
+condensed_history = into_dtype([
+    ('proton', bool_),
+    ('max_fractional_energy_loss', float64),
+])
+
 technique = into_dtype([
     ('neutron_multigroup', neutron_multigroup),
     ('implicit_capture', implicit_capture),
@@ -680,6 +683,7 @@ technique = into_dtype([
     ('global_weight_roulette', global_weight_roulette),
     ('weight_windows', weight_windows),
     ('population_control', population_control),
+    ('condensed_history', condensed_history),
 ])
 
 source = into_dtype([

@@ -439,6 +439,66 @@ class PopulationControl(MCDCBase):
 
 
 # ======================================================================================
+# Condensed history
+# ======================================================================================
+
+
+class CondensedHistory(MCDCBase):
+    """Simulation-owned condensed-history configuration."""
+
+    # MC/DC framework metadata
+    label = "condensed_history"
+
+    proton: bool  # Whether proton condensed-history transport is enabled
+    max_fractional_energy_loss: float  # Step limit based on mean energy loss
+
+    def __init__(self) -> None:
+        self.proton = False
+        self.max_fractional_energy_loss = 1.0
+
+    def __call__(
+        self,
+        proton: bool = True,
+        max_fractional_energy_loss: float = 1.0,
+    ) -> None:
+        """Configure condensed-history transport.
+
+        Calling without arguments enables all supported particle types.
+        Currently, only protons are supported.
+
+        Parameters
+        ----------
+        proton : bool, optional
+            Whether proton condensed-history transport is enabled. Defaults to true.
+        max_fractional_energy_loss : float, optional
+            Maximum expected fraction of kinetic energy lost per step, shared
+            by all supported particle types.
+            Must be in (0, 1]. Defaults to 1.0. This limits the step length,
+            not the sampled energy loss after straggling.
+
+        Examples
+        --------
+        Enable condensed history for all supported particle types:
+
+        >>> import mcdc
+        >>> simulation = mcdc.Simulation()
+        >>> simulation.technique.condensed_history()
+
+        Disable proton condensed-history transport:
+
+        >>> simulation.technique.condensed_history(proton=False)
+        """
+        max_fractional_energy_loss = float(max_fractional_energy_loss)
+        if not np.isfinite(max_fractional_energy_loss) or not (
+            0.0 < max_fractional_energy_loss <= 1.0
+        ):
+            print_error("max_fractional_energy_loss must be finite and in (0, 1].")
+
+        self.proton = proton
+        self.max_fractional_energy_loss = max_fractional_energy_loss
+
+
+# ======================================================================================
 # Simulation technique collection
 # ======================================================================================
 
@@ -446,7 +506,7 @@ class PopulationControl(MCDCBase):
 class Technique(MCDCBase):
     """Own all simulation-wide transport-technique configurations.
 
-    Access the individual callable configurations through
+    Access the individual configurations through
     ``simulation.technique``. The same hierarchy is retained in the packed
     runtime simulation.
     """
@@ -460,6 +520,7 @@ class Technique(MCDCBase):
     global_weight_roulette: GlobalWeightRoulette
     weight_windows: WeightWindows
     population_control: PopulationControl
+    condensed_history: CondensedHistory
 
     def __init__(self) -> None:
         # Construct every simulation-wide technique configuration
@@ -469,3 +530,4 @@ class Technique(MCDCBase):
         self.global_weight_roulette = GlobalWeightRoulette()
         self.weight_windows = WeightWindows()
         self.population_control = PopulationControl()
+        self.condensed_history = CondensedHistory()

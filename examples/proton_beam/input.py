@@ -60,9 +60,9 @@ simulation.set_tallies([tally])
 simulation.settings.N_particle = 10000
 simulation.settings.N_batch = 1
 simulation.settings.set_transported_particles(["proton"])
-# simulation.settings.csda = True
 
 # Techniques
+simulation.technique.condensed_history(max_fractional_energy_loss=0.01)
 simulation.technique.implicit_capture()
 
 # Run

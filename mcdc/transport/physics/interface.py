@@ -105,6 +105,7 @@ def collision(particle_container, collision_data_container, program, data):
 
 @njit
 def csda_distance(particle_container, simulation, data):
+    condensed_history = simulation["technique"]["condensed_history"]
     particle = particle_container[0]
     material = simulation["materials"][particle["material_ID"]]
     E = particle["E"]
@@ -134,8 +135,8 @@ def csda_distance(particle_container, simulation, data):
         dedx = np.interp(E / 1e6, dedx_energies, dedx_values)
         total_dedx = dedx * 1e6
 
-    max_fractional_e_loss = simulation["settings"]["csda_max_fractional_e_loss"]
-    return max_fractional_e_loss * E / total_dedx / total_rho
+    max_fractional_energy_loss = condensed_history["max_fractional_energy_loss"]
+    return max_fractional_energy_loss * E / total_dedx / total_rho
 
 
 @njit
