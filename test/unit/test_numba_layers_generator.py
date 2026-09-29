@@ -151,7 +151,7 @@ def test_unsupported_accessor_rank_is_rejected_before_generation():
         "example": [AccessorTarget("values", ("N1", "N2", "N3", "N4", "N5"), False)]
     }
 
-    with pytest.raises(ValueError, match="one through four dimensions"):
+    with pytest.raises(ValueError, match="one through four or eight dimensions"):
         validate_accessor_targets(targets)
 
 
