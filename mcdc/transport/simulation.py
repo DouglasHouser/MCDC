@@ -284,6 +284,11 @@ def source_closeout(simulation, idx_work, N_prog, data):
 def particle_loop(particle_container, simulation, data):
     particle = particle_container[0]
 
+    # Apply techniques
+    apply_techniques(particle_container, simulation, data)
+    if not particle["alive"]:
+        return
+
     while particle["alive"]:
         step_particle(particle_container, simulation, data)
 

@@ -12,6 +12,7 @@ import mcdc.transport.rng as rng
 import mcdc.transport.util as util
 
 from mcdc.constant import (
+    EVENT_TIME_CENSUS,
     ELECTRON_CUTOFF_ENERGY,
     ELECTRON_MASS,
     ELECTRON_REACTION_BREMSSTRAHLUNG,
@@ -532,7 +533,10 @@ def sample_ionization(
     particle_new["uz"] = uz_delta
     particle_new["w"] = particle["w"]
 
-    particle_bank_module.bank_active_particle(particle_container_new, program)
+    if particle["event"] & EVENT_TIME_CENSUS:
+        particle_bank_module.bank_census_particle(particle_container_new, program)
+    else:
+        particle_bank_module.bank_active_particle(particle_container_new, program)
 
 
 @njit

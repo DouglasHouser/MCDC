@@ -99,7 +99,7 @@ def pop_particle(particle_container, bank):
     particle["material_ID"] = -1
     particle["cell_ID"] = -1
     particle["surface_ID"] = -1
-    particle["event"] = -1
+    particle["event"] = EVENT_NONE
 
 
 @njit

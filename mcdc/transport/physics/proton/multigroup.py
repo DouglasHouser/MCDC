@@ -13,6 +13,7 @@ import mcdc.transport.rng as rng
 import mcdc.transport.util as util
 
 from mcdc.constant import (
+    EVENT_TIME_CENSUS,
     PI,
     PROTON_REACTION_TOTAL,
     PROTON_REACTION_ELASTIC_SCATTERING,
@@ -156,8 +157,10 @@ def scattering(particle_container, program, data):
                 break
         particle_new["g"] = g_out
 
-        # Bank, but keep it if it is the last particle
-        if n == N - 1:
+        # Census takes precedence over retaining the last product.
+        if particle["event"] & EVENT_TIME_CENSUS:
+            particle_bank_module.bank_census_particle(particle_container_new, program)
+        elif n == N - 1:
             particle["alive"] = True
             particle["ux"] = particle_new["ux"]
             particle["uy"] = particle_new["uy"]

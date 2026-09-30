@@ -14,6 +14,7 @@ import mcdc.transport.rng as rng
 import mcdc.transport.util as util
 
 from mcdc.constant import (
+    EVENT_TIME_CENSUS,
     ANGLE_DISTRIBUTED,
     ANGLE_ENERGY_CORRELATED,
     ANGLE_ISOTROPIC,
@@ -640,8 +641,10 @@ def inelastic_scattering(
         # Bank the new particle
         # ==============================================================================
 
-        # Keep it if it is the last particle
-        if n == N_proton - 1:
+        # Census takes precedence over retaining the last product.
+        if particle["event"] & EVENT_TIME_CENSUS:
+            particle_bank_module.bank_census_particle(particle_container_new, program)
+        elif n == N_proton - 1:
             particle["alive"] = True
             particle["ux"] = particle_new["ux"]
             particle["uy"] = particle_new["uy"]
@@ -716,7 +719,14 @@ def inelastic_scattering(
             particle_new["uz"] = uz_new
             particle_new["E"] = E_new
             particle_new["particle_type"] = product_type
-            particle_bank_module.bank_active_particle(particle_container_new, program)
+            if particle["event"] & EVENT_TIME_CENSUS:
+                particle_bank_module.bank_census_particle(
+                    particle_container_new, program
+                )
+            else:
+                particle_bank_module.bank_active_particle(
+                    particle_container_new, program
+                )
         else:
             # Deuterons, tritons, He3, alphas, and heavier products are
             # retained in the data model but locally deposited for now.
