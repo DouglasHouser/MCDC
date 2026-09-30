@@ -77,20 +77,11 @@ def condensed_interactions(
         loc=0.0, scale=np.sqrt(energy_straggling_variance)
     )
     energy_loss += energy_straggling_modifier
-    particle["E"] -= energy_loss
-    collision_data["energy_deposition"] += energy_loss * particle["w"]
 
-    if energy_loss > particle["E"]:
-        energy_loss = particle["E"]
-    elif energy_loss < 0:
-        energy_loss = 0
-
-    # if energy_loss <= 0.0:
-    #     print(f"total density = {total_rho_gcm3}")
-    #     print(f"stopping_power = {total_stopping_power}")
-    #     print(f"distance = {distance}")
-    #     print(f'energy_loss = {energy_loss * particle["w"]}')
-    #     raise ValueError("negative energy loss")
+    # Clamping the energy loss to be between [0, particle["E"]]
+    energy_loss = min(max(energy_loss, 0.0), E)
+    particle["E"] = E - energy_loss
+    collision_data["energy_deposition"] += energy_loss * particle["w"]    
 
     X0 = material["radiation_length"]
 

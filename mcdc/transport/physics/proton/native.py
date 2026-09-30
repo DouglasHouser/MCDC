@@ -560,9 +560,10 @@ def inelastic_scattering(
             mu = sample_isotropic_cosine(particle_container_new)
         elif angle_type == ANGLE_DISTRIBUTED:
             mu_distribution = simulation["distributions"][inelastic_scattering["mu_ID"]]
-            mu = sample_multi_table(
-                E, particle_container, multi_table, simulation, data
-            )
+            mu = sample_distribution(E, mu_distribution, particle_container, simulation, data)
+            # mu = sample_multi_table(
+            #     E, particle_container, mu_distribution, simulation, data
+            # )
 
         # ==============================================================================
         # Sample energy (also angle if correlated)
@@ -572,13 +573,13 @@ def inelastic_scattering(
         if use_all_spectrum:
             ID = int(
                 mcdc_get.proton_inelastic_scattering_reaction.energy_spectrum_IDs(
-                    n, reaction, data
+                    n, inelastic_scattering, data
                 )
             )
             spectrum_base = simulation["distributions"][ID]
         else:
-            offset = reaction["spectrum_probability_grid_offset"]
-            length = reaction["spectrum_probability_grid_length"]
+            offset = inelastic_scattering["spectrum_probability_grid_offset"]
+            length = inelastic_scattering["spectrum_probability_grid_length"]
             probability_grid = data[offset : offset + length]
             probability_idx = find_bin(E, probability_grid)
             xi = rng.lcg(particle_container_new)
@@ -586,14 +587,14 @@ def inelastic_scattering(
             for j in range(N_spectrum):
                 probability = (
                     mcdc_get.proton_inelastic_scattering_reaction.spectrum_probability(
-                        probability_idx, j, reaction, data
+                        probability_idx, j, inelastic_scattering, data
                     )
                 )
                 total += probability
                 if xi < total:
                     ID = int(
                         mcdc_get.proton_inelastic_scattering_reaction.energy_spectrum_IDs(
-                            j, reaction, data
+                            j, inelastic_scattering, data
                         )
                     )
                     spectrum_base = simulation["distributions"][ID]
@@ -660,12 +661,10 @@ def inelastic_scattering(
     for i in range(inelastic_scattering["N_secondary_product"]):
         product_ID = int(
             mcdc_get.proton_inelastic_scattering_reaction.secondary_product_IDs(
-                i, reaction, data
+                i, inelastic_scattering, data
             )
         )
         product = simulation["proton_secondary_products"][product_ID]
-
-        print(f"inelastic scattering product = {product}")
 
         # The primary proton above is sampled from the reaction's primary
         # energy-angle distribution. Do not create it a second time here.
@@ -694,10 +693,8 @@ def inelastic_scattering(
             if product["angle_type"] == ANGLE_ISOTROPIC:
                 mu = sample_isotropic_cosine(particle_container_new)
             else:
-                multi_table = simulation["multi_table_distributions"][product["mu_ID"]]
-                mu = sample_multi_table(
-                    E, particle_container_new, multi_table, simulation, data
-                )
+                mu_distribution = simulation["distributions"][inelastic_scattering["mu_ID"]]
+                mu = sample_distribution(E, mu_distribution, particle_container, simulation, data)
 
         if product["reference_frame"] == REFERENCE_FRAME_COM:
             A = nuclide["atomic_weight_ratio"]
@@ -730,7 +727,7 @@ def inelastic_scattering(
         else:
             # Deuterons, tritons, He3, alphas, and heavier products are
             # retained in the data model but locally deposited for now.
-            collision_data["energy_deposition"] += E_new * w
+            collision_data["energy_deposition"] += E_new * particle["w"]
 
 
 # No fission for protons
