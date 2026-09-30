@@ -208,9 +208,8 @@ for zaid, Z, symbol, mcdc_name in pbar:
 
     # EPRDATA14 BREML stores EPICS2014's mean photon energy despite ACEtk's old name
     # https://mcnp.lanl.gov/pdf_files/TechReport_2016_LANL_LA-UR-16-20840_Hughes.pdf section 3.3
-    dataset = brems_group.create_dataset(
-        "value", data=np.array(breml_block.energy_after_bremsstrahlung) * 1e6
-    )
+    breml_loss = breml_block.energy_after_bremsstrahlung
+    dataset = brems_group.create_dataset("value", data=np.array(breml_loss) * 1e6)
     dataset.attrs["unit"] = "eV"
 
     # ==================================================================================
