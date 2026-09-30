@@ -19,19 +19,22 @@ from mcdc.constant import (
     ELECTRON_REACTION_ELASTIC_SCATTERING,
     ELECTRON_REACTION_IONIZATION,
     ELECTRON_REACTION_TOTAL,
+    INTERPOLATION_LINEAR,
     LIGHT_SPEED,
     PI,
 )
 from mcdc.transport.data import evaluate_data
-from mcdc.transport.distribution import (
-    sample_distribution,
-    sample_distribution_with_scale,
-)
+from mcdc.transport.distribution import invert_tabulated_segment, sample_distribution
 from mcdc.transport.physics.util import (
     evaluate_electron_xs_energy_grid,
     scatter_direction,
 )
-from mcdc.transport.util import linear_interpolation
+from mcdc.transport.util import (
+    find_bin,
+    linear_interpolation,
+    log_interpolation,
+    semilogx_interpolation,
+)
 
 # ======================================================================================
 # Particle attributes
@@ -494,9 +497,7 @@ def sample_ionization(
         chosen, ionization, data
     )
     T_dist = simulation["distributions"][dist_ID]
-    T_delta = sample_distribution_with_scale(
-        E, T_dist, particle_container, simulation, data
-    )
+    T_delta = sample_delta_energy(E, B, T_dist, particle_container, simulation, data)
 
     # Primary outgoing energy
     E_out = E - B - T_delta
@@ -554,6 +555,96 @@ def sample_ionization(
     particle_new["w"] = particle["w"]
 
     particle_bank_module.bank_active_particle(particle_container_new, program)
+
+
+@njit
+def sample_delta_energy(E, B, distribution, rng_state, simulation, data):
+    """Sample the knock-on electron energy from the subshell spectrum tables.
+
+    One random number inverts the two tables bounding E, and the two energies
+    are interpolated log-log in incident energy, following FRENSIE's EPRDATA14
+    policy. The artificial table at the binding energy is skipped; below the
+    first table above B, the sampled energy is scaled to reach zero at E = B.
+    """
+
+    multi_table = simulation["multi_table_distributions"][distribution["sub_ID"]]
+    grid = mcdc_get.multi_table_distribution.grid_all(multi_table, data)
+
+    # Skip the EPRDATA14 table at E = B, which tabulates positive knock-on
+    # energies although no energy is available. The library reader guarantees
+    # a table above the binding energy.
+    first = 0
+    while grid[first] <= B:
+        first += 1
+
+    xi = rng.lcg(rng_state)
+
+    # Below the first table above B: scale its sample to reach zero at E = B
+    if E <= grid[first]:
+        T_delta = _invert_delta_table(first, xi, multi_table, simulation, data)
+        T_delta *= (E - B) / (grid[first] - B)
+
+    # Above the grid: use the last table
+    elif E >= grid[-1]:
+        T_delta = _invert_delta_table(len(grid) - 1, xi, multi_table, simulation, data)
+
+    else:
+        idx = find_bin(E, grid)
+        E0 = grid[idx]
+        E1 = grid[idx + 1]
+        T0 = _invert_delta_table(idx, xi, multi_table, simulation, data)
+        T1 = _invert_delta_table(idx + 1, xi, multi_table, simulation, data)
+
+        if T0 > 0.0 and T1 > 0.0:
+            T_delta = log_interpolation(E, E0, E1, T0, T1)
+        else:
+            # Log-log interpolation is undefined at a zero sample
+            T_delta = semilogx_interpolation(E, E0, E1, T0, T1)
+
+    # Rounded tabulated energies can slightly exceed the knock-on limit
+    return min(T_delta, 0.5 * (E - B))
+
+
+@njit
+def _invert_delta_table(idx, xi, multi_table, simulation, data):
+    """Invert the spectrum table at grid index idx with a given random number."""
+
+    ID = mcdc_get.multi_table_distribution.table_IDs(idx, multi_table, data)
+    sub_ID = simulation["distributions"][ID]["sub_ID"]
+    table = simulation["tabulated_distributions"][sub_ID]
+
+    pdf_data = simulation["data"][table["pdf_ID"]]
+    pdf_table = simulation["table_data"][pdf_data["sub_ID"]]
+
+    cdf = mcdc_get.table_data.aux_vector(0, pdf_table, data)
+
+    # find_bin returns -1 at the first CDF point; avoid reading before the table.
+    if xi <= cdf[0]:
+        return mcdc_get.table_data.x(0, pdf_table, data)
+    idx = find_bin(xi, cdf)
+
+    c0 = cdf[idx]
+    c1 = cdf[idx + 1]
+    v0 = mcdc_get.table_data.x(idx, pdf_table, data)
+    v1 = mcdc_get.table_data.x(idx + 1, pdf_table, data)
+
+    # A repeated CDF value has a zero-width segment; take its upper value
+    if xi == c1:
+        return v1
+
+    # PDF input is piecewise linear; invert the PDF segment exactly
+    interpolation = mcdc_get.table_data.interpolations(0, pdf_table, data)
+    if interpolation == INTERPOLATION_LINEAR:
+        p0 = mcdc_get.table_data.y(idx, pdf_table, data)
+        p1 = mcdc_get.table_data.y(idx + 1, pdf_table, data)
+        return invert_tabulated_segment(xi, c0, v0, v1, p0, p1, interpolation)
+
+    # CDF input is stored as a histogram PDF (a piecewise-linear CDF), but the
+    # EPRDATA14 CDF is log-log in (CDF, energy); the segment starting at
+    # CDF = 0 is linear
+    if c0 == 0.0 or v0 == 0.0:
+        return linear_interpolation(xi, c0, c1, v0, v1)
+    return log_interpolation(xi, c0, c1, v0, v1)
 
 
 @njit
