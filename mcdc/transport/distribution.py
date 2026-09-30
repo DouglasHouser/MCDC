@@ -168,12 +168,16 @@ def sample_tabulated(table, rng_state, simulation, data):
     Sample a value from a tabulated distribution.
     """
 
+    xi = rng.lcg(rng_state)
+
     pdf_data = simulation["data"][table["pdf_ID"]]
     pdf_table = simulation["table_data"][pdf_data["sub_ID"]]
 
     cdf = mcdc_get.table_data.aux_vector(0, pdf_table, data)
 
-    xi = rng.lcg(rng_state)
+    # find_bin returns -1 at the first CDF point; avoid reading before the table.
+    if xi <= cdf[0]:
+        return mcdc_get.table_data.x(0, pdf_table, data)
     idx = find_bin(xi, cdf)
 
     c0 = mcdc_get.table_data.aux(0, idx, pdf_table, data)
