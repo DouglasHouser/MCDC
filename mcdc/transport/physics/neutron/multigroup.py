@@ -12,6 +12,8 @@ import mcdc.transport.rng as rng
 import mcdc.transport.util as util
 
 from mcdc.constant import (
+    COINCIDENCE_TOLERANCE_TIME,
+    EVENT_TIME_CENSUS,
     PI,
     NEUTRON_MULTIGROUP_ENERGY_MIDPOINT,
     NEUTRON_MULTIGROUP_ENERGY_MIDPOINT_LOG,
@@ -40,7 +42,7 @@ def applicable(particle_container, simulation, data):
     if not material["has_neutron_multigroup"]:
         return False
 
-    if simulation["technique"]["neutron_multigroup"]["hybrid"]:
+    if simulation["settings"]["neutron_multigroup"]["hybrid"]:
         mgxs_ID = material["neutron_multigroup_ID"]
         mgxs = simulation["neutron_multigroup_data"][mgxs_ID]
 
@@ -265,8 +267,10 @@ def scattering(particle_container, program, data):
             group_out, particle_container_new, mgxs, simulation, data
         )
 
-        # Bank, but keep it if it is the last particle
-        if n == N - 1:
+        # Census takes precedence over retaining the last product.
+        if particle["event"] & EVENT_TIME_CENSUS:
+            particle_bank_module.bank_census_particle(particle_container_new, program)
+        elif n == N - 1:
             particle["alive"] = True
             particle["ux"] = particle_new["ux"]
             particle["uy"] = particle_new["uy"]
@@ -376,28 +380,22 @@ def fission(particle_container, program, data):
             continue
         # Below is only relevant for fixed-source problem
 
-        # Skip if it's beyond time boundary
-        if particle_new["t"] > settings["time_boundary"]:
-            continue
+        # Prompt-neutron banking
+        if prompt:
+            # To census bank
+            if particle["event"] & EVENT_TIME_CENSUS:
+                particle_bank_module.bank_census_particle(
+                    particle_container_new, program
+                )
 
-        # Check if it hits current or next census times
-        hit_current_census = False
-        hit_future_census = False
-        idx_census = simulation["idx_census"]
-        if settings["N_census"] > 1:
-            if particle_new["t"] > mcdc_get.settings.census_time(
-                idx_census, settings, data
-            ):
-                hit_current_census = True
-                if particle_new["t"] > mcdc_get.settings.census_time(
-                    idx_census + 1, settings, data
-                ):
-                    hit_future_census = True
+            # To active bank
+            elif n < N - 1:
+                particle_bank_module.bank_active_particle(
+                    particle_container_new, program
+                )
 
-        # Not hitting census --> add to active bank
-        if not hit_current_census:
-            # Keep it if it is the last particle
-            if n == N - 1:
+            # Replace current particle
+            else:
                 particle["alive"] = True
                 particle["ux"] = particle_new["ux"]
                 particle["uy"] = particle_new["uy"]
@@ -405,20 +403,61 @@ def fission(particle_container, program, data):
                 particle["t"] = particle_new["t"]
                 particle["E"] = particle_new["E"]
                 particle["w"] = particle_new["w"]
-            else:
-                particle_bank_module.bank_active_particle(
+
+        # Delayed-neutron banking
+        else:
+            # Skip if beyond time boundary
+            if (
+                particle_new["t"]
+                > settings["time_boundary"] - COINCIDENCE_TOLERANCE_TIME
+            ):
+                continue
+
+            # Check if go to census or future bank
+            hit_current_census = False
+            hit_future_census = False
+            idx_census = simulation["idx_census"]
+            if settings["N_census"] > 1:
+                if particle_new["t"] > (
+                    mcdc_get.settings.census_time(idx_census, settings, data)
+                    - COINCIDENCE_TOLERANCE_TIME
+                ):
+                    hit_current_census = True
+                    if particle_new["t"] > (
+                        mcdc_get.settings.census_time(idx_census + 1, settings, data)
+                        - COINCIDENCE_TOLERANCE_TIME
+                    ):
+                        hit_future_census = True
+
+            # Not hitting census --> add to active bank
+            if not hit_current_census:
+                # Keep it if it is the last particle
+                if n == N - 1:
+                    particle["alive"] = True
+                    particle["ux"] = particle_new["ux"]
+                    particle["uy"] = particle_new["uy"]
+                    particle["uz"] = particle_new["uz"]
+                    particle["t"] = particle_new["t"]
+                    particle["E"] = particle_new["E"]
+                    particle["w"] = particle_new["w"]
+                else:
+                    particle_bank_module.bank_active_particle(
+                        particle_container_new, program
+                    )
+
+            # Hit future census --> add to future bank
+            elif hit_future_census:
+                # Particle will participate in the future
+                particle_bank_module.bank_future_particle(
                     particle_container_new, program
                 )
 
-        # Hit future census --> add to future bank
-        elif hit_future_census:
-            # Particle will participate in the future
-            particle_bank_module.bank_future_particle(particle_container_new, program)
-
-        # Hit current census --> add to census bank
-        else:
-            # Particle will participate after the current census is completed
-            particle_bank_module.bank_census_particle(particle_container_new, program)
+            # Hit current census --> add to census bank
+            else:
+                # Particle will participate after the current census is completed
+                particle_bank_module.bank_census_particle(
+                    particle_container_new, program
+                )
 
 
 # ======================================================================================
@@ -428,7 +467,7 @@ def fission(particle_container, program, data):
 
 @njit
 def _get_energy_group(E, mgxs, simulation, data):
-    if simulation["technique"]["neutron_multigroup"]["hybrid"]:
+    if simulation["settings"]["neutron_multigroup"]["hybrid"]:
         offset = mgxs["energy_grid_offset"]
         length = mgxs["energy_grid_length"]
         E_grid = data[offset : offset + length]
@@ -442,7 +481,7 @@ def _get_energy_group(E, mgxs, simulation, data):
 
 @njit
 def _get_group_energy(group, rng_state, mgxs, simulation, data):
-    if simulation["technique"]["neutron_multigroup"]["hybrid"]:
+    if simulation["settings"]["neutron_multigroup"]["hybrid"]:
         E_low = mcdc_get.neutron_multigroup_data.energy_grid(group, mgxs, data)
         E_high = mcdc_get.neutron_multigroup_data.energy_grid(group + 1, mgxs, data)
         representation = mgxs["energy_representation"]

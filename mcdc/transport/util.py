@@ -5,6 +5,27 @@ import numba as nb
 from numba import njit
 from typing import Sequence
 
+from mcdc.constant import (
+    PARTICLE_ANY,
+    PARTICLE_NEUTRON,
+    PARTICLE_ELECTRON,
+    PARTICLE_PROTON,
+)
+
+
+@njit
+def particle_name(particle_type):
+    """Return the name of a particle type."""
+    if particle_type == PARTICLE_NEUTRON:
+        return "neutron"
+    elif particle_type == PARTICLE_ELECTRON:
+        return "electron"
+    elif particle_type == PARTICLE_PROTON:
+        return "proton"
+    elif particle_type == PARTICLE_ANY:
+        return "any particle"
+    return f"unknown particle type {particle_type}"
+
 
 @njit
 def find_bin_with_rules(value, grid, epsilon, go_lower):

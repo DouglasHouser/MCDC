@@ -9,7 +9,6 @@ import numpy as np
 from tqdm import tqdm
 import ACEtk
 
-
 # -- Constants -----------------------------------------------------------------
 
 ZAP_NAMES = {

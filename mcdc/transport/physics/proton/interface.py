@@ -35,15 +35,3 @@ def macro_xs(reaction_type, particle_container, simulation, data):
 def collision(particle_container, collision_data_container, program, data):
     simulation = util.access_simulation(program)
     native.collision(particle_container, collision_data_container, program, data)
-
-
-# ======================================================================================
-# Continuous Slowing Down Approximation
-# ======================================================================================
-
-
-@njit
-def csda_edep(particle_container, collision_data_container, distance, simulation, data):
-    native.csda_edep(
-        particle_container, collision_data_container, distance, simulation, data
-    )

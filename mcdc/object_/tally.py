@@ -436,7 +436,7 @@ class Tally(MCDCPolymorphic):
     def _resolve_energy_filter(self, simulation) -> None:
         """Resolve energy filters that require the complete material model."""
         if self._energy_all:
-            if simulation.technique.neutron_multigroup.hybrid:
+            if simulation.settings.neutron_multigroup.hybrid:
                 print_error(
                     'The energy="all" filter requires standard neutron multigroup '
                     "transport."

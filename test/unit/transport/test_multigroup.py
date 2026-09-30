@@ -37,7 +37,7 @@ def test_group_energy_representation(representation, expected, prepare_simulatio
         capture=[1.0, 1.0],
         energy_representation=representation,
     )
-    simulation["technique"]["neutron_multigroup"]["hybrid"] = True
+    simulation["settings"]["neutron_multigroup"]["hybrid"] = True
 
     rng_state = np.zeros(1, dtype=type_.particle)
     rng_state[0]["rng_seed"] = np.uint64(1)
@@ -68,7 +68,7 @@ def test_hybrid_energy_groups_are_left_closed(prepare_simulation):
         prepare_simulation,
         capture=[1.0, 1.0],
     )
-    simulation["technique"]["neutron_multigroup"]["hybrid"] = True
+    simulation["settings"]["neutron_multigroup"]["hybrid"] = True
 
     particle_container = np.zeros(1, dtype=type_.particle)
     particle = particle_container[0]
@@ -113,7 +113,7 @@ def test_scattering_product_uses_multigroup_data(prepare_simulation):
         prepare_simulation,
         scatter=[[0.0, 0.0], [1.0, 1.0]],
     )
-    simulation["technique"]["neutron_multigroup"]["hybrid"] = True
+    simulation["settings"]["neutron_multigroup"]["hybrid"] = True
     particle_container = _make_particle()
 
     multigroup.scattering(particle_container, simulation, data)
@@ -130,7 +130,7 @@ def test_prompt_fission_products(prepare_simulation):
         nu_p=[4.0, 4.0],
         chi_p=[0.0, 1.0],
     )
-    simulation["technique"]["neutron_multigroup"]["hybrid"] = True
+    simulation["settings"]["neutron_multigroup"]["hybrid"] = True
     particle_container = _make_particle()
 
     multigroup.fission(particle_container, simulation, data)
@@ -147,7 +147,7 @@ def test_delayed_fission_products(prepare_simulation):
         chi_d=[[0.0], [1.0]],
         decay_rate=[1.0],
     )
-    simulation["technique"]["neutron_multigroup"]["hybrid"] = True
+    simulation["settings"]["neutron_multigroup"]["hybrid"] = True
     particle_container = _make_particle()
 
     multigroup.fission(particle_container, simulation, data)

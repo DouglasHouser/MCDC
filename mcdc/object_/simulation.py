@@ -39,7 +39,7 @@ from mcdc.object_.mesh import MeshBase
 from mcdc.object_.particle import ParticleBank
 from mcdc.object_.settings import Settings
 from mcdc.object_.technique import Technique
-from mcdc.print_ import print_error
+from mcdc.print_ import print_error, print_msg
 
 from mcdc.object_.universe import Universe, Lattice
 
@@ -374,14 +374,14 @@ class Simulation(MCDCBase):
                 for material in self.materials[1:]
             )
 
-        self.technique.neutron_multigroup.hybrid = not (
+        self.settings.neutron_multigroup.hybrid = not (
             not materials_have_native_composition
             and materials_have_multigroup
             and multigroup_grids_are_identical
         )
 
         # Require physical energy boundaries wherever energy selects local groups.
-        if self.technique.neutron_multigroup.hybrid:
+        if self.settings.neutron_multigroup.hybrid:
             for material in self.materials:
                 model = material.neutron_multigroup
                 if model.G > 0 and not np.any(model.energy_grid):
@@ -421,10 +421,16 @@ class Simulation(MCDCBase):
                         f"0 <= energy < G (G={G})."
                     )
 
-        # Limit transport to the latest requested tally boundary
-        settings.time_boundary = min(
-            [settings.time_boundary] + [tally.time[-1] for tally in self.tallies]
+        # Stop after the latest tally time, respecting the user's earlier limit.
+        latest_tally_time = max(
+            (tally.time[-1] for tally in self.tallies), default=np.inf
         )
+        if latest_tally_time < settings.time_boundary:
+            print_msg(
+                f"Adjusted time_boundary from {settings.time_boundary} s to "
+                f"{latest_tally_time} s to match the latest tally time."
+            )
+            settings.time_boundary = latest_tally_time
 
         # Complete native-material compositions for the transported particles
         for material in self.materials:

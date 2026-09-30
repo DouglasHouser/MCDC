@@ -155,14 +155,16 @@ BOOL_NOT = -3
 # ======================================================================================
 
 # Events are bit flags and may be combined with bitwise operations.
-EVENT_NONE = 1 << 0
-EVENT_SURFACE_CROSSING = 1 << 1
-EVENT_LATTICE_CROSSING = 1 << 2
-EVENT_LOST = 1 << 3
-EVENT_COLLISION = 1 << 4
-EVENT_TIME_CENSUS = 1 << 5
-EVENT_TIME_BOUNDARY = 1 << 6
-EVENT_CSDA_EDEP = 1 << 7
+#   - NONE represents an empty event mask.
+#   - LOST and TIME_BOUNDARY are exclusive.
+#   - Collision and geometry crossing are mutually exclusive.
+#   - Time census may accompany collision or geometry crossing.
+EVENT_NONE = 0
+EVENT_LOST = 1 << 0
+EVENT_TIME_BOUNDARY = 1 << 1
+EVENT_COLLISION = 1 << 2
+EVENT_GEOMETRY_CROSSING = 1 << 3
+EVENT_TIME_CENSUS = 1 << 4
 
 # Coincidence tolerances
 COINCIDENCE_TOLERANCE = TINY

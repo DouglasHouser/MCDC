@@ -8,23 +8,6 @@ from numpy.typing import NDArray
 from typing import Annotated
 
 # ======================================================================================
-# Neutron multigroup
-# ======================================================================================
-
-
-class NeutronMultigroup(MCDCBase):
-    """Describe whether neutron multigroup transport is standard or hybrid."""
-
-    # MC/DC framework metadata
-    label = "neutron_multigroup"
-
-    hybrid: bool  # Whether neutron multigroup transport is hybrid
-
-    def __init__(self) -> None:
-        self.hybrid = True
-
-
-# ======================================================================================
 # Implicit capture
 # ======================================================================================
 
@@ -446,7 +429,7 @@ class PopulationControl(MCDCBase):
 class Technique(MCDCBase):
     """Own all simulation-wide transport-technique configurations.
 
-    Access the individual callable configurations through
+    Access the individual configurations through
     ``simulation.technique``. The same hierarchy is retained in the packed
     runtime simulation.
     """
@@ -454,7 +437,6 @@ class Technique(MCDCBase):
     # MC/DC framework metadata
     label = "technique"
 
-    neutron_multigroup: NeutronMultigroup
     implicit_capture: ImplicitCapture
     weighted_emission: WeightedEmission
     global_weight_roulette: GlobalWeightRoulette
@@ -463,7 +445,6 @@ class Technique(MCDCBase):
 
     def __init__(self) -> None:
         # Construct every simulation-wide technique configuration
-        self.neutron_multigroup = NeutronMultigroup()
         self.implicit_capture = ImplicitCapture()
         self.weighted_emission = WeightedEmission()
         self.global_weight_roulette = GlobalWeightRoulette()

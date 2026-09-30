@@ -16,7 +16,7 @@ simulation = mcdc.Simulation("Lockwood")
 # Energy and Angle Parameters
 MATERIAL_SYMBOL = "Al"
 ENERGY = 1e4  # eV
-CSDA_RANGE = 0.569  # g/cm2
+CONDENSED_HISTORY_RANGE = 0.569  # g/cm2
 ANGLE = 0.0
 
 # MCDC Simulation Parameters
@@ -35,7 +35,7 @@ MAT_DENSITY_ATOMS_PER_BARN_CM = (
     AVAGADRO_NUMBER / ATOMIC_WEIGHT_G_MOL * RHO_G_CM3 / 1e24
 ) * 1e-2  # atoms/barn-cm
 TINY = 1e-30
-L = CSDA_RANGE / RHO_G_CM3  # cm
+L = CONDENSED_HISTORY_RANGE / RHO_G_CM3  # cm
 N_LAYERS = 1
 THETA = math.radians(ANGLE)
 
