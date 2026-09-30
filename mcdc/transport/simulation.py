@@ -328,6 +328,11 @@ def step_particle(particle_container, program, data):
     # Main events
     # ==================================================================================
 
+    # Time boundary crossing
+    if particle["event"] == EVENT_TIME_BOUNDARY:
+        particle["alive"] = False
+        return
+
     # Collision
     if particle["event"] & EVENT_COLLISION:
         collision(particle_container, program, data)
@@ -343,11 +348,6 @@ def step_particle(particle_container, program, data):
     # ==================================================================================
     # Post treatments
     # ==================================================================================
-
-    # Terminate at final time after scoring coincident physical events.
-    if particle["event"] & EVENT_TIME_BOUNDARY:
-        particle["alive"] = False
-        return
 
     # Apply techniques
     apply_techniques(particle_container, program, data)
@@ -418,9 +418,9 @@ def determine_next_events(particle_container, d_geometry, simulation, data):
     # ==================================================================================
     # Select event distance and resolve coincident events
     # ==================================================================================
-    #   Select at most one physical event and one coincident time event.
+    #   Time boundary is exclusive and overrides all coincident events.
+    #   Otherwise, select at most one physical event, possibly with census.
     #   Geometry crossing takes precedence over collision.
-    #   Time boundary takes precedence over census.
     #   A condensed-step limit alone results in EVENT_NONE.
 
     # Get minimum distance
@@ -433,6 +433,12 @@ def determine_next_events(particle_container, d_geometry, simulation, data):
         particle["alive"] = False
         return 0.0
 
+    # Final time overrides all coincident events.
+    if geometry.check_coincidence(d_time_boundary, distance):
+        particle["event"] = EVENT_TIME_BOUNDARY
+        particle["surface_ID"] = -1
+        return d_time_boundary
+
     # Geometry crossing
     if geometry.check_coincidence(d_geometry, distance):
         particle["event"] = EVENT_GEOMETRY_CROSSING
@@ -442,11 +448,8 @@ def determine_next_events(particle_container, d_geometry, simulation, data):
     else:
         particle["event"] = EVENT_NONE
 
-    # Time boundary
-    if geometry.check_coincidence(d_time_boundary, distance):
-        particle["event"] |= EVENT_TIME_BOUNDARY
     # Time census
-    elif geometry.check_coincidence(d_time_census, distance):
+    if geometry.check_coincidence(d_time_census, distance):
         particle["event"] |= EVENT_TIME_CENSUS
 
     # Reset surface_ID if not geometry crossing
