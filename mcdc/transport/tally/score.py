@@ -208,13 +208,11 @@ def tracklength(particle_container, distance, tally, simulation, data):
     z_final = z + uz * distance
     t_final = t + ut * distance
 
-    # No score if particle does not cross the time bins
+    # No score if particle does not cross the time bins. Tracks shorter than
+    # the coincidence tolerance still score: electron lifetimes are below it.
     t_min = mcdc_get.tally.time(0, tally, data)
     t_max = mcdc_get.tally.time_last(tally, data)
-    if (
-        t_final < t_min + COINCIDENCE_TOLERANCE_TIME
-        or t > t_max - COINCIDENCE_TOLERANCE_TIME
-    ):
+    if t_final <= t_min or t > t_max - COINCIDENCE_TOLERANCE_TIME:
         return
 
     # Get the appropriate time index if the filter starts in the future
