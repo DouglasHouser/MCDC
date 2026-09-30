@@ -12,6 +12,7 @@ import mcdc.transport.rng as rng
 import mcdc.transport.util as util
 
 from mcdc.constant import (
+    COINCIDENCE_TOLERANCE_TIME,
     PI,
     NEUTRON_MULTIGROUP_ENERGY_MIDPOINT,
     NEUTRON_MULTIGROUP_ENERGY_MIDPOINT_LOG,
@@ -376,21 +377,23 @@ def fission(particle_container, program, data):
             continue
         # Below is only relevant for fixed-source problem
 
-        # Skip if it's beyond time boundary
-        if particle_new["t"] > settings["time_boundary"]:
+        # Skip products at or beyond the final time, within tolerance.
+        if particle_new["t"] > settings["time_boundary"] - COINCIDENCE_TOLERANCE_TIME:
             continue
 
-        # Check if it hits current or next census times
+        # Include products coincident with current or next census times.
         hit_current_census = False
         hit_future_census = False
         idx_census = simulation["idx_census"]
         if settings["N_census"] > 1:
-            if particle_new["t"] > mcdc_get.settings.census_time(
-                idx_census, settings, data
+            if particle_new["t"] > (
+                mcdc_get.settings.census_time(idx_census, settings, data)
+                - COINCIDENCE_TOLERANCE_TIME
             ):
                 hit_current_census = True
-                if particle_new["t"] > mcdc_get.settings.census_time(
-                    idx_census + 1, settings, data
+                if particle_new["t"] > (
+                    mcdc_get.settings.census_time(idx_census + 1, settings, data)
+                    - COINCIDENCE_TOLERANCE_TIME
                 ):
                     hit_future_census = True
 
