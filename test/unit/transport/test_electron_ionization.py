@@ -63,7 +63,7 @@ def ionization_model(tmp_path, monkeypatch, prepare_simulation):
     cell = mcdc.Cell(fill=material)
 
     def configure(simulation):
-        simulation.settings.set_transported_particles(["electron"])
+        simulation.settings.electron_transport.active = True
 
     simulation_container, data = prepare_simulation(cells=[cell], configure=configure)
     return simulation_container[0], data
@@ -87,7 +87,7 @@ def test_ionization_library_without_spectrum_above_binding_energy(
         cell = mcdc.Cell(fill=material)
 
         def configure(simulation):
-            simulation.settings.set_transported_particles(["electron"])
+            simulation.settings.electron_transport.active = True
 
         prepare_simulation(cells=[cell], configure=configure)
 
