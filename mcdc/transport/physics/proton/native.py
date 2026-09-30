@@ -351,16 +351,12 @@ def csda_edep(particle_container, collision_data_container, distance, simulation
     )
     energy_loss = total_stopping_power * total_rho_gcm3 * distance
 
-    # Range straggling - modify energy loss to have some slight variations
-    # TODO: Insert different thickness regimes to sample from (e.g. Bohr, Landau, Vavilov)
-    # TODO: Make this part use rng state instead of np.random.normal?
-
     # Energy straggling variance in units of MeV^2
     energy_straggling_variance = (
         0.1569 * total_rho_gcm3 * average_Z / average_A * distance
     )
     # Convert to units of eV^2
-    energy_straggling_variance * 1e6**2
+    energy_straggling_variance *= (1e6)**2
     energy_straggling_modifier = np.random.normal(
         loc=0.0, scale=np.sqrt(energy_straggling_variance)
     )
@@ -368,12 +364,17 @@ def csda_edep(particle_container, collision_data_container, distance, simulation
     particle["E"] -= energy_loss
     collision_data["energy_deposition"] += energy_loss * particle["w"]
 
-    if energy_loss * particle["w"] <= 0.0:
-        print(f"total density = {total_rho_gcm3}")
-        print(f"stopping_power = {total_stopping_power}")
-        print(f"distance = {distance}")
-        print(f'energy_loss = {energy_loss * particle["w"]}')
-        raise ValueError("negative energy loss")
+    if energy_loss > particle["E"]:
+        energy_loss = particle["E"]
+    elif energy_loss < 0:
+        energy_loss = 0 
+
+    # if energy_loss <= 0.0:
+    #     print(f"total density = {total_rho_gcm3}")
+    #     print(f"stopping_power = {total_stopping_power}")
+    #     print(f"distance = {distance}")
+    #     print(f'energy_loss = {energy_loss * particle["w"]}')
+    #     raise ValueError("negative energy loss")
 
     X0 = material["radiation_length"]
 

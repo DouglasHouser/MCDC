@@ -55,7 +55,7 @@ class Settings(MCDCBase):
     #: Whether to display transport progress. The default is ``True``.
     use_progress_bar: bool = True
     csda: bool = False
-    csda_max_fractional_e_loss: float = 0.01
+    csda_max_fractional_e_loss: float = 0.15
 
     # Time census
     N_census: int = 1
