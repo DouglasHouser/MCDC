@@ -29,17 +29,17 @@ class NeutronMultigroup(MCDCBase):
 
 
 # ======================================================================================
-# Condensed history
+# Condensed interactions
 # ======================================================================================
 
 
-class CondensedHistory(MCDCBase):
-    """Simulation-owned condensed-history configuration."""
+class CondensedInteractions(MCDCBase):
+    """Simulation-owned condensed-interaction configuration."""
 
     # MC/DC framework metadata
-    label = "condensed_history"
+    label = "condensed_interactions"
 
-    proton: bool  # Whether proton condensed-history transport is enabled
+    proton: bool  # Whether proton interactions are condensed
     max_fractional_energy_loss: float  # Step limit based on mean energy loss
 
     def __init__(self) -> None:
@@ -51,7 +51,7 @@ class CondensedHistory(MCDCBase):
         proton: bool = True,
         max_fractional_energy_loss: float = 1.0,
     ) -> None:
-        """Configure condensed-history transport.
+        """Configure condensed interactions.
 
         Calling without arguments enables all supported particle types.
         Currently, only protons are supported.
@@ -59,7 +59,7 @@ class CondensedHistory(MCDCBase):
         Parameters
         ----------
         proton : bool, optional
-            Whether proton condensed-history transport is enabled. Defaults to true.
+            Whether proton interactions are condensed. Defaults to true.
         max_fractional_energy_loss : float, optional
             Maximum expected fraction of kinetic energy lost per step, shared
             by all supported particle types.
@@ -68,15 +68,15 @@ class CondensedHistory(MCDCBase):
 
         Examples
         --------
-        Enable condensed history for all supported particle types:
+        Enable condensed interactions for all supported particle types:
 
         >>> import mcdc
         >>> simulation = mcdc.Simulation()
-        >>> simulation.settings.condensed_history()
+        >>> simulation.settings.condensed_interactions()
 
-        Disable proton condensed-history transport:
+        Disable condensed interactions for protons:
 
-        >>> simulation.settings.condensed_history(proton=False)
+        >>> simulation.settings.condensed_interactions(proton=False)
         """
         max_fractional_energy_loss = float(max_fractional_energy_loss)
         if not np.isfinite(max_fractional_energy_loss) or not (
@@ -160,7 +160,9 @@ class Settings(MCDCBase):
 
     # Transport models
     neutron_multigroup: NeutronMultigroup = field(default_factory=NeutronMultigroup)
-    condensed_history: CondensedHistory = field(default_factory=CondensedHistory)
+    condensed_interactions: CondensedInteractions = field(
+        default_factory=CondensedInteractions
+    )
 
     # Neutron transport modes
     neutron_eigenvalue_mode: bool = False

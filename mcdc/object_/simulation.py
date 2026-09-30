@@ -39,7 +39,7 @@ from mcdc.object_.mesh import MeshBase
 from mcdc.object_.particle import ParticleBank
 from mcdc.object_.settings import Settings
 from mcdc.object_.technique import Technique
-from mcdc.print_ import print_error
+from mcdc.print_ import print_error, print_msg
 
 from mcdc.object_.universe import Universe, Lattice
 
@@ -421,10 +421,16 @@ class Simulation(MCDCBase):
                         f"0 <= energy < G (G={G})."
                     )
 
-        # Limit transport to the latest requested tally boundary
-        settings.time_boundary = min(
-            [settings.time_boundary] + [tally.time[-1] for tally in self.tallies]
+        # Stop after the latest tally time, respecting the user's earlier limit.
+        latest_tally_time = max(
+            (tally.time[-1] for tally in self.tallies), default=np.inf
         )
+        if latest_tally_time < settings.time_boundary:
+            print_msg(
+                f"Adjusted time_boundary from {settings.time_boundary} s to "
+                f"{latest_tally_time} s to match the latest tally time."
+            )
+            settings.time_boundary = latest_tally_time
 
         # Complete native-material compositions for the transported particles
         for material in self.materials:

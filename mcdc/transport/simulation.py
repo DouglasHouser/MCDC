@@ -291,106 +291,110 @@ def particle_loop(particle_container, simulation, data):
 @njit
 def step_particle(particle_container, program, data):
     simulation = util.access_simulation(program)
+    settings = simulation["settings"]
     particle = particle_container[0]
 
-    # Determine and move to event
-    move_to_event(particle_container, simulation, data)
+    # ==================================================================================
+    # Preparation
+    # ==================================================================================
 
-    # Execute events
+    # Reset particle event flags
+    particle["event"] = EVENT_NONE
+
+    # Inspect geometry
+    d_geometry = inspect_geometry(particle_container, simulation, data)
     if particle["event"] == EVENT_LOST:
         return
 
+    # Determine distance to next events
+    distance = determine_next_events(particle_container, d_geometry, simulation, data)
+    if particle["event"] == EVENT_LOST:
+        return
+
+    # ==================================================================================
+    # Advance
+    # ==================================================================================
+
+    # Move particle
+    move_particle(particle_container, distance, simulation, data)
+
+    # Condensed interactions
+    if use_condensed_interactions(particle_container, settings):
+        condensed_interactions(particle_container, distance, simulation, data)
+        if not particle["alive"]:
+            return
+
+    # ==================================================================================
+    # Main events
+    # ==================================================================================
+
     # Collision
     if particle["event"] & EVENT_COLLISION:
-        collision_data_container = util.local_array(1, type_.collision_data)
+        collision(particle_container, program, data)
+        if not particle["alive"]:
+            return
 
-        # Execute the physics
-        physics.collision(particle_container, collision_data_container, program, data)
+    # Geometry crossing
+    elif particle["event"] & EVENT_GEOMETRY_CROSSING:
+        geometry_crossing(particle_container, simulation, data)
+        if not particle["alive"]:
+            return
 
-        # Score collision tallies
-        if simulation["cycle_active"]:
-            cell = simulation["cells"][particle["cell_ID"]]
-            for i in range(cell["N_collision_tally"]):
-                tally_ID = mcdc_get.cell.collision_tally_IDs(i, cell, data)
-                tally = simulation["tallies"][tally_ID]
-                tally_module.score.collision(
-                    particle_container,
-                    collision_data_container,
-                    tally,
-                    simulation,
-                    data,
-                )
+    # ==================================================================================
+    # Post treatments
+    # ==================================================================================
 
-    # Surface and domain crossing
-    if particle["event"] & EVENT_SURFACE_CROSSING:
-        surface_crossing(particle_container, simulation, data)
+    # Terminate at final time after scoring coincident physical events.
+    if particle["event"] & EVENT_TIME_BOUNDARY:
+        particle["alive"] = False
+        return
+
+    # Apply techniques
+    apply_techniques(particle_container, program, data)
+    if not particle["alive"]:
+        return
 
     # Census time crossing
     if particle["event"] & EVENT_TIME_CENSUS:
         particle_bank_module.bank_census_particle(particle_container, program)
         particle["alive"] = False
 
-    # Time boundary crossing
-    if particle["event"] & EVENT_TIME_BOUNDARY:
-        particle["alive"] = False
-
-    # ==================================================================================
-    # Apply techniques
-    # ==================================================================================
-
-    # Skip if not alive
-    if not particle["alive"]:
-        return
-
-    # Weight windows
-    if simulation["technique"]["weight_windows"]["active"]:
-        technique.weight_windows(particle_container, program, data)
-
-    # Global weight roulette
-    if simulation["technique"]["global_weight_roulette"]["active"]:
-        technique.global_weight_roulette(particle_container, simulation)
-
 
 @njit
-def move_to_event(particle_container, simulation, data):
-    settings = simulation["settings"]
-    condensed_history = simulation["settings"]["condensed_history"]
+def inspect_geometry(particle_container, simulation, data):
+    """
+    Locate the particle and record its next geometry crossing.
 
-    # ==================================================================================
-    # Preparation (as needed)
-    # ==================================================================================
-
+    - Set particle top cell and material IDs (if not lost)
+    - Set surface ID for surface actions, or -1 for a lattice-only crossing
+    - Set EVENT_LOST if lost; otherwise retain EVENT_NONE until event determination
+    - Return distance to the geometry crossing, or zero if lost
+    """
     particle = particle_container[0]
-    use_condensed_history = (
-        particle["particle_type"] == PARTICLE_PROTON and condensed_history["proton"]
-    )
 
     # Locate the material before evaluating material-dependent transport data.
     if particle["material_ID"] == -1:
         if not geometry.locate_particle(particle_container, simulation, data):
             particle["event"] = EVENT_LOST
-            return
+            return 0.0
 
-    # ==================================================================================
-    # Geometry inspection
-    # ==================================================================================
-    #   - Set particle top cell and material IDs (if not lost)
-    #   - Set surface ID (if surface hit)
-    #   - Set particle boundary event (surface or lattice crossing, or lost)
-    #   - Return distance to boundary (surface or lattice)
-
-    d_boundary = geometry.inspect_geometry(particle_container, simulation, data)
-
-    # Particle is lost?
+    distance = geometry.inspect_geometry(particle_container, simulation, data)
     if particle["event"] == EVENT_LOST:
-        return
+        return 0.0
 
-    # ==================================================================================
-    # Get distances to other events
-    # ==================================================================================
+    return distance
 
-    # Distance to domain
+
+@njit
+def determine_next_events(particle_container, d_geometry, simulation, data):
+    """Determine next events based on their respective distances."""
+    settings = simulation["settings"]
+    particle = particle_container[0]
     speed = physics.particle_speed(particle_container, simulation, data)
+
+    # ==================================================================================
+    # Compute the distances
+    # ==================================================================================
 
     # Distance to time boundary
     d_time_boundary = speed * (settings["time_boundary"] - particle["t"])
@@ -404,95 +408,132 @@ def move_to_event(particle_container, simulation, data):
     # Distance to next collision
     d_collision = physics.collision_distance(particle_container, simulation, data)
 
-    # Distance to max energy loss as dictated by condensed history
-    if use_condensed_history:
-        d_condensed_history = physics.max_condensed_history_distance(
+    # Maximum distance for condensed interactions
+    d_condensed = INF
+    if use_condensed_interactions(particle_container, settings):
+        d_condensed = physics.max_condensed_step_distance(
             particle_container, simulation, data
         )
 
     # ==================================================================================
-    # Determine event(s)
+    # Select event distance and resolve coincident events
     # ==================================================================================
-    # TODO: Make a function to better maintain the repeating operation
+    #   Select at most one physical event and one coincident time event.
+    #   Geometry crossing takes precedence over collision.
+    #   Time boundary takes precedence over census.
+    #   A condensed-step limit alone results in EVENT_NONE.
 
-    distance = d_boundary
+    # Get minimum distance
+    distance = min(d_geometry, d_collision, d_time_census, d_time_boundary, d_condensed)
 
-    # Check distance to collision
-    if d_collision < distance - COINCIDENCE_TOLERANCE:
-        distance = d_collision
-        particle["event"] = EVENT_COLLISION
+    # To infinity and beyond, no event, particle is lost
+    if distance >= INF:
+        particle["event"] = EVENT_LOST
         particle["surface_ID"] = -1
+        particle["alive"] = False
+        return 0.0
+
+    # Geometry crossing
+    if geometry.check_coincidence(d_geometry, distance):
+        particle["event"] = EVENT_GEOMETRY_CROSSING
+    # Collision
     elif geometry.check_coincidence(d_collision, distance):
-        particle["event"] += EVENT_COLLISION
+        particle["event"] = EVENT_COLLISION
+    else:
+        particle["event"] = EVENT_NONE
 
-    # Check distance to time census
-    if d_time_census < distance - COINCIDENCE_TOLERANCE:
-        distance = d_time_census
-        particle["event"] = EVENT_TIME_CENSUS
-        particle["surface_ID"] = -1
+    # Time boundary
+    if geometry.check_coincidence(d_time_boundary, distance):
+        particle["event"] |= EVENT_TIME_BOUNDARY
+    # Time census
     elif geometry.check_coincidence(d_time_census, distance):
-        particle["event"] += EVENT_TIME_CENSUS
+        particle["event"] |= EVENT_TIME_CENSUS
 
-    # Check distance to time boundary (exclusive event)
-    if d_time_boundary < distance + COINCIDENCE_TOLERANCE:
-        distance = d_time_boundary
-        particle["event"] = EVENT_TIME_BOUNDARY
+    # Reset surface_ID if not geometry crossing
+    if not particle["event"] & EVENT_GEOMETRY_CROSSING:
         particle["surface_ID"] = -1
 
-    # Limit the step for condensed history, preserving coincident physical events
-    if use_condensed_history:
-        if d_condensed_history < distance - COINCIDENCE_TOLERANCE:
-            distance = d_condensed_history
-            particle["event"] = EVENT_NONE
-            particle["surface_ID"] = -1
+    return distance
 
-    # ==================================================================================
-    # Move particle
-    # ==================================================================================
 
-    # Score tracklength tallies
-    if simulation["cycle_active"]:
-        cell = simulation["cells"][particle["cell_ID"]]
-        for i in range(cell["N_tracklength_tally"]):
-            tally_ID = mcdc_get.cell.tracklength_tally_IDs(i, cell, data)
-            tally = simulation["tallies"][tally_ID]
-            tally_module.score.tracklength(
-                particle_container, distance, tally, simulation, data
-            )
+@njit
+def use_condensed_interactions(particle_container, settings):
+    """Return whether condensed interactions is enabled for the particle."""
+    particle = particle_container[0]
+    condensed_interactions = settings["condensed_interactions"]
+    return (
+        particle["particle_type"] == PARTICLE_PROTON
+        and condensed_interactions["proton"]
+    )
 
-    if settings["neutron_eigenvalue_mode"]:
-        tally_module.score.eigenvalue_tally(
-            particle_container, distance, simulation, data
-        )
 
-    # Move particle
+@njit
+def move_particle(particle_container, distance, simulation, data):
+    """Score tracklength tallies and move particle by the selected distance."""
+    score_tracklength_tallies(particle_container, distance, simulation, data)
     particle_module.move(particle_container, distance, simulation, data)
 
-    # Condensed history calculates energy loss after particle has moved
-    if use_condensed_history:
-        collision_data_container = util.local_array(1, type_.collision_data)
-        physics.condensed_history(
-            particle_container, collision_data_container, distance, simulation, data
-        )
 
-        # Score collision tallies (edep is a collision tally)
-        # TODO: maybe make edep a potential tracklength tally for condensed history?
-        if simulation["cycle_active"]:
-            cell = simulation["cells"][particle["cell_ID"]]
-            for i in range(cell["N_collision_tally"]):
-                tally_ID = int(mcdc_get.cell.collision_tally_IDs(i, cell, data))
-                tally = simulation["tallies"][tally_ID]
-                tally_module.score.collision(
-                    particle_container,
-                    collision_data_container,
-                    tally,
-                    simulation,
-                    data,
-                )
+@njit
+def condensed_interactions(particle_container, distance, simulation, data):
+    """Condense interactions over the traveled distance and score their tallies."""
+    particle = particle_container[0]
+
+    incident_container = util.local_array(1, type_.particle)
+    incident_container[0] = particle
+
+    collision_data_container = util.local_array(1, type_.collision_data)
+    collision_data_container[0]["energy_deposition"] = 0.0
+
+    physics.condensed_interactions(
+        particle_container, collision_data_container, distance, simulation, data
+    )
+    score_collision_tallies(
+        particle_container, collision_data_container, simulation, data
+    )
+
+    # Deflection can turn the particle back into the incident region.
+    if particle["alive"] and particle["surface_ID"] >= 0:
+        if not geometry.surface_crossing_valid(
+            incident_container, particle_container, distance, simulation, data
+        ):
+            # Keep the geometry event so coincident lattice crossings and the
+            # outgoing cell are resolved even when this surface is not crossed.
+            particle["surface_ID"] = -1
+
+
+@njit
+def collision(particle_container, program, data):
+    """Perform collision and score collision tallies."""
+    simulation = util.access_simulation(program)
+
+    collision_data_container = util.local_array(1, type_.collision_data)
+    collision_data_container[0]["energy_deposition"] = 0.0
+
+    physics.collision(particle_container, collision_data_container, program, data)
+
+    score_collision_tallies(
+        particle_container, collision_data_container, simulation, data
+    )
+
+
+@njit
+def geometry_crossing(particle_container, simulation, data):
+    particle = particle_container[0]
+
+    # Surface crossing
+    if particle["surface_ID"] >= 0:
+        surface_crossing(particle_container, simulation, data)
+
+    # Reset geometry IDs
+    if particle["alive"]:
+        particle["cell_ID"] = -1
+        particle["material_ID"] = -1
 
 
 @njit
 def surface_crossing(particle_container, simulation, data):
+    """Apply boundary condition and score surface crossing tallies"""
     particle = particle_container[0]
     crossed_surface_ID = particle["surface_ID"]
 
@@ -514,7 +555,56 @@ def surface_crossing(particle_container, simulation, data):
             particle_container, surface, tally, simulation, data
         )
 
-    # Flag to check new cell later
-    if particle["alive"]:
-        particle["cell_ID"] = -1
-        particle["material_ID"] = -1
+
+@njit
+def apply_techniques(particle_container, program, data):
+    """Apply variance reduction techniques."""
+    simulation = util.access_simulation(program)
+    particle = particle_container[0]
+
+    # Weight windows
+    if simulation["technique"]["weight_windows"]["active"]:
+        technique.weight_windows(particle_container, program, data)
+        if not particle["alive"]:
+            return
+
+    # Global weight roulette
+    if simulation["technique"]["global_weight_roulette"]["active"]:
+        technique.global_weight_roulette(particle_container, simulation)
+
+
+@njit
+def score_tracklength_tallies(particle_container, distance, simulation, data):
+    """Score tracklength tallies using the distance and incident particle state."""
+    particle = particle_container[0]
+
+    if simulation["cycle_active"]:
+        cell = simulation["cells"][particle["cell_ID"]]
+        for i in range(cell["N_tracklength_tally"]):
+            tally_ID = mcdc_get.cell.tracklength_tally_IDs(i, cell, data)
+            tally = simulation["tallies"][tally_ID]
+            tally_module.score.tracklength(
+                particle_container, distance, tally, simulation, data
+            )
+
+    if simulation["settings"]["neutron_eigenvalue_mode"]:
+        tally_module.score.eigenvalue_tally(
+            particle_container, distance, simulation, data
+        )
+
+
+@njit
+def score_collision_tallies(
+    particle_container, collision_data_container, simulation, data
+):
+    """Score collision tallies using particle state and stored collision data."""
+    particle = particle_container[0]
+
+    if simulation["cycle_active"]:
+        cell = simulation["cells"][particle["cell_ID"]]
+        for i in range(cell["N_collision_tally"]):
+            tally_ID = mcdc_get.cell.collision_tally_IDs(i, cell, data)
+            tally = simulation["tallies"][tally_ID]
+            tally_module.score.collision(
+                particle_container, collision_data_container, tally, simulation, data
+            )

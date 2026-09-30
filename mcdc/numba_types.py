@@ -594,7 +594,7 @@ neutron_multigroup = into_dtype([
     ('hybrid', bool_),
 ])
 
-condensed_history = into_dtype([
+condensed_interactions = into_dtype([
     ('proton', bool_),
     ('max_fractional_energy_loss', float64),
 ])
@@ -628,7 +628,7 @@ settings = into_dtype([
     ('electron_transport', bool_),
     ('proton_transport', bool_),
     ('neutron_multigroup', neutron_multigroup),
-    ('condensed_history', condensed_history),
+    ('condensed_interactions', condensed_interactions),
     ('neutron_eigenvalue_mode', bool_),
     ('gpu_strategy', int64),
     ('gpu_async_type', int64),
