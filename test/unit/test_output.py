@@ -3,6 +3,9 @@ from types import SimpleNamespace
 import h5py
 import numpy as np
 
+import mcdc
+from mcdc.main import prepare
+from mcdc.output import generate_output
 from mcdc.constant import SCORE_FLUX
 from mcdc.output import clear_census_based_tally_files, recombine_tallies
 
@@ -74,4 +77,28 @@ def test_recombine_tallies_zero_fills_censuses_missing_after_extinction(tmp_path
         np.testing.assert_array_equal(
             file[f"{tally_path}/flux/sdev"][:],
             [[1.0, 1.0], [4.0, 5.0]],
+        )
+
+
+def test_output_serializes_nested_transport_settings(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell()])
+    simulation.set_sources([mcdc.Source(particle_type="electron")])
+    simulation.settings.electron_transport.prioritize_low_energy = True
+    simulation.settings.output_name = "output"
+    simulation.compile()
+    container, data = prepare(simulation)
+
+    generate_output(container[0], data, simulation, no_tally_output=True)
+
+    with h5py.File(tmp_path / "output.h5", "r") as output:
+        settings = output["settings"]
+        assert not settings["neutron_transport/active"][()]
+        assert not settings["neutron_transport/prioritize_low_energy"][()]
+        assert settings["electron_transport/active"][()]
+        assert settings["electron_transport/prioritize_low_energy"][()]
+        assert settings["N_particle"][()] == simulation.settings.N_particle
+        np.testing.assert_array_equal(
+            settings["census_time"][()], simulation.settings.census_time
         )

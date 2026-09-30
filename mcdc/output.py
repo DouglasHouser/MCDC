@@ -9,6 +9,8 @@ import numpy as np
 import mcdc.mcdc_get as mcdc_get
 import mcdc.print_ as print_module
 
+from mcdc.object_.base import MCDCBase
+
 from mcdc.constant import (
     MESH_UNIFORM,
     MESH_STRUCTURED,
@@ -98,7 +100,12 @@ def create_object_dataset(file, group_name, object_):
         for x in dir(object_)
         if (not x.startswith("__") and not callable(getattr(object_, x)))
     ]:
-        file[f"{group_name}/{name}"] = getattr(object_, name)
+        value = getattr(object_, name)
+        path = f"{group_name}/{name}"
+        if isinstance(value, MCDCBase):
+            create_object_dataset(file, path, value)
+        else:
+            file[path] = value
 
 
 # ======================================================================================
