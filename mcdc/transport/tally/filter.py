@@ -21,7 +21,7 @@ from mcdc.transport.util import (
 
 
 @njit
-def get_filter_indices(particle_container, tally, data, energy):
+def get_filter_indices(particle_container, tally, data):
     i_mu, i_azi, i_energy, i_time = 0, 0, 0, 0
 
     particle = particle_container[0]
@@ -36,7 +36,7 @@ def get_filter_indices(particle_container, tally, data, energy):
         i_mu, i_azi = get_direction_index(particle_container, tally, data)
 
     if tally["filter_energy"]:
-        i_energy = get_energy_index(energy, tally, data)
+        i_energy = get_energy_index(particle_container, tally, data)
 
     if tally["filter_time"]:
         i_time = get_time_index(particle_container, tally, data)
@@ -60,12 +60,16 @@ def get_direction_index(particle_container, tally, data):
 
 
 @njit
-def get_energy_index(E, tally, data):
+def get_energy_index(particle_container, tally, data):
+    particle = particle_container[0]
+
+    # Particle properties
+    energy = particle["E"]
 
     tolerance = COINCIDENCE_TOLERANCE_ENERGY
     grid_energy = mcdc_get.tally.energy_all(tally, data)
 
-    return find_bin_with_tolerance(E, grid_energy, tolerance)
+    return find_bin_with_tolerance(energy, grid_energy, tolerance)
 
 
 @njit

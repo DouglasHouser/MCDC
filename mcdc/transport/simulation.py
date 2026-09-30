@@ -350,7 +350,6 @@ def step_particle(particle_container, program, data):
                 tally_ID = mcdc_get.cell.collision_tally_IDs(i, cell, data)
                 tally = simulation["tallies"][tally_ID]
                 tally_module.score.collision(
-                    particle_container,
                     collision_data_container,
                     tally,
                     simulation,
