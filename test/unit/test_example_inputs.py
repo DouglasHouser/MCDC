@@ -6,7 +6,7 @@ import pytest
 import mcdc
 
 EXAMPLES_ROOT = Path(__file__).parents[2] / "examples"
-EXCLUDED_EXAMPLES = ["hybrid_multigroup"]
+EXCLUDED_EXAMPLES = ["hybrid_multigroup", "proton_beam"]
 
 # Leave data-library-dependent examples to regression testing
 EXAMPLE_INPUTS = tuple(

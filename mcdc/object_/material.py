@@ -285,17 +285,18 @@ class Material(MCDCObject):
             nuclide.fissionable for nuclide in self.nuclides
         )
 
-        # Calculating the material's radiation length (for proton transport)
-        total_mass = 0.0
-        X0_weighted_mass = 0.0
-        for nuclide, density in self.nuclide_composition.items():
-            nuclide_mass = nuclide.mass_number
-            nuclide_X0 = nuclide.radiation_length
+        # Calculate radiation length only when proton transport needs it.
+        if simulation.settings.proton_transport:
+            total_mass = 0.0
+            X0_weighted_mass = 0.0
+            for nuclide, density in self.nuclide_composition.items():
+                nuclide_mass = nuclide.mass_number
+                nuclide_X0 = nuclide.radiation_length
 
-            total_mass += nuclide_mass * density
-            X0_weighted_mass += nuclide_mass * density / nuclide_X0
+                total_mass += nuclide_mass * density
+                X0_weighted_mass += nuclide_mass * density / nuclide_X0
 
-            self.radiation_length = total_mass / X0_weighted_mass
+                self.radiation_length = total_mass / X0_weighted_mass
 
         return True
 
