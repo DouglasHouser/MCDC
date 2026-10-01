@@ -81,7 +81,7 @@ def condensed_interactions(
     # Clamping the energy loss to be between [0, particle["E"]]
     energy_loss = min(max(energy_loss, 0.0), E)
     particle["E"] = E - energy_loss
-    collision_data["energy_deposition"] += energy_loss * particle["w"]    
+    collision_data["energy_deposition"] += energy_loss * particle["w"]
 
     X0 = material["radiation_length"]
 

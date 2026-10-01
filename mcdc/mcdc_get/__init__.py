@@ -24,6 +24,8 @@ import mcdc.mcdc_get.electron_reaction as electron_reaction
 
 import mcdc.mcdc_get.electron_ionization_reaction as electron_ionization_reaction
 
+import mcdc.mcdc_get.secondary_product as secondary_product
+
 import mcdc.mcdc_get.element as element
 
 import mcdc.mcdc_get.neutron_multigroup_data as neutron_multigroup_data

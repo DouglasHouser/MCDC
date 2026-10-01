@@ -8,6 +8,7 @@ from numpy.typing import NDArray
 import mcdc.object_.distribution as distribution
 
 from mcdc.constant import (
+    INF,
     ANGLE_ISOTROPIC,
     ANGLE_ENERGY_CORRELATED,
     ANGLE_DISTRIBUTED,
@@ -23,7 +24,9 @@ from mcdc.constant import (
     PARTICLE_ELECTRON,
     PARTICLE_ANY,
 )
-from mcdc.object_.base import MCDCObject, MCDCPolymorphic
+from mcdc.object_.secondary_product import SecondaryProduct
+from mcdc.object_.data import DataPolynomial
+from mcdc.object_.base import MCDCPolymorphic
 from mcdc.object_.distribution import (
     DistributionBase,
     DistributionMultiTable,
@@ -52,8 +55,11 @@ class ProtonReactionBase(MCDCPolymorphic):
     reference_frame: int
     q_value: float64
 
+    secondary_products: list[SecondaryProduct]
+
     def __init__(self, MT, xs, xs_offset, reference_frame, q_value):
         super().__init__()
+        self.secondary_products = []
         self.MT = MT
         self.xs = xs
         self.xs_offset_ = xs_offset
@@ -123,73 +129,6 @@ class ProtonReactionElasticScattering(ProtonReactionBase):
 # ======================================================================================
 
 
-def particle_type_from_zap(zap):
-    return {
-        1: PARTICLE_NEUTRON,
-        1001: PARTICLE_PROTON,
-    }.get(zap, PARTICLE_ANY)
-
-
-class ProtonSecondaryProduct(MCDCObject):
-    label: str = "proton_secondary_product"
-    zap: int
-    particle_type: int
-    multiplicity: int
-    angle_type: int
-    reference_frame: int
-    energy: DistributionBase
-    mu: DistributionBase
-
-    def __init__(self, zap, multiplicity, reference_frame, energy, angle_type, mu):
-        super().__init__()
-        self.zap = zap
-        self.particle_type = particle_type_from_zap(zap)
-        self.multiplicity = multiplicity
-        self.reference_frame = reference_frame
-        self.energy = energy
-        self.angle_type = angle_type
-        self.mu = mu
-
-
-def set_secondary_product(h5_group, simulation):
-    zap = int(h5_group.attrs["ZAP"])
-    multiplicity = int(h5_group.attrs.get("multiplicity", 1))
-    reference_frame = h5_group.attrs.get("reference_frame", "LAB")
-    if isinstance(reference_frame, bytes):
-        reference_frame = reference_frame.decode("utf-8")
-    reference_frame = (
-        REFERENCE_FRAME_LAB if reference_frame == "LAB" else REFERENCE_FRAME_COM
-    )
-
-    if "kalbach_mann" in h5_group:
-        energy_group = h5_group["kalbach_mann"]
-    else:
-        energy_group = h5_group["energy_spectrum"]
-    energy = set_energy_distribution(energy_group)
-
-    if "angular_cosine_distribution" in h5_group:
-        angular_group = h5_group["angular_cosine_distribution"]
-        if (
-            angular_group.attrs.get("type", "isotropic")
-            == "given_in_energy_distribution"
-        ):
-            angle_type, mu = set_angular_distribution_from_kalbach_mann(
-                energy_group, simulation
-            )
-        else:
-            angle_type, mu = set_angular_distribution(angular_group, simulation)
-    elif energy_group.attrs.get("type") == "kalbach-mann":
-        angle_type, mu = set_angular_distribution_from_kalbach_mann(
-            energy_group, simulation
-        )
-    else:
-        angle_type, mu = ANGLE_ISOTROPIC, simulation.distributions[0]
-
-    return ProtonSecondaryProduct(
-        zap, multiplicity, reference_frame, energy, angle_type, mu
-    )
-
-
 class ProtonReactionInelasticScattering(ProtonReactionBase):
     # Annotations for Numba mode
     label: str = "proton_inelastic_scattering_reaction"
@@ -205,7 +144,6 @@ class ProtonReactionInelasticScattering(ProtonReactionBase):
         NDArray[float64], ("N_spectrum_probability_bin", "N_spectrum")
     ]
     energy_spectra: list[DistributionBase]
-    secondary_products: list[ProtonSecondaryProduct]
 
     def __init__(
         self,
@@ -220,7 +158,6 @@ class ProtonReactionInelasticScattering(ProtonReactionBase):
         spectrum_probability_grid,
         spectrum_probability,
         energy_spectra,
-        secondary_products,
     ):
         super().__init__(MT, xs, xs_offset, reference_frame, q_value)
 
@@ -232,7 +169,6 @@ class ProtonReactionInelasticScattering(ProtonReactionBase):
         self.spectrum_probability_grid = spectrum_probability_grid
         self.spectrum_probability = spectrum_probability
         self.energy_spectra = energy_spectra
-        self.secondary_products = secondary_products
 
     @classmethod
     def from_h5_group(cls, h5_group, simulation):
@@ -257,17 +193,7 @@ class ProtonReactionInelasticScattering(ProtonReactionBase):
             set_energy_distribution(h5_group[name])
             for name in sorted(x for x in h5_group if x.startswith("energy_spectrum-"))
         ]
-        secondary_products = []
-        if "secondary_products" in h5_group:
-            for product_name in sorted(h5_group["secondary_products"]):
-                product = set_secondary_product(
-                    h5_group["secondary_products"][product_name], simulation
-                )
-                multiplicity = product.multiplicity
-                product.multiplicity = 1
-                secondary_products.extend([product] * multiplicity)
-
-        return cls(
+        reaction = cls(
             MT,
             xs,
             xs_offset,
@@ -279,8 +205,19 @@ class ProtonReactionInelasticScattering(ProtonReactionBase):
             spectrum_probability_grid,
             spectrum_probability,
             energy_spectra,
-            secondary_products,
         )
+
+        # Load other species without changing the outgoing-proton multiplicity.
+        if "secondary_products" in h5_group:
+            for name in sorted(h5_group["secondary_products"]):
+                product_group = h5_group["secondary_products"][name]
+                # Outgoing protons are handled by the reaction itself.
+                if int(product_group.attrs["ZAP"]) == 1001:
+                    continue
+                reaction.secondary_products.append(
+                    set_secondary_product(product_group, simulation)
+                )
+        return reaction
 
     def __repr__(self):
         text = super().__repr__()
@@ -327,6 +264,64 @@ def set_basic_properties(h5_group):
         reference_frame = REFERENCE_FRAME_COM
     q_value = h5_group["Q-value"][()]
     return MT, xs, xs_offset, reference_frame, q_value
+
+
+def set_secondary_product(h5_group, simulation):
+    """Load a product from the existing proton-library format."""
+    # Read product identity, count, and emission frame.
+    zap = int(h5_group.attrs["ZAP"])
+    multiplicity = int(h5_group.attrs.get("multiplicity", 1))
+    reference_frame = h5_group.attrs.get("reference_frame", "LAB")
+    if isinstance(reference_frame, bytes):
+        reference_frame = reference_frame.decode("utf-8")
+    reference_frame = (
+        REFERENCE_FRAME_LAB if reference_frame == "LAB" else REFERENCE_FRAME_COM
+    )
+
+    # Load the single outgoing-energy spectrum.
+    if "kalbach_mann" in h5_group:
+        energy_group = h5_group["kalbach_mann"]
+    else:
+        energy_group = h5_group["energy_spectrum"]
+    energy = set_energy_distribution(energy_group)
+
+    # Load separate angles or recover energy-angle correlation.
+    if "angular_cosine_distribution" in h5_group:
+        angular_group = h5_group["angular_cosine_distribution"]
+        if (
+            angular_group.attrs.get("type", "isotropic")
+            == "given_in_energy_distribution"
+        ):
+            angle_type, mu = set_angular_distribution_from_kalbach_mann(
+                energy_group, simulation
+            )
+        else:
+            angle_type, mu = set_angular_distribution(angular_group, simulation)
+    elif energy_group.attrs.get("type") == "kalbach-mann":
+        angle_type, mu = set_angular_distribution_from_kalbach_mann(
+            energy_group, simulation
+        )
+    else:
+        angle_type, mu = ANGLE_ISOTROPIC, simulation.distributions[0]
+
+    # Decode the library's ZAP identifier into explicit species fields.
+    particle_type = {1: PARTICLE_NEUTRON, 1001: PARTICLE_PROTON}.get(zap, PARTICLE_ANY)
+    atomic_number, mass_number = divmod(zap, 1000)
+
+    # Use a constant yield and select the sole spectrum at every incident energy.
+    # Existing library products use the shared object's prompt-emission defaults.
+    return SecondaryProduct(
+        particle_type,
+        DataPolynomial(np.array([float(multiplicity)])),
+        reference_frame,
+        angle_type,
+        mu,
+        np.array([0.0, INF]),
+        np.ones((1, 1)),
+        [energy],
+        atomic_number=atomic_number,
+        mass_number=mass_number,
+    )
 
 
 def set_angular_distribution(h5_group, simulation):

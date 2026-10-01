@@ -22,7 +22,6 @@ from mcdc.object_.proton_reaction import (
     ProtonReactionElasticScattering,
     ProtonReactionInelasticScattering,
     ProtonReactionCapture,
-    ProtonSecondaryProduct,
     set_energy_distribution,
 )
 from mcdc.print_ import print_1d_array, print_error
