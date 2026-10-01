@@ -17,6 +17,7 @@ from mcdc.constant import (
     REFERENCE_FRAME_COM,
     REFERENCE_FRAME_LAB,
 )
+from mcdc.object_.secondary_product import SecondaryProduct
 from mcdc.object_.base import MCDCPolymorphic
 from mcdc.object_.data import encode_interpolation
 from mcdc.object_.distribution import (
@@ -53,8 +54,11 @@ class NeutronReactionBase(MCDCPolymorphic):
     reference_frame: int
     q_value: float64
 
+    secondary_products: list[SecondaryProduct]
+
     def __init__(self, MT, xs, xs_offset, reference_frame, q_value):
         super().__init__()
+        self.secondary_products = []
         self.MT = MT
         self.xs = xs
         self.xs_offset_ = xs_offset

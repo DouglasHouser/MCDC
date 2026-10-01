@@ -276,7 +276,7 @@ def _sample_multi_table(E, rng_state, multi_table, simulation, data, scale):
 
     # Default interpolation factor
     f = 0.0
-    
+
     # Below grid: use first table without unit-base scaling.
     # Include equality: find_bin returns -1 at the first point.
     if E <= grid[0]:

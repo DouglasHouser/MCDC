@@ -89,32 +89,3 @@ def energy_spectrum_IDs_chunk(start, length, proton_inelastic_scattering_reactio
     start += proton_inelastic_scattering_reaction["energy_spectrum_IDs_offset"]
     end = start + length
     return array_result(data[start:end])
-
-
-@njit
-def secondary_product_IDs(index, proton_inelastic_scattering_reaction, data):
-    offset = proton_inelastic_scattering_reaction["secondary_product_IDs_offset"]
-    return int64(data[offset + index])
-
-
-@array_return(nb.types.float64)
-def secondary_product_IDs_all(proton_inelastic_scattering_reaction, data):
-    start = proton_inelastic_scattering_reaction["secondary_product_IDs_offset"]
-    size = proton_inelastic_scattering_reaction["N_secondary_product"]
-    end = start + size
-    return array_result(data[start:end])
-
-
-@njit
-def secondary_product_IDs_last(proton_inelastic_scattering_reaction, data):
-    start = proton_inelastic_scattering_reaction["secondary_product_IDs_offset"]
-    size = proton_inelastic_scattering_reaction["N_secondary_product"]
-    end = start + size
-    return int64(data[end - 1])
-
-
-@array_return(nb.types.float64)
-def secondary_product_IDs_chunk(start, length, proton_inelastic_scattering_reaction, data):
-    start += proton_inelastic_scattering_reaction["secondary_product_IDs_offset"]
-    end = start + length
-    return array_result(data[start:end])

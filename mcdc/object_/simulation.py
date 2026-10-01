@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from mcdc.object_.nuclide import Nuclide
     from mcdc.object_.neutron_reaction import NeutronReactionBase
     from mcdc.object_.proton_reaction import ProtonReactionBase
-    from mcdc.object_.proton_reaction import ProtonSecondaryProduct
+    from mcdc.object_.secondary_product import SecondaryProduct
     from mcdc.object_.source import Source
     from mcdc.object_.surface import Surface
     from mcdc.object_.tally import Tally
@@ -121,7 +121,7 @@ class Simulation(MCDCBase):
     materials: list[Material]
     neutron_multigroup_data: list[NeutronMultigroupData]
     sources: list[Source]
-    proton_secondary_products: list[ProtonSecondaryProduct]
+    secondary_products: list[SecondaryProduct]
 
     # Geometry
     surfaces: list[Surface]
@@ -304,6 +304,7 @@ class Simulation(MCDCBase):
         self.neutron_reactions = []
         self.electron_reactions = []
         self.proton_reactions = []
+        self.secondary_products = []
         self.nuclides = []
         self.elements = []
         self.materials = []
