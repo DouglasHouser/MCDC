@@ -9,15 +9,15 @@ def test_transport_settings_are_independent():
     first, second = Settings(), Settings()
     assert not first.neutron_transport.active
     assert not first.electron_transport.active
-    first.electron_transport.prioritize_low_energy = True
+    assert first.electron_transport.prioritize_low_energy
+    first.electron_transport.prioritize_low_energy = False
     assert not first.neutron_transport.prioritize_low_energy
-    assert not second.electron_transport.prioritize_low_energy
+    assert second.electron_transport.prioritize_low_energy
 
 
 def test_transport_settings_are_packed(prepare_simulation):
     def configure(simulation):
         simulation.settings.electron_transport.active = True
-        simulation.settings.electron_transport.prioritize_low_energy = True
 
     container, _ = prepare_simulation(configure=configure)
     settings = container[0]["settings"]
