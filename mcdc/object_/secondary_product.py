@@ -1,8 +1,9 @@
 from typing import Annotated
 
-from numpy import float64, inf
+from numpy import float64
 from numpy.typing import NDArray
 
+from mcdc.constant import INF
 from mcdc.object_.base import MCDCObject
 from mcdc.object_.data import DataBase
 from mcdc.object_.distribution import DistributionBase
@@ -20,7 +21,7 @@ class SecondaryProduct(MCDCObject):
     Nuclear identity is optional (-1 means unspecified).
     excitation_state identifies the nuclear state, with zero denoting the ground state.
     Delayed emission uses a decay constant in inverse seconds; prompt emission has
-    delayed=False and an infinite decay constant.
+    delayed=False and the INF decay-constant sentinel.
     """
 
     # MC/DC framework metadata
@@ -66,16 +67,22 @@ class SecondaryProduct(MCDCObject):
         mass_number=-1,
         excitation_state=-1,
         delayed=False,
-        decay_constant=inf,
+        decay_constant=INF,
     ):
         super().__init__()
+
+        # Product identity and mean production
         self.particle_type = particle_type
         self.atomic_number = atomic_number
         self.mass_number = mass_number
         self.excitation_state = excitation_state
         self.production_yield = production_yield
+
+        # Prompt emission uses the INF decay-constant sentinel.
         self.delayed = delayed
-        self.decay_constant = float64(decay_constant) if delayed else float64(inf)
+        self.decay_constant = float64(decay_constant) if delayed else float64(INF)
+
+        # Angular sampling and energy-spectrum selection
         self.reference_frame = reference_frame
         self.angle_type = angle_type
         self.mu = mu
