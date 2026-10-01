@@ -38,7 +38,6 @@ SETTINGS_METHODS = (
     "set_eigenmode",
     # TODO: Restore file-backed source setup after its compilation path is enabled.
     # "set_source_file",
-    "set_transported_particles",
 )
 
 TECHNIQUES = (
@@ -108,6 +107,33 @@ class SimulationMembersDirective(SphinxDirective):
                 indent="   ",
             )
             _append_line(lines)
+
+        _append_line(lines, ".. rubric:: Particle transport settings")
+        _append_line(lines)
+        _append_line(
+            lines,
+            "All species start inactive. Finalization activates the particle types present in the sources and preserves explicitly enabled types. Charged particles prioritize lower-energy outgoing particles by default.",
+        )
+        _append_line(lines)
+
+        for species in ("neutron", "electron"):
+            for option, default, description in (
+                ("active", False, "Enable transport for this species."),
+                (
+                    "prioritize_low_energy",
+                    species == "electron",
+                    "Request lower-energy outgoing particles to be transported first.",
+                ),
+            ):
+                name = f"settings.{species}_transport.{option}"
+                _append_line(lines, f".. py:attribute:: {name}")
+                _append_line(lines, "   :module:")
+                _append_line(lines, f"   :canonical: mcdc.Simulation.{name}")
+                _append_line(lines, "   :type: bool")
+                _append_line(lines, f"   :value: {default!r}")
+                _append_line(lines)
+                _append_line(lines, f"   {description}")
+                _append_line(lines)
 
         _append_line(lines, ".. rubric:: Transport techniques")
         _append_line(lines)

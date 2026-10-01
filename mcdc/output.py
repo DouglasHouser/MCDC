@@ -9,6 +9,8 @@ import numpy as np
 import mcdc.mcdc_get as mcdc_get
 import mcdc.print_ as print_module
 
+from mcdc.object_.base import MCDCBase
+
 from mcdc.constant import (
     MESH_UNIFORM,
     MESH_STRUCTURED,
@@ -98,7 +100,12 @@ def create_object_dataset(file, group_name, object_):
         for x in dir(object_)
         if (not x.startswith("__") and not callable(getattr(object_, x)))
     ]:
-        file[f"{group_name}/{name}"] = getattr(object_, name)
+        value = getattr(object_, name)
+        path = f"{group_name}/{name}"
+        if isinstance(value, MCDCBase):
+            create_object_dataset(file, path, value)
+        else:
+            file[path] = value
 
 
 # ======================================================================================
@@ -132,6 +139,10 @@ def create_runtime_dataset(file, mcdc):
 
 def generate_performance_output(simulation):
     """Append performance metrics to the standard output on the master rank."""
+    import platform
+    from datetime import datetime, timezone
+
+    import mcdc.config as config
 
     if not simulation["mpi_master"]:
         return
@@ -155,6 +166,10 @@ def generate_performance_output(simulation):
         group.create_dataset(
             "effective_variance", data=simulation["effective_variance"]
         )
+        group.create_dataset("hostname", data=platform.node())
+        group.create_dataset("mode", data=config.mode)
+        group.create_dataset("target", data=config.target)
+        group.create_dataset("date", data=datetime.now(timezone.utc).isoformat())
 
 
 def read_census_score(simulation, data, tally, score, batch, census):

@@ -1,6 +1,6 @@
 import numpy as np
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated
 from numpy import int64, uint64
 from numpy.typing import NDArray
@@ -39,6 +39,7 @@ class CollisionData(MCDCBase):
     label = "collision_data"
 
     energy_deposition: float = 0.0
+    incident_particle: ParticleData = field(default_factory=ParticleData)
 
 
 @dataclass

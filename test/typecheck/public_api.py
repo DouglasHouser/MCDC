@@ -33,9 +33,10 @@ def build_typed_simulation(output: Path) -> mcdc.Simulation:
     simulation.set_sources([source])
     simulation.set_tallies([flux, density])
 
+    simulation.settings.electron_transport.prioritize_low_energy = True
+    simulation.settings.neutron_transport.active = True
     simulation.settings.N_particle = 1_000
     simulation.settings.set_time_census([1.0, 2.0])
-    simulation.settings.set_transported_particles(["neutron"])
     simulation.technique.implicit_capture()
     simulation.technique.weight_windows(
         np.ones((1, 20, 1, 1, 3)),

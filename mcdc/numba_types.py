@@ -503,11 +503,17 @@ neutron_inelastic_scattering_reaction = into_dtype([
 
 collision_data = into_dtype([
     ('energy_deposition', float64),
+    ('incident_particle', particle_data),
 ])
 
 particle_bank = into_dtype([
     ('size', int64, (1,)),
     ('tag', 'U32'),
+])
+
+particle_transport_settings = into_dtype([
+    ('active', bool_),
+    ('prioritize_low_energy', bool_),
 ])
 
 settings = into_dtype([
@@ -535,9 +541,8 @@ settings = into_dtype([
     ('census_bank_buffer_ratio', float64),
     ('source_bank_buffer_ratio', float64),
     ('future_bank_buffer_ratio', float64),
-    ('neutron_transport', bool_),
-    ('electron_transport', bool_),
-    ('proton_transport', bool_),
+    ('neutron_transport', particle_transport_settings),
+    ('electron_transport', particle_transport_settings),
     ('neutron_eigenvalue_mode', bool_),
     ('gpu_strategy', int64),
     ('gpu_async_type', int64),

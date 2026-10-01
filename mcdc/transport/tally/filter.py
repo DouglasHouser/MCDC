@@ -11,6 +11,7 @@ from mcdc.constant import (
     COINCIDENCE_TOLERANCE_DIRECTION,
     COINCIDENCE_TOLERANCE_ENERGY,
     COINCIDENCE_TOLERANCE_TIME,
+    PARTICLE_ANY,
 )
 from mcdc.transport.util import (
     find_bin_with_tolerance,
@@ -22,6 +23,14 @@ from mcdc.transport.util import (
 @njit
 def get_filter_indices(particle_container, tally, data):
     i_mu, i_azi, i_energy, i_time = 0, 0, 0, 0
+
+    particle = particle_container[0]
+
+    if (
+        tally["particle_type"] != PARTICLE_ANY
+        and tally["particle_type"] != particle["particle_type"]
+    ):
+        return -1, -1, -1, -1
 
     if tally["filter_direction"]:
         i_mu, i_azi = get_direction_index(particle_container, tally, data)
@@ -54,12 +63,13 @@ def get_direction_index(particle_container, tally, data):
 def get_energy_index(particle_container, tally, data):
     particle = particle_container[0]
 
-    E = particle["E"]
+    # Particle properties
+    energy = particle["E"]
 
     tolerance = COINCIDENCE_TOLERANCE_ENERGY
     grid_energy = mcdc_get.tally.energy_all(tally, data)
 
-    return find_bin_with_tolerance(E, grid_energy, tolerance)
+    return find_bin_with_tolerance(energy, grid_energy, tolerance)
 
 
 @njit

@@ -4,9 +4,10 @@ from numba import njit
 
 ###
 
-import mcdc.transport.rng as rng
+import mcdc.transport.particle as particle_module
 import mcdc.transport.physics.electron as electron
 import mcdc.transport.physics.neutron as neutron
+import mcdc.transport.rng as rng
 
 from mcdc.constant import *
 
@@ -79,6 +80,10 @@ def collision_distance(particle_container, simulation, data):
 @njit
 def collision(particle_container, collision_data_container, program, data):
     particle = particle_container[0]
+
+    particle_module.copy(
+        collision_data_container["incident_particle"], particle_container
+    )
 
     if particle["particle_type"] == PARTICLE_NEUTRON:
         neutron.collision(particle_container, collision_data_container, program, data)
