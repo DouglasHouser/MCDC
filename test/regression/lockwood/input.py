@@ -15,8 +15,8 @@ simulation = mcdc.Simulation("Lockwood")
 # =============================================================================
 # Energy and Angle Parameters
 MATERIAL_SYMBOL = "Al"
-ENERGY = 1e4  # eV
-CONDENSED_HISTORY_RANGE = 0.569  # g/cm2
+ENERGY = 1e6  # eV
+CSDA_RANGE = 0.569  # g/cm2
 ANGLE = 0.0
 
 # MCDC Simulation Parameters
@@ -33,10 +33,10 @@ dz = AREAL_DENSITY_G_CM2 / RHO_G_CM3
 AVAGADRO_NUMBER = 6.02214076e23  # atoms/mol
 MAT_DENSITY_ATOMS_PER_BARN_CM = (
     AVAGADRO_NUMBER / ATOMIC_WEIGHT_G_MOL * RHO_G_CM3 / 1e24
-) * 1e-2  # atoms/barn-cm
+)  # atoms/barn-cm
 TINY = 1e-30
-L = CONDENSED_HISTORY_RANGE / RHO_G_CM3  # cm
-N_LAYERS = 1
+L = CSDA_RANGE / RHO_G_CM3  # cm
+N_LAYERS = int(L / dz)
 THETA = math.radians(ANGLE)
 
 # Output variables for naming
@@ -92,8 +92,7 @@ simulation.set_tallies([edep_tally, flux_tally, s1_current, s2_current])
 # Settings and run
 # =============================================================================
 
-simulation.settings.set_transported_particles(["electron"])
 simulation.settings.N_particle = N_PARTICLES
-simulation.settings.active_bank_buffer = N_PARTICLES * 10
+simulation.settings.active_bank_buffer = N_PARTICLES * 1000
 
 simulation.run()
