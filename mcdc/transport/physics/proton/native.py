@@ -560,7 +560,9 @@ def inelastic_scattering(
             mu = sample_isotropic_cosine(particle_container_new)
         elif angle_type == ANGLE_DISTRIBUTED:
             mu_distribution = simulation["distributions"][inelastic_scattering["mu_ID"]]
-            mu = sample_distribution(E, mu_distribution, particle_container, simulation, data)
+            mu = sample_distribution(
+                E, mu_distribution, particle_container, simulation, data
+            )
             # mu = sample_multi_table(
             #     E, particle_container, mu_distribution, simulation, data
             # )
@@ -655,79 +657,99 @@ def inelastic_scattering(
         else:
             particle_bank_module.bank_active_particle(particle_container_new, program)
 
-    # ===========================================================================
-    # 2. Sample SECONDARY PARTICLES from secondary_particles groups
-    # ===========================================================================
-    for i in range(inelastic_scattering["N_secondary_product"]):
+    # ==================================================================================
+    # Sample cross-species SECONDARY PARTICLES
+    # ==================================================================================
+
+    for i in range(reaction["N_secondary_product"]):
         product_ID = int(
-            mcdc_get.proton_inelastic_scattering_reaction.secondary_product_IDs(
-                i, inelastic_scattering, data
-            )
+            mcdc_get.proton_reaction.secondary_product_IDs(i, reaction, data)
         )
-        product = simulation["proton_secondary_products"][product_ID]
+        product = simulation["secondary_products"][product_ID]
 
         # The primary proton above is sampled from the reaction's primary
         # energy-angle distribution. Do not create it a second time here.
         if product["particle_type"] == PARTICLE_PROTON:
             continue
 
-        particle_container_new = util.local_array(1, type_.particle_data)
-        particle_module.copy_as_child(particle_container_new, particle_container)
+        # Get the product count
+        #   Multiplicity is represented by yield rather than repeated product entries.
+        yield_data = simulation["data"][product["production_yield_ID"]]
+        production_yield = evaluate_data(E, yield_data, simulation, data)
+        N_product = int(math.floor(production_yield + rng.lcg(particle_container)))
 
-        if product["angle_type"] == ANGLE_ENERGY_CORRELATED:
-            E_new, mu = sample_correlated_distribution_with_scale(
-                E,
-                simulation["distributions"][product["energy_ID"]],
-                particle_container_new,
-                simulation,
-                data,
-            )
-        else:
-            E_new = sample_distribution_with_scale(
-                E,
-                simulation["distributions"][product["energy_ID"]],
-                particle_container_new,
-                simulation,
-                data,
-            )
-            if product["angle_type"] == ANGLE_ISOTROPIC:
-                mu = sample_isotropic_cosine(particle_container_new)
-            else:
-                mu_distribution = simulation["distributions"][inelastic_scattering["mu_ID"]]
-                mu = sample_distribution(E, mu_distribution, particle_container, simulation, data)
+        # Get the spectrum
+        spectrum_ID = mcdc_get.secondary_product.energy_spectrum_IDs(0, product, data)
+        spectrum = simulation["distributions"][spectrum_ID]
 
-        if product["reference_frame"] == REFERENCE_FRAME_COM:
-            A = nuclide["atomic_weight_ratio"]
-            E_COM = E_new
-            E_new = (
-                E_COM
-                + (E + 2.0 * mu * (A + 1.0) * math.sqrt(E * E_COM)) / (A + 1.0) ** 2
-            )
-            mu = mu * math.sqrt(E_COM / E_new) + math.sqrt(E / E_new) / (A + 1.0)
+        # Create the products
+        for _ in range(N_product):
+            particle_container_new = util.local_array(1, type_.particle_data)
+            particle_module.copy_as_child(particle_container_new, particle_container)
 
-        azi = 2.0 * PI * rng.lcg(particle_container_new)
-        ux_new, uy_new, uz_new = scatter_direction(ux, uy, uz, mu, azi)
-        product_type = product["particle_type"]
-
-        if product_type in (PARTICLE_NEUTRON, PARTICLE_ELECTRON):
-            particle_new = particle_container_new[0]
-            particle_new["ux"] = ux_new
-            particle_new["uy"] = uy_new
-            particle_new["uz"] = uz_new
-            particle_new["E"] = E_new
-            particle_new["particle_type"] = product_type
-            if particle["event"] & EVENT_TIME_CENSUS:
-                particle_bank_module.bank_census_particle(
-                    particle_container_new, program
+            # Sample energy and angle
+            if product["angle_type"] == ANGLE_ENERGY_CORRELATED:
+                E_new, mu = sample_correlated_distribution_with_scale(
+                    E,
+                    spectrum,
+                    particle_container_new,
+                    simulation,
+                    data,
                 )
             else:
-                particle_bank_module.bank_active_particle(
-                    particle_container_new, program
+                E_new = sample_distribution_with_scale(
+                    E,
+                    spectrum,
+                    particle_container_new,
+                    simulation,
+                    data,
                 )
-        else:
-            # Deuterons, tritons, He3, alphas, and heavier products are
-            # retained in the data model but locally deposited for now.
-            collision_data["energy_deposition"] += E_new * particle["w"]
+                if product["angle_type"] == ANGLE_ISOTROPIC:
+                    mu = sample_isotropic_cosine(particle_container_new)
+                else:
+                    mu_distribution = simulation["distributions"][product["mu_ID"]]
+                    mu = sample_distribution(
+                        E, mu_distribution, particle_container_new, simulation, data
+                    )
+
+            # Frame transformation
+            if product["reference_frame"] == REFERENCE_FRAME_COM:
+                A = nuclide["atomic_weight_ratio"]
+                E_COM = E_new
+                E_new = (
+                    E_COM
+                    + (E + 2.0 * mu * (A + 1.0) * math.sqrt(E * E_COM)) / (A + 1.0) ** 2
+                )
+                mu = mu * math.sqrt(E_COM / E_new) + math.sqrt(E / E_new) / (A + 1.0)
+
+            azi = 2.0 * PI * rng.lcg(particle_container_new)
+            ux_new, uy_new, uz_new = scatter_direction(ux, uy, uz, mu, azi)
+            product_type = product["particle_type"]
+
+            # Bank the new particle
+            if product_type in (PARTICLE_NEUTRON, PARTICLE_ELECTRON):
+                particle_new = particle_container_new[0]
+                particle_new["ux"] = ux_new
+                particle_new["uy"] = uy_new
+                particle_new["uz"] = uz_new
+                particle_new["E"] = E_new
+                particle_new["particle_type"] = product_type
+
+                collision_data["energy_deposition"] -= E_new * particle_new["w"]
+
+                if particle["event"] & EVENT_TIME_CENSUS:
+                    particle_bank_module.bank_census_particle(
+                        particle_container_new, program
+                    )
+                else:
+                    particle_bank_module.bank_active_particle(
+                        particle_container_new, program
+                    )
+            else:
+                # Deuterons, tritons, He3, alphas, and heavier products are
+                # retained in the data model but locally deposited for now.
+                # Their energy is already included in the reaction balance.
+                continue
 
 
 # No fission for protons
