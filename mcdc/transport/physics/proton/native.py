@@ -366,7 +366,6 @@ def elastic_scattering(
 
     # Particle attributes
     E = particle["E"]
-    incoming_energy = E
     ux = particle["ux"]
     uy = particle["uy"]
     uz = particle["uz"]
@@ -439,11 +438,6 @@ def elastic_scattering(
     # Final energy - LAB
     speed = math.sqrt(vx * vx + vy * vy + vz * vz)
     particle["E"] = particle_energy_from_speed(speed)
-    outgoing_energy = particle["E"]
-
-    # filepath = "/home/ethan_lame/MCDC/examples/proton_beam"
-    # with open(f"{filepath}/distribution_file.txt", "a") as f:
-    #     f.write(f"{mu0:.5f}, {incoming_energy}, {outgoing_energy}\n")
 
     # Final direction - LAB
     particle["ux"] = vx / speed

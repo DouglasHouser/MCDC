@@ -496,6 +496,8 @@ def condensed_interactions(particle_container, distance, simulation, data):
     physics.condensed_interactions(
         particle_container, collision_data_container, distance, simulation, data
     )
+
+    # TODO: change this to tracklength tallies
     score_collision_tallies(
         particle_container, collision_data_container, simulation, data
     )

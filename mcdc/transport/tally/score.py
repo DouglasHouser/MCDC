@@ -410,7 +410,7 @@ def tracklength(particle_container, distance, tally, simulation, data):
             z += distance_scored * uz
         t += distance_scored * ut
 
-        # Increment index and heck if out of bounds
+        # Increment index and check if out of bounds
         if axis_crossed == AXIS_T:
             i_time += 1
             idx_base += tally["stride_time"]
