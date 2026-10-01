@@ -92,7 +92,6 @@ simulation.set_tallies([edep_tally, flux_tally, s1_current, s2_current])
 # Settings and run
 # =============================================================================
 
-simulation.settings.set_transported_particles(["electron"])
 simulation.settings.N_particle = N_PARTICLES
 simulation.settings.active_bank_buffer = N_PARTICLES * 1000
 
