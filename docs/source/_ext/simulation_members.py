@@ -112,7 +112,7 @@ class SimulationMembersDirective(SphinxDirective):
         _append_line(lines)
         _append_line(
             lines,
-            "All species start inactive. Finalization activates the particle types present in the sources and preserves explicitly enabled types.",
+            "All species start inactive. Finalization activates the particle types present in the sources and preserves explicitly enabled types. Charged particles prioritize lower-energy outgoing particles by default.",
         )
         _append_line(lines)
 
@@ -121,7 +121,7 @@ class SimulationMembersDirective(SphinxDirective):
                 ("active", False, "Enable transport for this species."),
                 (
                     "prioritize_low_energy",
-                    False,
+                    species == "electron",
                     "Request lower-energy outgoing particles to be transported first.",
                 ),
             ):

@@ -100,10 +100,12 @@ def test_ionization_library_without_spectrum_above_binding_energy(
         (10_000.0, 144.0),
     ],
 )
+@pytest.mark.parametrize("prioritize", [False, True])
 def test_ionization_conserves_energy_with_cutoff_and_banking(
-    ionization_model, incident_energy, expected_T_delta
+    ionization_model, incident_energy, expected_T_delta, prioritize
 ):
     simulation, data = ionization_model
+    simulation["settings"]["electron_transport"]["prioritize_low_energy"] = prioritize
     # The first draw chooses the only subshell; the second samples its spectrum.
     particle_container, _ = _rng_state_for_xi(0.5, draw_count=2)
     particle = particle_container[0]
@@ -134,6 +136,8 @@ def test_ionization_conserves_energy_with_cutoff_and_banking(
     bank = simulation["bank_active"]
     bank_size = bank["size"][0]
     assert bank_size == int(expected_T_delta > ELECTRON_CUTOFF_ENERGY)
+    if bank_size and prioritize and 0.0 < expected_T_delta < expected_E:
+        expected_E, expected_T_delta = expected_T_delta, expected_E
     assert particle["E"] == pytest.approx(expected_E, rel=1e-13)
     assert particle["alive"] == (expected_E > 0.0)
     assert collision_container[0]["energy_deposition"] == pytest.approx(
@@ -153,3 +157,50 @@ def test_ionization_conserves_energy_with_cutoff_and_banking(
     assert outgoing_energy + collision_container[0]["energy_deposition"] == (
         pytest.approx(incident_energy * 2.0, rel=1e-13)
     )
+
+
+def test_ionization_priority_swaps_complete_particle_states(ionization_model):
+    simulation, data = ionization_model
+    results = []
+    for prioritize in (False, True):
+        simulation["settings"]["electron_transport"][
+            "prioritize_low_energy"
+        ] = prioritize
+        simulation["bank_active"]["size"][0] = 0
+        particles, _ = _rng_state_for_xi(0.5, draw_count=2)
+        particle = particles[0]
+        particle["particle_type"] = PARTICLE_ELECTRON
+        particle["E"] = 10_000.0
+        particle["w"] = 2.0
+        particle["uz"] = 1.0
+        particle["alive"] = True
+        particle["cell_ID"] = 7
+        particle["material_ID"] = 3
+        collision = np.zeros(1, dtype=type_.collision_data)
+        sample_ionization(
+            simulation["electron_reactions"][0],
+            particles,
+            collision,
+            simulation["elements"][0],
+            simulation,
+            data,
+        )
+        assert simulation["bank_active"]["size"][0] == 1
+        assert particle["alive"]
+        assert particle["cell_ID"] == 7
+        assert particle["material_ID"] == 3
+        results.append(
+            (
+                particle.copy(),
+                simulation["bank_active"]["particle_data"][0].copy(),
+                collision[0]["energy_deposition"],
+            )
+        )
+
+    primary, secondary, deposition = results[0]
+    active, banked, priority_deposition = results[1]
+    assert active["E"] < banked["E"]
+    for name in type_.particle_data.names:
+        assert active[name] == secondary[name]
+        assert banked[name] == primary[name]
+    assert priority_deposition == deposition

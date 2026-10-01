@@ -63,11 +63,13 @@ def test_collision_tally_uses_incident_energy(prepare_simulation, outgoing_energ
 
     collision_container = np.zeros(1, dtype=type_.collision_data)
     collision_data = collision_container[0]
-    collision_data["incident_energy"] = 20000.0
+    collision_data["incident_particle"]["E"] = 20000.0
+    collision_data["incident_particle"]["particle_type"] = PARTICLE_ELECTRON
+    collision_data["incident_particle"]["w"] = 2.0
     deposited_energy = (20000.0 - outgoing_energy) * particle["w"]
     collision_data["energy_deposition"] = deposited_energy
 
-    score_collision(particle_container, collision_container, tally, simulation, data)
+    score_collision(collision_container, tally, simulation, data)
 
     offset = tally["bin_offset"]
     stride = tally["stride_energy"]
@@ -114,14 +116,17 @@ def test_collision_captures_energy_before_electron_cutoff(
 
     collide(particle_container, collision_container, simulation, data)
 
-    assert collision_container[0]["incident_energy"] == incident_energy
+    incident = collision_container[0]["incident_particle"]
+    assert incident["E"] == incident_energy
+    assert incident["particle_type"] == PARTICLE_ELECTRON
+    assert incident["w"] == 2.0
     assert particle["E"] == 0.0
     assert not particle["alive"]
     assert collision_container[0]["energy_deposition"] == pytest.approx(
         incident_energy * 2.0
     )
 
-    score_collision(particle_container, collision_container, tally, simulation, data)
+    score_collision(collision_container, tally, simulation, data)
 
     offset = tally["bin_offset"]
     stride = tally["stride_energy"]

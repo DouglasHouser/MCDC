@@ -543,7 +543,7 @@ def sample_ionization(
             particle["uy"] = py_after / norm
             particle["uz"] = pz_after / norm
 
-    # Add secondary particle to bank
+    # Construct the secondary particle
     particle_container_new = util.local_array(1, type_.particle_data)
     particle_new = particle_container_new[0]
     particle_module.copy_as_child(particle_container_new, particle_container)
@@ -554,7 +554,16 @@ def sample_ionization(
     particle_new["uz"] = uz_delta
     particle_new["w"] = particle["w"]
 
-    particle_bank_module.bank_active_particle(particle_container_new, program)
+    # Continue the lower-energy electron when requested; bank the other one.
+    if (
+        simulation["settings"]["electron_transport"]["prioritize_low_energy"]
+        and particle["alive"]
+        and particle_new["E"] < particle["E"]
+    ):
+        particle_bank_module.bank_active_particle(particle_container, program)
+        particle_module.copy(particle_container, particle_container_new)
+    else:
+        particle_bank_module.bank_active_particle(particle_container_new, program)
 
 
 @njit

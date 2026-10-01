@@ -331,6 +331,11 @@ class Simulation(MCDCBase):
 
         settings = self.settings
 
+        if settings.neutron_transport.prioritize_low_energy:
+            print_error(
+                "prioritize_low_energy is currently supported only for electron transport."
+            )
+
         # Enable transport for every particle species present in the sources.
         for source in self.sources:
             if source.particle_type == PARTICLE_NEUTRON:

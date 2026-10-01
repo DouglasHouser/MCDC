@@ -13,10 +13,6 @@ def test_particle_type_filter(prepare_simulation):
     particle_container = np.zeros(1, type_.particle)
 
     particle_container[0]["particle_type"] = PARTICLE_ELECTRON
-    assert get_filter_indices(
-        particle_container, tally, data, particle_container[0]["E"]
-    ) == (0, 0, 0, 0)
+    assert get_filter_indices(particle_container, tally, data) == (0, 0, 0, 0)
     particle_container[0]["particle_type"] = PARTICLE_NEUTRON
-    assert get_filter_indices(
-        particle_container, tally, data, particle_container[0]["E"]
-    ) == (-1, -1, -1, -1)
+    assert get_filter_indices(particle_container, tally, data) == (-1, -1, -1, -1)

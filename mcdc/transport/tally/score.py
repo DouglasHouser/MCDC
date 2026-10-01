@@ -51,7 +51,9 @@ def surface_crossing(
 
     # Get filter indices
     i_mu, i_azi, i_energy, i_time = get_filter_indices(
-        particle_container, tally, data, particle["E"]
+        particle_container,
+        tally,
+        data,
     )
 
     # No score if outside non-changing phase-space bins
@@ -123,15 +125,14 @@ def surface_crossing(
 
 
 @njit
-def collision(particle_container, collision_data_container, tally, simulation, data):
-    particle = particle_container[0]
+def collision(collision_data_container, tally, simulation, data):
     collision_data = collision_data_container[0]
     sub_ID = tally["sub_ID"]
     collision_tally = simulation["collision_tallies"][sub_ID]
 
     # Get filter indices
     i_mu, i_azi, i_energy, i_time = get_filter_indices(
-        particle_container, tally, data, collision_data["incident_energy"]
+        collision_data_container["incident_particle"], tally, data
     )
 
     # No score if outside non-changing phase-space bins
@@ -143,7 +144,7 @@ def collision(particle_container, collision_data_container, tally, simulation, d
     if collision_tally["mesh_filtered"]:
         mesh = simulation["meshes"][collision_tally["mesh_filter_ID"]]
         i_x, i_y, i_z = mesh_module.get_indices(
-            particle_container, mesh, simulation, data
+            collision_data_container["incident_particle"], mesh, simulation, data
         )
 
         # No score outside mesh bins
@@ -187,7 +188,9 @@ def tracklength(particle_container, distance, tally, simulation, data):
 
     # Get filter indices
     i_mu, i_azi, i_energy, i_time = get_filter_indices(
-        particle_container, tally, data, particle["E"]
+        particle_container,
+        tally,
+        data,
     )
 
     # No score if outside non-changing phase-space bins

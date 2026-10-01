@@ -9,15 +9,15 @@ def test_transport_settings_are_independent():
     first, second = Settings(), Settings()
     assert not first.neutron_transport.active
     assert not first.electron_transport.active
-    first.electron_transport.prioritize_low_energy = True
+    assert first.electron_transport.prioritize_low_energy
+    first.electron_transport.prioritize_low_energy = False
     assert not first.neutron_transport.prioritize_low_energy
-    assert not second.electron_transport.prioritize_low_energy
+    assert second.electron_transport.prioritize_low_energy
 
 
 def test_transport_settings_are_packed(prepare_simulation):
     def configure(simulation):
         simulation.settings.electron_transport.active = True
-        simulation.settings.electron_transport.prioritize_low_energy = True
 
     container, _ = prepare_simulation(configure=configure)
     settings = container[0]["settings"]
@@ -55,3 +55,19 @@ def test_finalization_activates_source_species(
     settings = container[0]["settings"]
     assert settings["neutron_transport"]["active"] == expected_neutron
     assert settings["electron_transport"]["active"] == expected_electron
+
+
+@pytest.mark.parametrize("active", [False, True])
+def test_reject_neutron_energy_priority(active, capsys):
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell()])
+    simulation.settings.neutron_transport.active = active
+    simulation.settings.neutron_transport.prioritize_low_energy = True
+
+    with pytest.raises(SystemExit):
+        simulation.compile()
+
+    assert (
+        "prioritize_low_energy is currently supported only for electron transport."
+        in capsys.readouterr().out
+    )

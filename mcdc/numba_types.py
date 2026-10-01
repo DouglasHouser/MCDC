@@ -503,7 +503,7 @@ neutron_inelastic_scattering_reaction = into_dtype([
 
 collision_data = into_dtype([
     ('energy_deposition', float64),
-    ('incident_energy', float64),
+    ('incident_particle', particle_data),
 ])
 
 particle_bank = into_dtype([
