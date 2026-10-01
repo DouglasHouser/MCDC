@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Changed
 
+- Use the full incident-particle state for collision tally filtering, from [@ilhamv]
+- Make lower-energy-first transport rule configurable per particle, from [@ilhamv]
+- Introduce per-species transport settings with automatic activation of source particle types and nested settings in output files, replacing `set_transported_particles`, from [@ilhamv]
 - Generate the electron data library in eV, store the elastic transport cross section under MT-526, from [@melekderman]
 - Transport the lower-energy electron from ionization first for more effective bank usage, from [@melekderman]
 - Reuse electron cross-section energy-grid indices and cumulative subshell cross sections during collision sampling, from [@melekderman]
