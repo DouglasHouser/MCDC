@@ -63,19 +63,18 @@ PROTON_REACTION_ELASTIC_SCATTERING = 201
 PROTON_REACTION_CAPTURE = 202
 PROTON_REACTION_INELASTIC_SCATTERING = 203
 
-# Electron energy-loss models for condensed interactions
-#   ANALOG keeps the discrete energy-loss reactions
-ELECTRON_ENERGY_ANALOG = 0
-ELECTRON_ENERGY_CSDA = 1
+# Condensed-interaction energy models
+CONDENSED_ENERGY_ANALOG = 0
+CONDENSED_ENERGY_CSDA = 1
 
-# Electron angular models for condensed interactions
-#   ANALOG keeps discrete single (elastic) scattering.
-ELECTRON_ANGLE_ANALOG = 0
-ELECTRON_ANGLE_FP = 1
-ELECTRON_ANGLE_GFP2 = 2
-ELECTRON_ANGLE_GFP3 = 3
-ELECTRON_ANGLE_GFP4 = 4
-ELECTRON_ANGLE_NONE = 5
+# Condensed-interaction angular models
+CONDENSED_ANGLE_ANALOG = 0
+CONDENSED_ANGLE_NONE = 1
+CONDENSED_ANGLE_HIGHLAND = 2
+CONDENSED_ANGLE_FP = 3
+CONDENSED_ANGLE_GFP2 = 4
+CONDENSED_ANGLE_GFP3 = 5
+CONDENSED_ANGLE_GFP4 = 6
 
 # Data representations
 DATA_NONE = 0
