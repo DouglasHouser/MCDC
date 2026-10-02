@@ -7,11 +7,7 @@ from numpy.typing import NDArray
 
 ####
 
-from mcdc.constant import (
-    INTERPOLATION_LINEAR,
-    CONDENSED_ENERGY_ANALOG,
-    CONDENSED_ANGLE_ANALOG,
-)
+from mcdc.constant import INTERPOLATION_LINEAR
 from mcdc.object_.base import MCDCObject
 from mcdc.object_.data import DataBase, DataPolynomial, DataTable
 from mcdc.object_.distribution import DistributionBase
@@ -335,12 +331,7 @@ class Nuclide(MCDCObject):
         if "stopping_power" in file:
             self.stopping_power = file["stopping_power"]["total_stopping_power"][()]
             self.stopping_power_energy_grid = file["stopping_power"]["energy"][()]
-        elif (
-            simulation.settings.condensed_interactions.proton.energy_model
-            != CONDENSED_ENERGY_ANALOG
-            or simulation.settings.condensed_interactions.proton.angular_model
-            != CONDENSED_ANGLE_ANALOG
-        ):
+        elif simulation.settings.condensed_interactions.proton:
             raise ValueError(
                 f"Proton condensed history requires stopping power for nuclide {self.name}"
             )

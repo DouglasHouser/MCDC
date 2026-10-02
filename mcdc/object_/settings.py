@@ -33,64 +33,33 @@ class NeutronMultigroup(MCDCBase):
 # ======================================================================================
 
 
-class CondensedParticleSettings(MCDCBase):
-    """Per-species condensed-interaction configuration.
-
-    The energy-loss and angular treatments are independent axes; each can
-    be kept analog or moved into the condensed step. Which model values a
-    species accepts is validated by CondensedInteractions.
-    """
-
-    # MC/DC framework metadata
-    label = "condensed_particle_settings"
-
-    energy_model: int  # CONDENSED_ENERGY_* constant
-    angular_model: int  # CONDENSED_ANGLE_* constant
-    max_fractional_energy_loss: float  # Step limit based on mean energy loss
-
-    def __init__(self) -> None:
-        self.energy_model = CONDENSED_ENERGY_ANALOG
-        self.angular_model = CONDENSED_ANGLE_ANALOG
-        self.max_fractional_energy_loss = 1.0
-
-
 class CondensedInteractions(MCDCBase):
-    """Simulation-owned condensed-interaction configuration.
-
-    Every species is configured the same way, through a
-    CondensedParticleSettings with independent energy and angular axes.
-    """
+    """Simulation-owned condensed-interaction configuration."""
 
     # MC/DC framework metadata
     label = "condensed_interactions"
 
-    proton: CondensedParticleSettings
-    electron: CondensedParticleSettings
+    proton: bool  # Whether proton interactions are condensed
+    max_fractional_energy_loss: float  # Step limit based on mean energy loss
 
     def __init__(self) -> None:
-        self.proton = CondensedParticleSettings()
-        self.electron = CondensedParticleSettings()
+        self.proton = False
+        self.max_fractional_energy_loss = 1.0
 
     def __call__(
         self,
-        proton_energy: str = "csda",
-        proton_angle: str = "highland",
-        electron_energy: str = "analog",
-        electron_angle: str = "analog",
+        proton: bool = True,
         max_fractional_energy_loss: float = 1.0,
     ) -> None:
-        """Configure condensed interactions per species and axis.
+        """Configure condensed interactions.
 
-        Calling without arguments enables the standard proton condensed
-        treatment (CSDA energy loss with Highland angular scattering) and
-        keeps electrons analog.
+        Calling without arguments enables all supported particle types.
+        Currently, only protons are supported.
 
         Parameters
         ----------
-        proton_energy : {"analog", "csda"}, optional
-        proton_angle : {"analog", "highland"}, optional
-        electron_energy : {"analog", "csda"}, optional
-        electron_angle : {"analog", "fp", "gfp2", "gfp3", "gfp4"}, optional
+        proton : bool, optional
+            Whether proton interactions are condensed. Defaults to true.
         max_fractional_energy_loss : float, optional
             Maximum expected fraction of kinetic energy lost per step, shared
             by all supported particle types.
@@ -99,20 +68,15 @@ class CondensedInteractions(MCDCBase):
 
         Examples
         --------
-        Standard proton condensed treatment:
-
         Enable condensed interactions for all supported particle types:
 
         >>> import mcdc
         >>> simulation = mcdc.Simulation()
         >>> simulation.settings.condensed_interactions()
 
-        Disable the proton condensed treatment:
+        Disable condensed interactions for protons:
 
-        >>> simulation.settings.condensed_interactions(
-        ...     proton_energy="analog", proton_angle="analog"
-        ... )
-
+        >>> simulation.settings.condensed_interactions(proton=False)
         """
         max_fractional_energy_loss = float(max_fractional_energy_loss)
         if not np.isfinite(max_fractional_energy_loss) or not (
@@ -120,39 +84,8 @@ class CondensedInteractions(MCDCBase):
         ):
             print_error("max_fractional_energy_loss must be finite and in (0, 1].")
 
-        energy_models = {
-            "analog": CONDENSED_ENERGY_ANALOG,
-            "csda": CONDENSED_ENERGY_CSDA,
-        }
-        proton_angular_models = {
-            "analog": CONDENSED_ANGLE_ANALOG,
-            "highland": CONDENSED_ANGLE_HIGHLAND,
-        }
-        electron_angular_models = {
-            "analog": CONDENSED_ANGLE_ANALOG,
-            "fp": CONDENSED_ANGLE_FP,
-            "gfp2": CONDENSED_ANGLE_GFP2,
-            "gfp3": CONDENSED_ANGLE_GFP3,
-            "gfp4": CONDENSED_ANGLE_GFP4,
-        }
-
-        if proton_energy not in energy_models:
-            print_error("proton_energy must be 'analog' or 'csda'.")
-        if proton_angle not in proton_angular_models:
-            print_error("proton_angle must be 'analog' or 'highland'.")
-        if electron_energy not in energy_models:
-            print_error("electron_energy must be 'analog' or 'csda'.")
-        if electron_angle not in electron_angular_models:
-            print_error(
-                "electron_angle must be 'analog', 'fp', 'gfp2', 'gfp3', or 'gfp4'."
-            )
-
-        self.proton.energy_model = energy_models[proton_energy]
-        self.proton.angular_model = proton_angular_models[proton_angle]
-        self.proton.max_fractional_energy_loss = max_fractional_energy_loss
-        self.electron.energy_model = energy_models[electron_energy]
-        self.electron.angular_model = electron_angular_models[electron_angle]
-        self.electron.max_fractional_energy_loss = max_fractional_energy_loss
+        self.proton = proton
+        self.max_fractional_energy_loss = max_fractional_energy_loss
 
 
 # ======================================================================================

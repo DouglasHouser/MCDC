@@ -469,17 +469,9 @@ def use_condensed_interactions(particle_container, settings):
     """Return whether condensed interactions is enabled for the particle."""
     particle = particle_container[0]
     condensed_interactions = settings["condensed_interactions"]
-    particle_type = particle["particle_type"]
-    if particle_type == PARTICLE_PROTON:
-        models = condensed_interactions["proton"]
-    elif particle_type == PARTICLE_ELECTRON:
-        models = condensed_interactions["electron"]
-    else:
-        return False
-    # Active when any particle uses a condensed model
     return (
-        models["energy_model"] != CONDENSED_ENERGY_ANALOG
-        or models["angular_model"] != CONDENSED_ANGLE_ANALOG
+        particle["particle_type"] == PARTICLE_PROTON
+        and condensed_interactions["proton"]
     )
 
 

@@ -43,9 +43,7 @@ def max_condensed_step_distance(particle_container, simulation, data):
         dedx = np.interp(E / 1e6, dedx_energies, dedx_values)
         total_dedx = dedx * 1e6
 
-    max_fractional_energy_loss = condensed_interactions["proton"][
-        "max_fractional_energy_loss"
-    ]
+    max_fractional_energy_loss = condensed_interactions["max_fractional_energy_loss"]
     return max_fractional_energy_loss * E / total_dedx / total_rho
 
 
