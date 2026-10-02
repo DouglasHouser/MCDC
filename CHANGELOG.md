@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
+- Add proton transport with nuclear reactions and secondary-particle production, continuous slowing down, energy-loss straggling, and multiple Coulomb scattering, from [@ethan-lame]
 - Add developer documentation on particle transport architecture, covering particle steps, event handling, interaction data, and tally scoring triggers, from [@ilhamv]
 - Add time, polar-cosine, and azimuthal dependence to weight windows; consolidate lower, target, and upper weights into one array and extend flattened-data accessors to eight dimensions, from [@nglaser3]
 - Add a fissionable material and an outlet detector to the pulsed Kobayashi example, from [@ilhamv]
@@ -248,3 +249,4 @@ The pre-refactor implementation remains available in the `cement` branch as a re
 [@Talen-Ayers]: https://github.com/Talen-Ayers
 [@steps-re]: https://github.com/steps-re
 [@braxtoncuneo]: https://github.com/braxtoncuneo
+[@ethan-lame]: https://github.com/ethan-lame
