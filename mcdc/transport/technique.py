@@ -12,7 +12,7 @@ import mcdc.transport.particle_bank as particle_bank_module
 import mcdc.transport.rng as rng
 import mcdc.transport.util as util
 
-from mcdc.constant import EVENT_TIME_CENSUS
+from mcdc.constant import COINCIDENCE_TOLERANCE_TIME, EVENT_TIME_CENSUS
 from mcdc.transport.mesh import get_indices as get_mesh_indices
 
 # ======================================================================================
@@ -151,7 +151,9 @@ def get_ww_indices(particle_container, ww_obj, simulation, data):
 
     # get time index
     time_bounds = ww_get.time_bounds_all(ww_obj, data)
-    it = util.find_bin(particle["t"], time_bounds)
+    it = util.find_bin_with_rules(
+        particle["t"], time_bounds, COINCIDENCE_TOLERANCE_TIME, False
+    )
 
     # get energy index
     energy_bounds = ww_get.energy_bounds_all(ww_obj, data)
