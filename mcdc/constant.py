@@ -63,6 +63,13 @@ PROTON_REACTION_ELASTIC_SCATTERING = 201
 PROTON_REACTION_CAPTURE = 202
 PROTON_REACTION_INELASTIC_SCATTERING = 203
 
+# Electron condensed-interaction angular models
+CONDENSED_ANGLE_NONE = 0   # No deflection (CSDA-only)
+CONDENSED_ANGLE_FP = 1     # Fokker-Planck
+CONDENSED_ANGLE_GFP2 = 2   # Generalized Fokker-Planck, 2nd order
+CONDENSED_ANGLE_GFP3 = 3   # Generalized Fokker-Planck, 3rd order
+CONDENSED_ANGLE_GFP4 = 4   # Generalized Fokker-Planck, 4th order
+
 # Data representations
 DATA_NONE = 0
 DATA_TABLE = 1
