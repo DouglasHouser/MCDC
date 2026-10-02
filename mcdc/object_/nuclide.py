@@ -328,6 +328,7 @@ class Nuclide(MCDCObject):
         # ==========================================================================
         # Stopping power for protons
         # ==========================================================================
+
         if "stopping_power" in file:
             self.stopping_power = file["stopping_power"]["total_stopping_power"][()]
             self.stopping_power_energy_grid = file["stopping_power"]["energy"][()]
@@ -422,6 +423,11 @@ class Nuclide(MCDCObject):
                 rx_container.append(reaction)
 
         file.close()
+
+        # Register reactions and their data loaded during finalization.
+        for reaction_container in rx_containers:
+            for reaction in reaction_container:
+                reaction._compile_into_simulation(simulation)
 
     def __repr__(self):
         text = "\n"
