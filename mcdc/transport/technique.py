@@ -12,6 +12,7 @@ import mcdc.transport.particle_bank as particle_bank_module
 import mcdc.transport.rng as rng
 import mcdc.transport.util as util
 
+from mcdc.constant import COINCIDENCE_TOLERANCE_TIME, EVENT_TIME_CENSUS
 from mcdc.transport.mesh import get_indices as get_mesh_indices
 
 # ======================================================================================
@@ -150,7 +151,9 @@ def get_ww_indices(particle_container, ww_obj, simulation, data):
 
     # get time index
     time_bounds = ww_get.time_bounds_all(ww_obj, data)
-    it = util.find_bin(particle["t"], time_bounds)
+    it = util.find_bin_with_rules(
+        particle["t"], time_bounds, COINCIDENCE_TOLERANCE_TIME, False
+    )
 
     # get energy index
     energy_bounds = ww_get.energy_bounds_all(ww_obj, data)
@@ -204,7 +207,10 @@ def split_from_weight_window(particle_container, w_upper, w_target, w_lower, pro
         for _ in range(num_split_to_target - 1):
             container_copy = util.local_array(1, type_.particle)
             particle_module.copy_as_child(container_copy, particle_container)
-            particle_bank_module.bank_active_particle(container_copy, program)
+            if particle["event"] & EVENT_TIME_CENSUS:
+                particle_bank_module.bank_census_particle(container_copy, program)
+            else:
+                particle_bank_module.bank_active_particle(container_copy, program)
 
         # bank residual particle
         residual_weight = weight - num_split_to_target * w_target
@@ -215,7 +221,10 @@ def split_from_weight_window(particle_container, w_upper, w_target, w_lower, pro
             residual_copy[0]["alive"] = True
             weight_roulette(residual_copy, w_lower, w_target)
             if residual_copy[0]["alive"]:
-                particle_bank_module.bank_active_particle(residual_copy, program)
+                if particle["event"] & EVENT_TIME_CENSUS:
+                    particle_bank_module.bank_census_particle(residual_copy, program)
+                else:
+                    particle_bank_module.bank_active_particle(residual_copy, program)
 
 
 # ======================================================================================

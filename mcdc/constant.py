@@ -20,10 +20,12 @@ INF = 1e10
 LIGHT_SPEED = 2.99792458e10  # cm/s
 NEUTRON_MASS = 939.565413e6  # eV/c^2
 ELECTRON_MASS = 510.99895069e3  # eV/c^2
+PROTON_MASS = 938.27208943e6  # eV/c^2
 BOLTZMANN_K = 8.61733326e-5  # eV/K
 
 # Physics thresholds
 ELECTRON_CUTOFF_ENERGY = 100  # eV
+PROTON_CUTOFF_ENERGY = 250000  # eV
 MU_CUTOFF = 0.999999
 THERMAL_THRESHOLD_FACTOR = 400
 
@@ -54,6 +56,12 @@ ELECTRON_REACTION_ELASTIC_SCATTERING = 101
 ELECTRON_REACTION_IONIZATION = 102
 ELECTRON_REACTION_BREMSSTRAHLUNG = 103
 ELECTRON_REACTION_EXCITATION = 104
+
+# Proton reactions
+PROTON_REACTION_TOTAL = 200
+PROTON_REACTION_ELASTIC_SCATTERING = 201
+PROTON_REACTION_CAPTURE = 202
+PROTON_REACTION_INELASTIC_SCATTERING = 203
 
 # Data representations
 DATA_NONE = 0
@@ -147,13 +155,16 @@ BOOL_NOT = -3
 # ======================================================================================
 
 # Events are bit flags and may be combined with bitwise operations.
-EVENT_NONE = 1 << 0
-EVENT_SURFACE_CROSSING = 1 << 1
-EVENT_LATTICE_CROSSING = 1 << 2
-EVENT_LOST = 1 << 3
-EVENT_COLLISION = 1 << 4
-EVENT_TIME_CENSUS = 1 << 5
-EVENT_TIME_BOUNDARY = 1 << 6
+#   - NONE represents an empty event mask.
+#   - LOST and TIME_BOUNDARY are exclusive.
+#   - Collision and geometry crossing are mutually exclusive.
+#   - Time census may accompany collision or geometry crossing.
+EVENT_NONE = 0
+EVENT_LOST = 1 << 0
+EVENT_TIME_BOUNDARY = 1 << 1
+EVENT_COLLISION = 1 << 2
+EVENT_GEOMETRY_CROSSING = 1 << 3
+EVENT_TIME_CENSUS = 1 << 4
 
 # Coincidence tolerances
 COINCIDENCE_TOLERANCE = TINY
@@ -161,14 +172,13 @@ COINCIDENCE_TOLERANCE_DIRECTION = 1e-5
 COINCIDENCE_TOLERANCE_ENERGY = 1e-5
 COINCIDENCE_TOLERANCE_TIME = TINY * 1e-2
 
-
 # ======================================================================================
 # Tallies
 # ======================================================================================
 
-# Tally estimator types
+# Tally types
 TALLY_SURFACE_CROSSING = 0
-TALLY_COLLISION = 1
+TALLY_INTERACTION = 1
 TALLY_TRACKLENGTH = 2
 
 # Track-length scores
@@ -183,17 +193,17 @@ SCORE_CURRENT_NET = 100
 SCORE_CURRENT_IN = 101
 SCORE_CURRENT_OUT = 102
 
-# Collision scores
+# Interaction scores
 SCORE_ENERGY_DEPOSITION = 200
 
-# Supported scores by estimator type
+# Supported scores by tally type
 SUPPORTED_SCORES_SURFACE_CROSSING = {"current-net", "current-in", "current-out"}
 SUPPORTED_SCORES_TRACKLENGTH = {"flux", "density", "collision", "capture", "fission"}
-SUPPORTED_SCORES_COLLISION = {"energy_deposition"}
+SUPPORTED_SCORES_INTERACTION = {"energy_deposition"}
 SUPPORTED_SCORES = (
     SUPPORTED_SCORES_SURFACE_CROSSING
     | SUPPORTED_SCORES_TRACKLENGTH
-    | SUPPORTED_SCORES_COLLISION
+    | SUPPORTED_SCORES_INTERACTION
 )
 
 

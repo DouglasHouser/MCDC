@@ -56,8 +56,8 @@ cell = into_dtype([
     ('fill_rotated', bool_),
     ('translation', float64, (3,)),
     ('rotation', float64, (3,)),
-    ('N_collision_tally', int64),
-    ('collision_tally_IDs_offset', int64),
+    ('N_interaction_tally', int64),
+    ('interaction_tally_IDs_offset', int64),
     ('N_tracklength_tally', int64),
     ('tracklength_tally_IDs_offset', int64),
     ('ID', int64),
@@ -93,10 +93,17 @@ material = into_dtype([
     ('nuclide_densities_length', int64),
     ('element_densities_offset', int64),
     ('element_densities_length', int64),
+    ('stopping_power_provided', bool_),
+    ('stopping_power_offset', int64),
+    ('stopping_power_length', int64),
+    ('stopping_power_energy_grid_offset', int64),
+    ('stopping_power_energy_grid_length', int64),
+    ('radiation_length', float64),
+    ('radiation_length_provided', bool_),
     ('ID', int64),
 ])
 
-collision_tally = into_dtype([
+interaction_tally = into_dtype([
     ('cell_filtered', bool_),
     ('cell_filter_ID', int64),
     ('mesh_filtered', bool_),
@@ -276,6 +283,8 @@ electron_reaction = into_dtype([
     ('xs_length', int64),
     ('xs_offset_', int64),
     ('reference_frame', int64),
+    ('N_secondary_product', int64),
+    ('secondary_product_IDs_offset', int64),
     ('ID', int64),
     ('sub_type', int64),
     ('sub_ID', int64),
@@ -309,6 +318,28 @@ electron_ionization_reaction = into_dtype([
     ('subshell_product_IDs_offset', int64),
     ('ID', int64),
     ('base_ID', int64),
+])
+
+secondary_product = into_dtype([
+    ('particle_type', int64),
+    ('atomic_number', int64),
+    ('mass_number', int64),
+    ('excitation_state', int64),
+    ('production_yield_ID', int64),
+    ('delayed', bool_),
+    ('decay_constant', float64),
+    ('reference_frame', int64),
+    ('angle_type', int64),
+    ('mu_ID', int64),
+    ('N_spectrum_probability_bin', int64),
+    ('N_spectrum', int64),
+    ('spectrum_probability_grid_offset', int64),
+    ('spectrum_probability_grid_length', int64),
+    ('spectrum_probability_offset', int64),
+    ('spectrum_probability_length', int64),
+    ('N_energy_spectrum', int64),
+    ('energy_spectrum_IDs_offset', int64),
+    ('ID', int64),
 ])
 
 element = into_dtype([
@@ -386,6 +417,7 @@ nuclide = into_dtype([
     ('atomic_weight_ratio', float64),
     ('fissionable', bool_),
     ('excitation_level', int64),
+    ('radiation_length', float64),
     ('neutron_xs_energy_grid_offset', int64),
     ('neutron_xs_energy_grid_length', int64),
     ('neutron_total_xs_offset', int64),
@@ -398,6 +430,16 @@ nuclide = into_dtype([
     ('neutron_inelastic_xs_length', int64),
     ('neutron_fission_xs_offset', int64),
     ('neutron_fission_xs_length', int64),
+    ('proton_xs_energy_grid_offset', int64),
+    ('proton_xs_energy_grid_length', int64),
+    ('proton_total_xs_offset', int64),
+    ('proton_total_xs_length', int64),
+    ('proton_elastic_xs_offset', int64),
+    ('proton_elastic_xs_length', int64),
+    ('proton_capture_xs_offset', int64),
+    ('proton_capture_xs_length', int64),
+    ('proton_inelastic_xs_offset', int64),
+    ('proton_inelastic_xs_length', int64),
     ('N_neutron_elastic_scattering_reaction', int64),
     ('neutron_elastic_scattering_reaction_IDs_offset', int64),
     ('N_neutron_capture_reaction', int64),
@@ -406,6 +448,12 @@ nuclide = into_dtype([
     ('neutron_inelastic_scattering_reaction_IDs_offset', int64),
     ('N_neutron_fission_reaction', int64),
     ('neutron_fission_reaction_IDs_offset', int64),
+    ('N_proton_elastic_scattering_reaction', int64),
+    ('proton_elastic_scattering_reaction_IDs_offset', int64),
+    ('N_proton_capture_reaction', int64),
+    ('proton_capture_reaction_IDs_offset', int64),
+    ('N_proton_inelastic_scattering_reaction', int64),
+    ('proton_inelastic_scattering_reaction_IDs_offset', int64),
     ('neutron_fission_prompt_multiplicity_ID', int64),
     ('neutron_fission_delayed_multiplicity_ID', int64),
     ('N_neutron_fission_delayed_precursor', int64),
@@ -415,6 +463,10 @@ nuclide = into_dtype([
     ('neutron_fission_delayed_decay_rates_length', int64),
     ('N_neutron_fission_delayed_spectrum', int64),
     ('neutron_fission_delayed_spectrum_IDs_offset', int64),
+    ('stopping_power_offset', int64),
+    ('stopping_power_length', int64),
+    ('stopping_power_energy_grid_offset', int64),
+    ('stopping_power_energy_grid_length', int64),
     ('ID', int64),
 ])
 
@@ -461,6 +513,8 @@ neutron_reaction = into_dtype([
     ('xs_offset_', int64),
     ('reference_frame', int64),
     ('q_value', float64),
+    ('N_secondary_product', int64),
+    ('secondary_product_IDs_offset', int64),
     ('ID', int64),
     ('sub_type', int64),
     ('sub_ID', int64),
@@ -501,7 +555,34 @@ neutron_inelastic_scattering_reaction = into_dtype([
     ('base_ID', int64),
 ])
 
-collision_data = into_dtype([
+proton_capture_reaction = into_dtype([
+    ('ID', int64),
+    ('base_ID', int64),
+])
+
+proton_elastic_scattering_reaction = into_dtype([
+    ('mu_table_ID', int64),
+    ('ID', int64),
+    ('base_ID', int64),
+])
+
+proton_inelastic_scattering_reaction = into_dtype([
+    ('multiplicity', int64),
+    ('angle_type', int64),
+    ('mu_ID', int64),
+    ('N_spectrum_probability_bin', int64),
+    ('N_spectrum', int64),
+    ('spectrum_probability_grid_offset', int64),
+    ('spectrum_probability_grid_length', int64),
+    ('spectrum_probability_offset', int64),
+    ('spectrum_probability_length', int64),
+    ('N_energy_spectrum', int64),
+    ('energy_spectrum_IDs_offset', int64),
+    ('ID', int64),
+    ('base_ID', int64),
+])
+
+interaction_data = into_dtype([
     ('energy_deposition', float64),
     ('incident_particle', particle_data),
 ])
@@ -509,6 +590,29 @@ collision_data = into_dtype([
 particle_bank = into_dtype([
     ('size', int64, (1,)),
     ('tag', 'U32'),
+])
+
+proton_reaction = into_dtype([
+    ('MT', int64),
+    ('xs_offset', int64),
+    ('xs_length', int64),
+    ('xs_offset_', int64),
+    ('reference_frame', int64),
+    ('q_value', float64),
+    ('N_secondary_product', int64),
+    ('secondary_product_IDs_offset', int64),
+    ('ID', int64),
+    ('sub_type', int64),
+    ('sub_ID', int64),
+])
+
+condensed_interactions = into_dtype([
+    ('proton', bool_),
+    ('max_fractional_energy_loss', float64),
+])
+
+neutron_multigroup = into_dtype([
+    ('hybrid', bool_),
 ])
 
 particle_transport_settings = into_dtype([
@@ -543,14 +647,13 @@ settings = into_dtype([
     ('future_bank_buffer_ratio', float64),
     ('neutron_transport', particle_transport_settings),
     ('electron_transport', particle_transport_settings),
+    ('proton_transport', particle_transport_settings),
+    ('neutron_multigroup', neutron_multigroup),
+    ('condensed_interactions', condensed_interactions),
     ('neutron_eigenvalue_mode', bool_),
     ('gpu_strategy', int64),
     ('gpu_async_type', int64),
     ('gpu_storage', int64),
-])
-
-neutron_multigroup = into_dtype([
-    ('hybrid', bool_),
 ])
 
 implicit_capture = into_dtype([
@@ -597,7 +700,6 @@ population_control = into_dtype([
 ])
 
 technique = into_dtype([
-    ('neutron_multigroup', neutron_multigroup),
     ('implicit_capture', implicit_capture),
     ('weighted_emission', weighted_emission),
     ('global_weight_roulette', global_weight_roulette),
@@ -799,6 +901,14 @@ def make_simulation_type(N: dict):
         ('N_electron_excitation_reaction', int64),
         ('electron_ionization_reactions', electron_ionization_reaction, (N['electron_ionization_reaction'])),
         ('N_electron_ionization_reaction', int64),
+        ('proton_capture_reactions', proton_capture_reaction, (N['proton_capture_reaction'])),
+        ('N_proton_capture_reaction', int64),
+        ('proton_elastic_scattering_reactions', proton_elastic_scattering_reaction, (N['proton_elastic_scattering_reaction'])),
+        ('N_proton_elastic_scattering_reaction', int64),
+        ('proton_inelastic_scattering_reactions', proton_inelastic_scattering_reaction, (N['proton_inelastic_scattering_reaction'])),
+        ('N_proton_inelastic_scattering_reaction', int64),
+        ('proton_reactions', proton_reaction, (N['proton_reaction'])),
+        ('N_proton_reaction', int64),
         ('nuclides', nuclide, (N['nuclide'])),
         ('N_nuclide', int64),
         ('elements', element, (N['element'])),
@@ -809,6 +919,8 @@ def make_simulation_type(N: dict):
         ('N_neutron_multigroup_data', int64),
         ('sources', source, (N['source'])),
         ('N_source', int64),
+        ('secondary_products', secondary_product, (N['secondary_product'])),
+        ('N_secondary_product', int64),
         ('surfaces', surface, (N['surface'])),
         ('N_surface', int64),
         ('cells', cell, (N['cell'])),
@@ -823,8 +935,8 @@ def make_simulation_type(N: dict):
         ('N_structured_mesh', int64),
         ('uniform_meshes', uniform_mesh, (N['uniform_mesh'])),
         ('N_uniform_mesh', int64),
-        ('collision_tallies', collision_tally, (N['collision_tally'])),
-        ('N_collision_tally', int64),
+        ('interaction_tallies', interaction_tally, (N['interaction_tally'])),
+        ('N_interaction_tally', int64),
         ('tracklength_tallies', tracklength_tally, (N['tracklength_tally'])),
         ('N_tracklength_tally', int64),
         ('surface_crossing_tallies', surface_crossing_tally, (N['surface_crossing_tally'])),

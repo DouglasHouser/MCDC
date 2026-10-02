@@ -29,6 +29,15 @@ from mcdc.transport.util import find_bin, make_direction_basis
 
 
 @njit
+def sample_normal(rng_state):
+    """Sample a standard normal using the particle's reproducible RNG stream."""
+    # Box-Muller transform; 1 - xi keeps the logarithm's argument positive.
+    radius = math.sqrt(-2.0 * math.log(1.0 - rng.lcg(rng_state)))
+    angle = 2.0 * math.pi * rng.lcg(rng_state)
+    return radius * math.cos(angle)
+
+
+@njit
 def sample_distribution(E, distribution, rng_state, simulation, data):
     return _sample_distribution(E, distribution, rng_state, simulation, data, False)
 

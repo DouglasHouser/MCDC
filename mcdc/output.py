@@ -8,7 +8,6 @@ import numpy as np
 
 import mcdc.mcdc_get as mcdc_get
 import mcdc.print_ as print_module
-
 from mcdc.object_.base import MCDCBase
 
 from mcdc.constant import (
@@ -95,17 +94,15 @@ def generate_output(mcdc, data, simulationPy, no_tally_output=False):
 
 
 def create_object_dataset(file, group_name, object_):
-    for name in [
-        x
-        for x in dir(object_)
-        if (not x.startswith("__") and not callable(getattr(object_, x)))
-    ]:
+    """Write configuration fields, including nested configuration objects."""
+    for name in dir(object_):
+        if name.startswith("__"):
+            continue
         value = getattr(object_, name)
-        path = f"{group_name}/{name}"
         if isinstance(value, MCDCBase):
-            create_object_dataset(file, path, value)
-        else:
-            file[path] = value
+            create_object_dataset(file, f"{group_name}/{name}", value)
+        elif not callable(value):
+            file[f"{group_name}/{name}"] = value
 
 
 # ======================================================================================
@@ -195,7 +192,7 @@ def read_census_score(simulation, data, tally, score, batch, census):
 
 
 def create_tally_dataset(file, mcdc, data):
-    from mcdc.constant import TALLY_TRACKLENGTH, TALLY_COLLISION
+    from mcdc.constant import TALLY_TRACKLENGTH, TALLY_INTERACTION
     from mcdc.object_.tally import decode_score_type
 
     # Loop over all tally types
@@ -223,8 +220,8 @@ def create_tally_dataset(file, mcdc, data):
         mesh_filtered_tally = None
         if tally["sub_type"] == TALLY_TRACKLENGTH:
             mesh_filtered_tally = mcdc["tracklength_tallies"][tally["sub_ID"]]
-        elif tally["sub_type"] == TALLY_COLLISION:
-            mesh_filtered_tally = mcdc["collision_tallies"][tally["sub_ID"]]
+        elif tally["sub_type"] == TALLY_INTERACTION:
+            mesh_filtered_tally = mcdc["interaction_tallies"][tally["sub_ID"]]
 
         if mesh_filtered_tally is not None and mesh_filtered_tally["mesh_filtered"]:
             mesh_base = mcdc["meshes"][mesh_filtered_tally["mesh_filter_ID"]]

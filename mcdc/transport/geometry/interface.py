@@ -7,12 +7,17 @@ from numba import njit
 
 import mcdc.mcdc_get as mcdc_get
 import mcdc.literals as literals
+import mcdc.numba_types as type_
 import mcdc.transport.mesh as mesh
 import mcdc.transport.physics as physics
 import mcdc.transport.util as util
 
 from mcdc.constant import *
-from mcdc.transport.geometry.surface import get_distance, check_sense
+from mcdc.transport.geometry.surface import (
+    get_distance,
+    check_sense,
+    get_normal_component,
+)
 
 # ======================================================================================
 # Geometry traversal
@@ -25,7 +30,7 @@ def inspect_geometry(particle_container, simulation, data):
     Full geometry inspection of the particle:
         - Set particle top cell and material IDs (if not lost)
         - Set surface ID (if surface hit)
-        - Set particle boundary event (surface or lattice crossing, or lost)
+        - Set EVENT_LOST if lost; otherwise leave the event unchanged
         - Return distance to boundary (surface or lattice)
     """
     particle = particle_container[0]
@@ -34,17 +39,18 @@ def inspect_geometry(particle_container, simulation, data):
     global_coordinates = _save_global_coordinates(particle_container)
     speed = physics.particle_speed(particle_container, simulation, data)
 
-    # Default returns
+    # Track the nearest boundary and whether the particle is lost.
     distance = INF
-    event = EVENT_NONE
+    particle_is_lost = False
+    particle["surface_ID"] = -1
 
     # Find the top cell from the root universe if it is unknown.
     cell_ID = _get_top_cell_ID(particle_container, speed, simulation, data)
     if cell_ID == -1:
-        event = EVENT_LOST
+        particle_is_lost = True
 
     # Recursively check cells until material cell is found (or the particle is lost)
-    while event != EVENT_LOST:
+    while not particle_is_lost:
         cell = simulation["cells"][cell_ID]
 
         # Distance to nearest surface
@@ -55,14 +61,12 @@ def inspect_geometry(particle_container, simulation, data):
         # Check if smaller
         if d_surface < distance - COINCIDENCE_TOLERANCE:
             distance = d_surface
-            event = EVENT_SURFACE_CROSSING
             particle["surface_ID"] = surface_ID
 
         # Check if coincident
-        elif check_coincidence(d_surface, distance):
-            # Add event if not there yet
-            if not event & EVENT_SURFACE_CROSSING:
-                event += EVENT_SURFACE_CROSSING
+        elif surface_ID >= 0 and check_coincidence(d_surface, distance):
+            # Retain surface actions when coincident with a lattice boundary.
+            if particle["surface_ID"] == -1:
                 particle["surface_ID"] = surface_ID
             # If surface crossing is already there, prioritize the outer surface ID
 
@@ -88,19 +92,12 @@ def inspect_geometry(particle_container, simulation, data):
                 # Check if smaller
                 if d_lattice < distance - COINCIDENCE_TOLERANCE:
                     distance = d_lattice
-                    event = EVENT_LATTICE_CROSSING
                     particle["surface_ID"] = -1
-
-                # Check if coincident
-                if check_coincidence(d_lattice, distance):
-                    # Add event if not there yet
-                    if not event & EVENT_LATTICE_CROSSING:
-                        event += EVENT_LATTICE_CROSSING
 
             # Find the filled universe and enter its local coordinates.
             universe_ID = _enter_fill(particle_container, cell, simulation, data)
             if universe_ID == -1:
-                event = EVENT_LOST
+                particle_is_lost = True
                 continue
 
             # Get inner cell
@@ -108,17 +105,15 @@ def inspect_geometry(particle_container, simulation, data):
                 particle_container, speed, universe_ID, simulation, data
             )
             if cell_ID == -1:
-                event = EVENT_LOST
+                particle_is_lost = True
 
     # Restore the particle after traversal through local coordinates.
     _restore_global_coordinates(particle_container, global_coordinates)
 
     # Report lost particle
-    if event == EVENT_LOST:
+    if particle_is_lost:
+        particle["event"] = EVENT_LOST
         report_lost_particle(particle_container, simulation)
-
-    # Assign particle event
-    particle["event"] = event
 
     return distance
 
@@ -130,7 +125,7 @@ def locate_particle(particle_container, simulation, data):
     Return False if particle is lost
 
     This is similar to inspect_geometry, except that distance to nearest surface
-    or/and lattice grid and the respective boundary event are not determined.
+    or/and lattice grid are not determined.
     """
     particle = particle_container[0]
 
@@ -192,6 +187,64 @@ def locate_particle(particle_container, simulation, data):
 # ======================================================================================
 # Geometry traversal helpers
 # ======================================================================================
+
+
+@njit
+def surface_crossing_valid(
+    incident_container, particle_container, distance, simulation, data
+):
+    """Check whether deflection preserves crossing in the incident surface frame."""
+    # Retrace the incident hierarchy from the segment start. Use that same
+    # frame for the endpoint, even if its new direction selects another cell.
+    start_container = util.local_array(1, type_.particle)
+    end_container = util.local_array(1, type_.particle)
+    # Access through the arrays to keep their storage alive across Numba calls.
+    start_container[0] = incident_container[0]
+    end_container[0] = particle_container[0]
+    incident_speed = physics.particle_speed(incident_container, simulation, data)
+    outgoing_speed = physics.particle_speed(particle_container, simulation, data)
+    start_container[0]["x"] -= distance * start_container[0]["ux"]
+    start_container[0]["y"] -= distance * start_container[0]["uy"]
+    start_container[0]["z"] -= distance * start_container[0]["uz"]
+    start_container[0]["t"] -= distance / incident_speed
+    surface_ID = start_container[0]["surface_ID"]
+    cell_ID = start_container[0]["cell_ID"]
+
+    while cell_ID != -1:
+        cell = simulation["cells"][cell_ID]
+        for i in range(cell["N_surface"]):
+            if mcdc_get.cell.surface_IDs(i, cell, data) == surface_ID:
+                surface = simulation["surfaces"][surface_ID]
+                outgoing_normal = get_normal_component(
+                    end_container, outgoing_speed, surface, data
+                )
+                end_container[0]["ux"] = start_container[0]["ux"]
+                end_container[0]["uy"] = start_container[0]["uy"]
+                end_container[0]["uz"] = start_container[0]["uz"]
+                incident_normal = get_normal_component(
+                    end_container, incident_speed, surface, data
+                )
+                return incident_normal * outgoing_normal > 0.0
+
+        if cell["fill_type"] == FILL_MATERIAL:
+            break
+        _apply_fill_transform(start_container, cell)
+        _apply_fill_transform(end_container, cell)
+        x = start_container[0]["x"]
+        y = start_container[0]["y"]
+        z = start_container[0]["z"]
+        universe_ID = _enter_fill(start_container, cell, simulation, data)
+        if universe_ID == -1:
+            break
+        # Apply the incident lattice element's translation to the endpoint.
+        end_container[0]["x"] += start_container[0]["x"] - x
+        end_container[0]["y"] += start_container[0]["y"] - y
+        end_container[0]["z"] += start_container[0]["z"] - z
+        cell_ID = _get_cell(
+            start_container, incident_speed, universe_ID, simulation, data
+        )
+
+    raise ValueError("Crossing surface not found in the incident geometry")
 
 
 @njit

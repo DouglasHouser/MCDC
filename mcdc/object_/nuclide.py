@@ -18,6 +18,12 @@ from mcdc.object_.neutron_reaction import (
     NeutronReactionInelasticScattering,
     set_energy_distribution,
 )
+from mcdc.object_.proton_reaction import (
+    ProtonReactionElasticScattering,
+    ProtonReactionInelasticScattering,
+    ProtonReactionCapture,
+    set_energy_distribution,
+)
 from mcdc.print_ import print_1d_array, print_error
 
 # ======================================================================================
@@ -53,6 +59,7 @@ class Nuclide(MCDCObject):
     atomic_weight_ratio: float
     fissionable: bool
     excitation_level: int
+    radiation_length: float
     #
     neutron_xs_energy_grid: NDArray[float64]
     neutron_total_xs: NDArray[float64]
@@ -61,10 +68,20 @@ class Nuclide(MCDCObject):
     neutron_inelastic_xs: NDArray[float64]
     neutron_fission_xs: NDArray[float64]
     #
+    proton_xs_energy_grid: NDArray[float64]
+    proton_total_xs: NDArray[float64]
+    proton_elastic_xs: NDArray[float64]
+    proton_capture_xs: NDArray[float64]
+    proton_inelastic_xs: NDArray[float64]
+    #
     neutron_elastic_scattering_reactions: list[NeutronReactionElasticScattering]
     neutron_capture_reactions: list[NeutronReactionCapture]
     neutron_inelastic_scattering_reactions: list[NeutronReactionInelasticScattering]
     neutron_fission_reactions: list[NeutronReactionFission]
+    #
+    proton_elastic_scattering_reactions: list[ProtonReactionElasticScattering]
+    proton_capture_reactions: list[ProtonReactionCapture]
+    proton_inelastic_scattering_reactions: list[ProtonReactionInelasticScattering]
     #
     neutron_fission_prompt_multiplicity: DataBase
     neutron_fission_delayed_multiplicity: DataBase
@@ -72,12 +89,49 @@ class Nuclide(MCDCObject):
     neutron_fission_delayed_fractions: NDArray[float64]
     neutron_fission_delayed_decay_rates: NDArray[float64]
     neutron_fission_delayed_spectra: list[DistributionBase]
+    #
+    stopping_power: NDArray[float64]
+    stopping_power_energy_grid: NDArray[float64]
 
     def __init__(self, nuclide_name, temperature):
         super().__init__()
 
         self.name = nuclide_name
         self.temperature = temperature
+
+        # Initialize all attributes
+        # Neutron XS
+        self.neutron_xs_energy_grid = np.zeros(0)
+        self.neutron_total_xs = np.zeros(0)
+        self.neutron_elastic_xs = np.zeros(0)
+        self.neutron_capture_xs = np.zeros(0)
+        self.neutron_inelastic_xs = np.zeros(0)
+        self.neutron_fission_xs = np.zeros(0)
+        # Proton XS
+        self.proton_xs_energy_grid = np.zeros(0)
+        self.proton_total_xs = np.zeros(0)
+        self.proton_elastic_xs = np.zeros(0)
+        self.proton_inelastic_xs = np.zeros(0)
+        self.proton_capture_xs = np.zeros(0)
+        # Reactions
+        self.neutron_elastic_scattering_reactions = []
+        self.neutron_capture_reactions = []
+        self.neutron_inelastic_scattering_reactions = []
+        self.neutron_fission_reactions = []
+        self.proton_elastic_scattering_reactions = []
+        self.proton_inelastic_scattering_reactions = []
+        self.proton_capture_reactions = []
+        # Fission
+        self.neutron_fission_prompt_multiplicity = DataPolynomial(np.array([0.0]))
+        self.neutron_fission_delayed_multiplicity = DataPolynomial(np.array([0.0]))
+        self.N_neutron_fission_delayed_precursor = 0
+        self.neutron_fission_delayed_fractions = np.zeros(0)
+        self.neutron_fission_delayed_decay_rates = np.zeros(0)
+        self.neutron_fission_delayed_spectra = []
+        # Stopping Power
+        self.stopping_power = np.zeros(0)
+        self.stopping_power_energy_grid = np.zeros(0)
+        self.radiation_length = 0.0
 
     def _compile_into_simulation(self, simulation) -> bool:
         """Load basic properties and register with the owning simulation."""
@@ -102,7 +156,6 @@ class Nuclide(MCDCObject):
             self.atomic_weight_ratio = file["atomic_weight_ratio"][()]
             self.fissionable = bool(file["fissionable"][()])
             self.excitation_level = int(file["excitation_level"][()])
-
         return super()._compile_into_simulation(simulation)
 
     def set_neutron_data(self, simulation):
@@ -259,6 +312,122 @@ class Nuclide(MCDCObject):
         self.neutron_fission_delayed_multiplicity._compile_into_simulation(simulation)
         for spectrum in self.neutron_fission_delayed_spectra:
             spectrum._compile_into_simulation(simulation)
+
+    def set_proton_data(self, simulation):
+        nuclide_name = self.name
+        temperature = self.temperature
+
+        # Load data library
+        dir_name = os.getenv("MCDC_LIB")
+        file_name = f"{nuclide_name}-{temperature}K.h5"
+        file = h5py.File(f"{dir_name}/{file_name}", "r")
+
+        # Radiation length
+        self.radiation_length = float(file["radiation_length"][()])
+
+        # ==========================================================================
+        # Stopping power for protons
+        # ==========================================================================
+
+        if "stopping_power" in file:
+            self.stopping_power = file["stopping_power"]["total_stopping_power"][()]
+            self.stopping_power_energy_grid = file["stopping_power"]["energy"][()]
+        elif simulation.settings.condensed_interactions.proton:
+            raise ValueError(
+                f"Proton condensed history requires stopping power for nuclide {self.name}"
+            )
+
+        # Only condensed history data available - no nuclear rxn xs
+        if "proton_reactions" not in file:
+            # Zero out all xs arrays
+            xs_energy = np.array([0, 1.0e10])
+            self.proton_xs_energy_grid = xs_energy
+
+            self.proton_total_xs = np.zeros_like(self.proton_xs_energy_grid)
+            self.proton_elastic_xs = np.zeros_like(self.proton_xs_energy_grid)
+            self.proton_inelastic_xs = np.zeros_like(self.proton_xs_energy_grid)
+
+            file.close()
+            return
+
+        rx_names = [
+            "elastic_scattering",
+            "inelastic_scattering",
+            "capture",
+        ]
+
+        # The reaction MTs
+        MTs = {}
+        for name in rx_names:
+            if name not in file["proton_reactions"]:
+                MTs[name] = []
+                continue
+
+            MTs[name] = [
+                x for x in file[f"proton_reactions/{name}"] if x.startswith("MT")
+            ]
+
+        # ==========================================================================
+        # Reaction XS
+        # ==========================================================================
+
+        # Energy grid
+        xs_energy = file["proton_reactions/xs_energy_grid"][()] * 1e6  # MeV to eV
+        self.proton_xs_energy_grid = xs_energy
+
+        # The total XS
+        self.proton_total_xs = np.zeros_like(self.proton_xs_energy_grid)
+        self.proton_elastic_xs = np.zeros_like(self.proton_xs_energy_grid)
+        self.proton_inelastic_xs = np.zeros_like(self.proton_xs_energy_grid)
+        self.proton_capture_xs = np.zeros_like(self.proton_xs_energy_grid)
+
+        xs_containers = [
+            self.proton_elastic_xs,
+            self.proton_inelastic_xs,
+            self.proton_capture_xs,
+        ]
+
+        for xs_container, rx_name in list(zip(xs_containers, rx_names)):
+            for MT in MTs[rx_name]:
+                xs = file[f"proton_reactions/{rx_name}/{MT}/xs"]
+                xs_container[xs.attrs["offset"] :] += xs[()]
+
+        self.proton_total_xs = (
+            self.proton_elastic_xs + self.proton_inelastic_xs + self.proton_capture_xs
+        )
+
+        # ==========================================================================
+        # The reactions
+        # ==========================================================================
+
+        self.proton_elastic_scattering_reactions = []
+        self.proton_inelastic_scattering_reactions = []
+        self.proton_capture_reactions = []
+
+        rx_containers = [
+            self.proton_elastic_scattering_reactions,
+            self.proton_inelastic_scattering_reactions,
+            self.proton_capture_reactions,
+        ]
+        rx_classes = [
+            ProtonReactionElasticScattering,
+            ProtonReactionInelasticScattering,
+            ProtonReactionCapture,
+        ]
+        for rx_container, rx_name, rx_class in list(
+            zip(rx_containers, rx_names, rx_classes)
+        ):
+            for MT in MTs[rx_name]:
+                h5_group = file[f"proton_reactions/{rx_name}/{MT}"]
+                reaction = rx_class.from_h5_group(h5_group, simulation)
+                rx_container.append(reaction)
+
+        file.close()
+
+        # Register reactions and their data loaded during finalization.
+        for reaction_container in rx_containers:
+            for reaction in reaction_container:
+                reaction._compile_into_simulation(simulation)
 
     def __repr__(self):
         text = "\n"

@@ -157,7 +157,7 @@ Attaching the same object instance to another simulation is outside the ownershi
 
 ``MCDCPolymorphic`` extends ``MCDCObject`` for categories with multiple runtime representations.
 Meshes, distributions, tallies, and neutron and electron reactions use this pattern.
-For example, ``Tally`` defines the shared tally category, while ``TallySurfaceCrossing``, ``TallyCollision``, and ``TallyTracklength`` provide estimator-specific representations.
+For example, ``Tally`` defines the shared tally category, while ``TallySurfaceCrossing``, ``TallyInteraction``, and ``TallyTracklength`` provide tally-type-specific representations distinguished by their scoring triggers during transport.
 
 Each concrete polymorphic class declares a ``sub_type`` code.
 During registration, an instance receives two positions:
@@ -241,7 +241,7 @@ Registered objects receive identifiers that are meaningful only within the curre
 
 The packed child record also carries ``base_ID`` so transport can move between the subtype-specific and base representations.
 
-For example, transport can inspect a tally base record's ``sub_type`` and ``sub_ID`` and then select its estimator-specific record.
+For example, transport can inspect a tally base record's ``sub_type`` and ``sub_ID`` and then select the record for its tally type.
 These IDs replace Python object references in the runtime layer.
 
 Snapshot Lifecycle

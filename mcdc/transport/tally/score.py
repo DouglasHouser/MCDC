@@ -120,19 +120,20 @@ def surface_crossing(
 
 
 # ======================================================================================
-# Collision
+# Interaction
 # ======================================================================================
 
 
 @njit
-def collision(collision_data_container, tally, simulation, data):
-    collision_data = collision_data_container[0]
+def interaction(interaction_data_container, tally, simulation, data):
+    """Score a discrete or condensed contribution using its saved incoming state."""
+    interaction_data = interaction_data_container[0]
     sub_ID = tally["sub_ID"]
-    collision_tally = simulation["collision_tallies"][sub_ID]
+    interaction_tally = simulation["interaction_tallies"][sub_ID]
 
     # Get filter indices
     i_mu, i_azi, i_energy, i_time = get_filter_indices(
-        collision_data_container["incident_particle"], tally, data
+        interaction_data_container["incident_particle"], tally, data
     )
 
     # No score if outside non-changing phase-space bins
@@ -141,10 +142,10 @@ def collision(collision_data_container, tally, simulation, data):
 
     # Mesh tally indices if needed
     i_x, i_y, i_z = 0, 0, 0
-    if collision_tally["mesh_filtered"]:
-        mesh = simulation["meshes"][collision_tally["mesh_filter_ID"]]
+    if interaction_tally["mesh_filtered"]:
+        mesh = simulation["meshes"][interaction_tally["mesh_filter_ID"]]
         i_x, i_y, i_z = mesh_module.get_indices(
-            collision_data_container["incident_particle"], mesh, simulation, data
+            interaction_data_container["incident_particle"], mesh, simulation, data
         )
 
         # No score outside mesh bins
@@ -159,11 +160,11 @@ def collision(collision_data_container, tally, simulation, data):
         + i_energy * tally["stride_energy"]
         + i_time * tally["stride_time"]
     )
-    if collision_tally["mesh_filtered"]:
+    if interaction_tally["mesh_filtered"]:
         idx_base += (
-            +i_x * collision_tally["mesh_stride_x"]
-            + i_y * collision_tally["mesh_stride_y"]
-            + i_z * collision_tally["mesh_stride_z"]
+            +i_x * interaction_tally["mesh_stride_x"]
+            + i_y * interaction_tally["mesh_stride_y"]
+            + i_z * interaction_tally["mesh_stride_z"]
         )
 
     # Score
@@ -171,7 +172,7 @@ def collision(collision_data_container, tally, simulation, data):
         score_type = mcdc_get.tally.scores(i_score, tally, data)
         score = 0.0
         if score_type == SCORE_ENERGY_DEPOSITION:
-            score = collision_data["energy_deposition"]
+            score = interaction_data["energy_deposition"]
         util.atomic_add(data, idx_base + i_score, score)
 
 
@@ -417,7 +418,7 @@ def tracklength(particle_container, distance, tally, simulation, data):
             z += distance_scored * uz
         t += distance_scored * ut
 
-        # Increment index and heck if out of bounds
+        # Increment index and check if out of bounds
         if axis_crossed == AXIS_T:
             i_time += 1
             idx_base += tally["stride_time"]

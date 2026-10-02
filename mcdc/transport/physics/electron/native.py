@@ -12,6 +12,7 @@ import mcdc.transport.rng as rng
 import mcdc.transport.util as util
 
 from mcdc.constant import (
+    EVENT_TIME_CENSUS,
     ELECTRON_CUTOFF_ENERGY,
     ELECTRON_MASS,
     ELECTRON_REACTION_BREMSSTRAHLUNG,
@@ -124,10 +125,10 @@ def _reaction_micro_xs(E, idx, E0, E1, reaction, data):
 
 
 @njit
-def collision(particle_container, collision_data_container, program, data):
+def collision(particle_container, interaction_data_container, program, data):
     simulation = util.access_simulation(program)
     particle = particle_container[0]
-    collision_data = collision_data_container[0]
+    interaction_data = interaction_data_container[0]
     material = simulation["materials"][particle["material_ID"]]
 
     # Particle properties
@@ -135,7 +136,7 @@ def collision(particle_container, collision_data_container, program, data):
 
     # Check for cutoff energy
     if E <= ELECTRON_CUTOFF_ENERGY:
-        collision_data["energy_deposition"] += E * particle["w"]
+        interaction_data["energy_deposition"] += E * particle["w"]
         particle["alive"] = False
         particle["E"] = 0.0
         return
@@ -196,7 +197,7 @@ def collision(particle_container, collision_data_container, program, data):
                 sample_ionization(
                     reaction,
                     particle_container,
-                    collision_data_container,
+                    interaction_data_container,
                     element,
                     program,
                     data,
@@ -241,7 +242,7 @@ def collision(particle_container, collision_data_container, program, data):
                 sample_bremsstrahlung(
                     reaction,
                     particle_container,
-                    collision_data_container,
+                    interaction_data_container,
                     simulation,
                     data,
                 )
@@ -262,7 +263,7 @@ def collision(particle_container, collision_data_container, program, data):
                 sample_excitation(
                     reaction,
                     particle_container,
-                    collision_data_container,
+                    interaction_data_container,
                     simulation,
                     data,
                 )
@@ -372,10 +373,10 @@ def elastic_large_xs(E, elastic_scattering, simulation, data):
 
 @njit
 def sample_excitation(
-    reaction, particle_container, collision_data_container, simulation, data
+    reaction, particle_container, interaction_data_container, simulation, data
 ):
     particle = particle_container[0]
-    collision_data = collision_data_container[0]
+    interaction_data = interaction_data_container[0]
 
     sub_ID = reaction["sub_ID"]
     excitation = simulation["electron_excitation_reactions"][sub_ID]
@@ -390,14 +391,14 @@ def sample_excitation(
 
     # Check for cutoff
     if E_out <= ELECTRON_CUTOFF_ENERGY:
-        collision_data["energy_deposition"] += E * particle["w"]
+        interaction_data["energy_deposition"] += E * particle["w"]
         particle["E"] = 0.0
         particle["alive"] = False
         return
 
     # If above cutoff, just deposit dE
     particle["E"] = E_out
-    collision_data["energy_deposition"] += dE * particle["w"]
+    interaction_data["energy_deposition"] += dE * particle["w"]
 
 
 @njit
@@ -413,10 +414,10 @@ def evaluate_eloss(E, reaction, simulation, data):
 
 @njit
 def sample_bremsstrahlung(
-    reaction, particle_container, collision_data_container, simulation, data
+    reaction, particle_container, interaction_data_container, simulation, data
 ):
     particle = particle_container[0]
-    collision_data = collision_data_container[0]
+    interaction_data = interaction_data_container[0]
 
     sub_ID = reaction["sub_ID"]
     bremsstrahlung = simulation["electron_bremsstrahlung_reactions"][sub_ID]
@@ -429,7 +430,7 @@ def sample_bremsstrahlung(
 
     # Check for cutoff
     if E_out <= ELECTRON_CUTOFF_ENERGY:
-        collision_data["energy_deposition"] += E_out * particle["w"]
+        interaction_data["energy_deposition"] += E_out * particle["w"]
         particle["E"] = 0.0
         particle["alive"] = False
         return
@@ -445,11 +446,11 @@ def sample_bremsstrahlung(
 
 @njit
 def sample_ionization(
-    reaction, particle_container, collision_data_container, element, program, data
+    reaction, particle_container, interaction_data_container, element, program, data
 ):
     simulation = util.access_simulation(program)
     particle = particle_container[0]
-    collision_data = collision_data_container[0]
+    interaction_data = interaction_data_container[0]
 
     sub_ID = reaction["sub_ID"]
     ionization = simulation["electron_ionization_reactions"][sub_ID]
@@ -487,7 +488,7 @@ def sample_ionization(
         chosen, element, data
     )
     if E <= B:
-        collision_data["energy_deposition"] += E * particle["w"]
+        interaction_data["energy_deposition"] += E * particle["w"]
         particle["alive"] = False
         particle["E"] = 0.0
         return
@@ -503,17 +504,17 @@ def sample_ionization(
     E_out = E - B - T_delta
     particle["E"] = E_out
 
-    collision_data["energy_deposition"] += B * particle["w"]
+    interaction_data["energy_deposition"] += B * particle["w"]
 
     primary_alive_after = True
     if E_out <= ELECTRON_CUTOFF_ENERGY:
-        collision_data["energy_deposition"] += E_out * particle["w"]
+        interaction_data["energy_deposition"] += E_out * particle["w"]
         particle["E"] = 0.0
         particle["alive"] = False
         primary_alive_after = False
 
     if T_delta <= ELECTRON_CUTOFF_ENERGY:
-        collision_data["energy_deposition"] += T_delta * particle["w"]
+        interaction_data["energy_deposition"] += T_delta * particle["w"]
         return
 
     # Sample delta direction
@@ -554,8 +555,10 @@ def sample_ionization(
     particle_new["uz"] = uz_delta
     particle_new["w"] = particle["w"]
 
+    if particle["event"] & EVENT_TIME_CENSUS:
+        particle_bank_module.bank_census_particle(particle_container_new, program)
     # Continue the lower-energy electron when requested; bank the other one.
-    if (
+    elif (
         simulation["settings"]["electron_transport"]["prioritize_low_energy"]
         and particle["alive"]
         and particle_new["E"] < particle["E"]

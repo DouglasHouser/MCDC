@@ -39,9 +39,9 @@ from mcdc.constant import (
     SUPPORTED_SCORES,
     SUPPORTED_SCORES_SURFACE_CROSSING,
     SUPPORTED_SCORES_TRACKLENGTH,
-    SUPPORTED_SCORES_COLLISION,
+    SUPPORTED_SCORES_INTERACTION,
     TALLY_SURFACE_CROSSING,
-    TALLY_COLLISION,
+    TALLY_INTERACTION,
     TALLY_TRACKLENGTH,
 )
 from mcdc.object_.mesh import MeshBase, MeshStructured, MeshUniform
@@ -52,6 +52,10 @@ from mcdc.print_ import print_1d_array, print_error
 class Tally(MCDCPolymorphic):
     """Quantities measured during the simulation.
 
+    Tally types differ by when transport triggers scoring: along a particle
+    flight, at a surface crossing, or after a discrete or condensed interaction.
+    Each type supports scores with their own estimation methods.
+
     Parameters
     ----------
     name : str, optional
@@ -60,15 +64,15 @@ class Tally(MCDCPolymorphic):
         Scores to accumulate. Track-length scores are ``"flux"``, ``"density"``,
         ``"collision"``, ``"capture"``, and ``"fission"``; surface-crossing
         scores are ``"current-net"``, ``"current-in"``, and ``"current-out"``;
-        the collision score is ``"energy_deposition"``, scored in eV. Scores
-        from different estimator families cannot be mixed.
+        the interaction score is ``"energy_deposition"``, scored in eV. Scores
+        from different tally types cannot be mixed.
     surface : Surface, optional
         Surface filter. Required for a surface-crossing tally unless ``cell`` is
         provided.
     cell : Cell, optional
         Cell filter.
     mesh : MeshBase, optional
-        Spatial mesh filter for track-length or collision tallies.
+        Spatial mesh filter for track-length or interaction tallies.
     mu : sequence of float, optional
         Polar-cosine bin boundaries.
     azi : sequence of float, optional
@@ -88,7 +92,7 @@ class Tally(MCDCPolymorphic):
 
     Returns
     -------
-    TallySurfaceCrossing, TallyTracklength, or TallyCollision
+    TallySurfaceCrossing, TallyTracklength, or TallyInteraction
         Concrete tally selected from ``scores``.
 
     Examples
@@ -219,8 +223,8 @@ class Tally(MCDCPolymorphic):
         energy: Sequence[float] | str | NoneType = None,
         time: Sequence[float] | NDArray[float64] | NoneType = None,
         spatial_shape: tuple[int, ...] | NoneType = None,
-    ) -> TallySurfaceCrossing | TallyTracklength | TallyCollision:
-        # Determine tally estimator type and create the instance based on the provided
+    ) -> TallySurfaceCrossing | TallyTracklength | TallyInteraction:
+        # Determine tally type and create the instance based on the provided
         # spatial filter and scores
 
         # Check scores
@@ -234,11 +238,11 @@ class Tally(MCDCPolymorphic):
             tally_type = TALLY_SURFACE_CROSSING
         elif set(scores) <= SUPPORTED_SCORES_TRACKLENGTH:
             tally_type = TALLY_TRACKLENGTH
-        elif set(scores) <= SUPPORTED_SCORES_COLLISION:
-            tally_type = TALLY_COLLISION
+        elif set(scores) <= SUPPORTED_SCORES_INTERACTION:
+            tally_type = TALLY_INTERACTION
         else:
             print_error(
-                f"Cannot mix tally scores with different estimators.\n  Surfaces crossing: {set(scores) & SUPPORTED_SCORES_SURFACE_CROSSING}\n  Tracklength: {set(scores) & SUPPORTED_SCORES_TRACKLENGTH}\n  Collision: {set(scores) & SUPPORTED_SCORES_COLLISION}"
+                f"Cannot mix scores from different tally types.\n  Surfaces crossing: {set(scores) & SUPPORTED_SCORES_SURFACE_CROSSING}\n  Tracklength: {set(scores) & SUPPORTED_SCORES_TRACKLENGTH}\n  Interaction: {set(scores) & SUPPORTED_SCORES_INTERACTION}"
             )
             tally_type = -1
 
@@ -249,9 +253,9 @@ class Tally(MCDCPolymorphic):
             if mesh is not None:
                 print_error("Surface-crossing tally does not support mesh filter.")
 
-        if tally_type == TALLY_COLLISION:
+        if tally_type == TALLY_INTERACTION:
             if surface is not None:
-                print_error("Collision tally does not support surface filter")
+                print_error("Interaction tally does not support surface filter")
 
         if tally_type == TALLY_TRACKLENGTH:
             if surface is not None:
@@ -262,8 +266,8 @@ class Tally(MCDCPolymorphic):
             return object.__new__(TallySurfaceCrossing)
         elif tally_type == TALLY_TRACKLENGTH:
             return object.__new__(TallyTracklength)
-        else:  # tally_type == TALLY_COLLISION:
-            return object.__new__(TallyCollision)
+        else:  # tally_type == TALLY_INTERACTION:
+            return object.__new__(TallyInteraction)
 
     def __init__(
         self,
@@ -436,7 +440,7 @@ class Tally(MCDCPolymorphic):
     def _resolve_energy_filter(self, simulation) -> None:
         """Resolve energy filters that require the complete material model."""
         if self._energy_all:
-            if simulation.technique.neutron_multigroup.hybrid:
+            if simulation.settings.neutron_multigroup.hybrid:
                 print_error(
                     'The energy="all" filter requires standard neutron multigroup '
                     "transport."
@@ -486,10 +490,10 @@ def decode_score_type(type_, lower_case=False):
 
 
 class TallySurfaceCrossing(Tally):
-    """Surface-crossing current tally.
+    """Tally triggered when a particle crosses a surface.
 
     Instances are normally created through :class:`Tally`, which selects this
-    estimator for current scores.
+    type for current scores.
     """
 
     # MC/DC framework metadata
@@ -590,20 +594,25 @@ class TallySurfaceCrossing(Tally):
 
 
 # ======================================================================================
-# Collision tally
+# Interaction tally
 # ======================================================================================
 
 
-class TallyCollision(Tally):
-    """Collision-estimator tally.
+class TallyInteraction(Tally):
+    """Score discrete collisions and condensed interactions at their endpoints.
+
+    Both treatments provide InteractionData with their incoming particle state
+    and weighted energy deposition. Filters use that saved state. Condensed
+    deposition is assigned to the step endpoint, assuming the step is small
+    relative to the spatial, temporal, and energy scales resolved by the tally.
 
     Instances are normally created through :class:`Tally`, which selects this
-    estimator for the ``"energy_deposition"`` score.
+    type for the ``"energy_deposition"`` score.
     """
 
     # MC/DC framework metadata
-    label = "collision_tally"
-    sub_type = TALLY_COLLISION
+    label = "interaction_tally"
+    sub_type = TALLY_INTERACTION
     non_numba = ["cell", "mesh"]
 
     # Spatial filters
@@ -671,7 +680,7 @@ class TallyCollision(Tally):
             self.cell_filtered = True
 
             # Attach to cell
-            cell.collision_tallies.append(self)
+            cell.interaction_tallies.append(self)
 
         # Mesh filter
         if mesh:
@@ -704,7 +713,7 @@ class TallyCollision(Tally):
         # Attach to all cells if cell filter is not specified
         if not self.cell_filtered:
             for cell in simulation.cells:
-                cell.collision_tallies.append(self)
+                cell.interaction_tallies.append(self)
 
         return True
 
@@ -725,10 +734,10 @@ class TallyCollision(Tally):
 
 
 class TallyTracklength(Tally):
-    """Track-length estimator tally.
+    """Tally triggered along a particle flight before the particle moves.
 
     Instances are normally created through :class:`Tally`, which selects this
-    estimator for flux, density, reaction-rate, and collision scores.
+    type for flux, density, reaction-rate, and collision scores.
     """
 
     # MC/DC framework metadata

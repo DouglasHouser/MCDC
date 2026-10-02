@@ -4,6 +4,8 @@ from typing import Self
 import numpy as np
 from numpy import float64
 from numpy.typing import ArrayLike, NDArray
+import h5py
+import os
 
 from mcdc.object_.base import MCDCObject
 from mcdc.object_.element import Element
@@ -101,6 +103,13 @@ class Material(MCDCObject):
     nuclide_densities: NDArray[float64]
     element_densities: NDArray[float64]
 
+    stopping_power_provided: bool = False
+    stopping_power: NDArray[float64]
+    stopping_power_energy_grid: NDArray[float64]
+
+    radiation_length: float = 0.0
+    radiation_length_provided: bool = False
+
     def __init__(
         self,
         name: str = "",
@@ -180,6 +189,9 @@ class Material(MCDCObject):
         self.element_densities = np.asarray(
             list(self.element_composition.values()), dtype=float64
         )
+
+        self.stopping_power = np.array([])
+        self.stopping_power_energy_grid = np.array([])
 
     @classmethod
     def multigroup(
@@ -272,7 +284,26 @@ class Material(MCDCObject):
         self.fissionable = self.neutron_multigroup.fissionable or any(
             nuclide.fissionable for nuclide in self.nuclides
         )
+
         return True
+
+    def add_stopping_power(
+        self,
+        stopping_power_filename: str = "",
+    ):
+
+        self.stopping_power_provided = True
+
+        dir_name = os.getenv("MCDC_LIB")
+        file_name = stopping_power_filename
+        file = h5py.File(f"{dir_name}/{file_name}.h5", "r")
+
+        self.stopping_power = file["stopping_power"]["total_stopping_power"][()]
+        self.stopping_power_energy_grid = file["stopping_power"]["energy"][()]
+        if file["radiation_length"]["radiation_length"][()]:
+            self.radiation_length = file["radiation_length"]["radiation_length"][()]
+
+        file.close()
 
     def __repr__(self) -> str:
         text = super().__repr__()
@@ -298,8 +329,7 @@ class Material(MCDCObject):
 
 
 # Currently supported temperatures
-TEMPERATURES = [0.1, 233.15, 273.15, 293.6, 600.0, 900.0, 1200.0, 2500.0]
-
+TEMPERATURES = [0.0, 0.1, 233.15, 273.15, 293.6, 600.0, 900.0, 1200.0, 2500.0]
 
 # ======================================================================================
 # Native-composition helpers
@@ -380,3 +410,16 @@ def update_fissionable_from_nuclides(material):
     material.fissionable = material.neutron_multigroup.fissionable or any(
         nuclide.fissionable for nuclide in material.nuclides
     )
+
+
+def update_radiation_length_from_nuclides(material):
+    """Update mixture radiation length from nuclide mass fractions."""
+    total_mass = 0.0
+    X0_weighted_mass = 0.0
+    for nuclide, density in material.nuclide_composition.items():
+        nuclide_mass = nuclide.mass_number
+        nuclide_X0 = nuclide.radiation_length
+        total_mass += nuclide_mass * density
+        X0_weighted_mass += nuclide_mass * density / nuclide_X0
+
+        material.radiation_length = total_mass / X0_weighted_mass

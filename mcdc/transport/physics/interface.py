@@ -4,9 +4,9 @@ from numba import njit
 
 ###
 
-import mcdc.transport.particle as particle_module
 import mcdc.transport.physics.electron as electron
 import mcdc.transport.physics.neutron as neutron
+import mcdc.transport.physics.proton as proton
 import mcdc.transport.rng as rng
 
 from mcdc.constant import *
@@ -23,6 +23,8 @@ def particle_speed(particle_container, simulation, data):
         return neutron.particle_speed(particle_container, simulation, data)
     elif particle["particle_type"] == PARTICLE_ELECTRON:
         return electron.particle_speed(particle_container, simulation, data)
+    elif particle["particle_type"] == PARTICLE_PROTON:
+        return proton.particle_speed(particle_container, simulation, data)
     return -1.0
 
 
@@ -38,6 +40,8 @@ def macro_xs(reaction_type, particle_container, simulation, data):
         return neutron.macro_xs(reaction_type, particle_container, simulation, data)
     elif particle["particle_type"] == PARTICLE_ELECTRON:
         return electron.macro_xs(reaction_type, particle_container, simulation, data)
+    elif particle["particle_type"] == PARTICLE_PROTON:
+        return proton.macro_xs(reaction_type, particle_container, simulation, data)
     return -1.0
 
 
@@ -66,6 +70,8 @@ def collision_distance(particle_container, simulation, data):
         SigmaT = macro_xs(NEUTRON_REACTION_TOTAL, particle_container, simulation, data)
     elif particle["particle_type"] == PARTICLE_ELECTRON:
         SigmaT = macro_xs(ELECTRON_REACTION_TOTAL, particle_container, simulation, data)
+    elif particle["particle_type"] == PARTICLE_PROTON:
+        SigmaT = macro_xs(PROTON_REACTION_TOTAL, particle_container, simulation, data)
 
     # Vacuum material?
     if SigmaT == 0.0:
@@ -78,14 +84,14 @@ def collision_distance(particle_container, simulation, data):
 
 
 @njit
-def collision(particle_container, collision_data_container, program, data):
+def collision(particle_container, interaction_data_container, program, data):
     particle = particle_container[0]
 
-    particle_module.copy(
-        collision_data_container["incident_particle"], particle_container
-    )
-
     if particle["particle_type"] == PARTICLE_NEUTRON:
-        neutron.collision(particle_container, collision_data_container, program, data)
+        neutron.collision(particle_container, interaction_data_container, program, data)
     elif particle["particle_type"] == PARTICLE_ELECTRON:
-        electron.collision(particle_container, collision_data_container, program, data)
+        electron.collision(
+            particle_container, interaction_data_container, program, data
+        )
+    elif particle["particle_type"] == PARTICLE_PROTON:
+        proton.collision(particle_container, interaction_data_container, program, data)

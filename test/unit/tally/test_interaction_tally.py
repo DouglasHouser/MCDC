@@ -4,12 +4,12 @@ import pytest
 import mcdc
 import mcdc.numba_types as type_
 from mcdc.constant import ELECTRON_CUTOFF_ENERGY, PARTICLE_ELECTRON
-from mcdc.object_.tally import TallyCollision
-from mcdc.transport.physics.interface import collision as collide
-from mcdc.transport.tally.score import collision as score_collision
+from mcdc.object_.tally import TallyInteraction
+from mcdc.transport.simulation import collision as collide
+from mcdc.transport.tally.score import interaction as score_interaction
 
 
-def test_collision_tally_with_mesh_filter():
+def test_interaction_tally_with_mesh_filter():
     mesh = mcdc.MeshUniform(
         "mesh",
         x=(-1.0, 0.5, 2),
@@ -22,17 +22,17 @@ def test_collision_tally_with_mesh_filter():
     simulation.set_tallies([tally])
     simulation.compile()
 
-    assert isinstance(tally, TallyCollision)
+    assert isinstance(tally, TallyInteraction)
     assert not tally.cell_filtered
     assert tally.cell_filter_ID == -1
     assert tally.mesh_filtered
     assert tally.mesh_filter_ID == mesh.ID
 
 
-def test_collision_tally_without_spatial_filter():
+def test_interaction_tally_without_spatial_filter():
     tally = mcdc.Tally(scores=["energy_deposition"])
 
-    assert isinstance(tally, TallyCollision)
+    assert isinstance(tally, TallyInteraction)
     assert not tally.cell_filtered
     assert tally.cell_filter_ID == -1
     assert not tally.mesh_filtered
@@ -44,7 +44,7 @@ def test_collision_tally_without_spatial_filter():
     [12000.0, 0.0],
     ids=["energy-loss", "stopped"],
 )
-def test_collision_tally_uses_incident_energy(prepare_simulation, outgoing_energy):
+def test_interaction_tally_uses_incident_energy(prepare_simulation, outgoing_energy):
     tally_object = mcdc.Tally(
         scores=["energy_deposition"],
         particle_type="electron",
@@ -61,15 +61,15 @@ def test_collision_tally_uses_incident_energy(prepare_simulation, outgoing_energ
     particle["w"] = 2.0
     particle["alive"] = outgoing_energy > 0.0
 
-    collision_container = np.zeros(1, dtype=type_.collision_data)
-    collision_data = collision_container[0]
-    collision_data["incident_particle"]["E"] = 20000.0
-    collision_data["incident_particle"]["particle_type"] = PARTICLE_ELECTRON
-    collision_data["incident_particle"]["w"] = 2.0
+    collision_container = np.zeros(1, dtype=type_.interaction_data)
+    interaction_data = collision_container[0]
+    interaction_data["incident_particle"]["E"] = 20000.0
+    interaction_data["incident_particle"]["particle_type"] = PARTICLE_ELECTRON
+    interaction_data["incident_particle"]["w"] = 2.0
     deposited_energy = (20000.0 - outgoing_energy) * particle["w"]
-    collision_data["energy_deposition"] = deposited_energy
+    interaction_data["energy_deposition"] = deposited_energy
 
-    score_collision(collision_container, tally, simulation, data)
+    score_interaction(collision_container, tally, simulation, data)
 
     offset = tally["bin_offset"]
     stride = tally["stride_energy"]
@@ -112,21 +112,11 @@ def test_collision_captures_energy_before_electron_cutoff(
     particle["w"] = 2.0
     particle["alive"] = True
 
-    collision_container = np.zeros(1, dtype=type_.collision_data)
+    simulation["cycle_active"] = True
+    collide(particle_container, simulation, data)
 
-    collide(particle_container, collision_container, simulation, data)
-
-    incident = collision_container[0]["incident_particle"]
-    assert incident["E"] == incident_energy
-    assert incident["particle_type"] == PARTICLE_ELECTRON
-    assert incident["w"] == 2.0
     assert particle["E"] == 0.0
     assert not particle["alive"]
-    assert collision_container[0]["energy_deposition"] == pytest.approx(
-        incident_energy * 2.0
-    )
-
-    score_collision(collision_container, tally, simulation, data)
 
     offset = tally["bin_offset"]
     stride = tally["stride_energy"]

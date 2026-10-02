@@ -40,7 +40,7 @@ Choose the narrowest extension that represents the new concept:
      - Add a concrete ``MeshBase`` representation.
 
 Prefer adding a subtype to an existing polymorphic family over creating a new registered category when the new object has the same conceptual role.
-For example, implement a new tally estimator as a ``Tally`` subtype.
+For example, implement a new tally type as a ``Tally`` subtype.
 
 The Common Class Contract
 -------------------------
@@ -171,9 +171,9 @@ The layer generator interprets annotations according to the field's role:
    * - ``energy_pmf: DistributionPMF``
      - Simulation-local object ID
      - ``simulation["distributions"][source["energy_pmf_ID"]]``
-   * - ``collision_tallies: list[TallyCollision]``
+   * - ``interaction_tallies: list[TallyInteraction]``
      - Count and offset to IDs stored in ``data``
-     - ``mcdc_get.cell.collision_tally_IDs(index, cell, data)``
+     - ``mcdc_get.cell.interaction_tally_IDs(index, cell, data)``
 
 Use an integer-only shape when an array is always the same size.
 Use symbolic dimensions when a shape depends on the model.

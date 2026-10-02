@@ -114,7 +114,7 @@ def test_ionization_conserves_energy_with_cutoff_and_banking(
     particle["w"] = 2.0
     particle["uz"] = 1.0
     particle["alive"] = True
-    collision_container = np.zeros(1, dtype=type_.collision_data)
+    collision_container = np.zeros(1, dtype=type_.interaction_data)
 
     sample_ionization(
         simulation["electron_reactions"][0],
@@ -176,7 +176,7 @@ def test_ionization_priority_swaps_complete_particle_states(ionization_model):
         particle["alive"] = True
         particle["cell_ID"] = 7
         particle["material_ID"] = 3
-        collision = np.zeros(1, dtype=type_.collision_data)
+        collision = np.zeros(1, dtype=type_.interaction_data)
         sample_ionization(
             simulation["electron_reactions"][0],
             particles,

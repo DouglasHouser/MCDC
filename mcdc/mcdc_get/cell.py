@@ -69,30 +69,30 @@ def surface_IDs_chunk(start, length, cell, data):
 
 
 @njit
-def collision_tally_IDs(index, cell, data):
-    offset = cell["collision_tally_IDs_offset"]
+def interaction_tally_IDs(index, cell, data):
+    offset = cell["interaction_tally_IDs_offset"]
     return int64(data[offset + index])
 
 
 @array_return(nb.types.float64)
-def collision_tally_IDs_all(cell, data):
-    start = cell["collision_tally_IDs_offset"]
-    size = cell["N_collision_tally"]
+def interaction_tally_IDs_all(cell, data):
+    start = cell["interaction_tally_IDs_offset"]
+    size = cell["N_interaction_tally"]
     end = start + size
     return array_result(data[start:end])
 
 
 @njit
-def collision_tally_IDs_last(cell, data):
-    start = cell["collision_tally_IDs_offset"]
-    size = cell["N_collision_tally"]
+def interaction_tally_IDs_last(cell, data):
+    start = cell["interaction_tally_IDs_offset"]
+    size = cell["N_interaction_tally"]
     end = start + size
     return int64(data[end - 1])
 
 
 @array_return(nb.types.float64)
-def collision_tally_IDs_chunk(start, length, cell, data):
-    start += cell["collision_tally_IDs_offset"]
+def interaction_tally_IDs_chunk(start, length, cell, data):
+    start += cell["interaction_tally_IDs_offset"]
     end = start + length
     return array_result(data[start:end])
 

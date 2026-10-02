@@ -11,6 +11,8 @@ if TYPE_CHECKING:
     from mcdc.object_.transport_model_data import NeutronMultigroupData
     from mcdc.object_.nuclide import Nuclide
     from mcdc.object_.neutron_reaction import NeutronReactionBase
+    from mcdc.object_.proton_reaction import ProtonReactionBase
+    from mcdc.object_.secondary_product import SecondaryProduct
     from mcdc.object_.source import Source
     from mcdc.object_.surface import Surface
     from mcdc.object_.tally import Tally
@@ -28,7 +30,7 @@ from numpy.typing import NDArray
 
 ####
 
-from mcdc.constant import PARTICLE_NEUTRON, PARTICLE_ELECTRON
+from mcdc.constant import PARTICLE_NEUTRON, PARTICLE_ELECTRON, PARTICLE_PROTON
 from mcdc.object_.base import MCDCBase
 from mcdc.object_.data import DataBase
 from mcdc.object_.distribution import DistributionBase
@@ -37,7 +39,7 @@ from mcdc.object_.mesh import MeshBase
 from mcdc.object_.particle import ParticleBank
 from mcdc.object_.settings import Settings
 from mcdc.object_.technique import Technique
-from mcdc.print_ import print_error
+from mcdc.print_ import print_error, print_msg
 
 from mcdc.object_.universe import Universe, Lattice
 
@@ -113,11 +115,13 @@ class Simulation(MCDCBase):
     distributions: list[DistributionBase]
     neutron_reactions: list[NeutronReactionBase]
     electron_reactions: list[ElectronReactionBase]
+    proton_reactions: list[ProtonReactionBase]
     nuclides: list[Nuclide]
     elements: list[Element]
     materials: list[Material]
     neutron_multigroup_data: list[NeutronMultigroupData]
     sources: list[Source]
+    secondary_products: list[SecondaryProduct]
 
     # Geometry
     surfaces: list[Surface]
@@ -299,6 +303,8 @@ class Simulation(MCDCBase):
         self.distributions = []
         self.neutron_reactions = []
         self.electron_reactions = []
+        self.proton_reactions = []
+        self.secondary_products = []
         self.nuclides = []
         self.elements = []
         self.materials = []
@@ -326,12 +332,16 @@ class Simulation(MCDCBase):
             set_elements_from_nuclides,
             set_nuclides_from_elements,
             update_fissionable_from_nuclides,
+            update_radiation_length_from_nuclides,
         )
         from mcdc.config import target
 
         settings = self.settings
 
-        if settings.neutron_transport.prioritize_low_energy:
+        if (
+            settings.neutron_transport.prioritize_low_energy
+            or settings.proton_transport.prioritize_low_energy
+        ):
             print_error(
                 "prioritize_low_energy is currently supported only for electron transport."
             )
@@ -342,6 +352,8 @@ class Simulation(MCDCBase):
                 settings.neutron_transport.active = True
             elif source.particle_type == PARTICLE_ELECTRON:
                 settings.electron_transport.active = True
+            elif source.particle_type == PARTICLE_PROTON:
+                settings.proton_transport.active = True
 
         # Censuses split histories; GPU closeout aggregates them.
         # Both require batch samples for fixed-source uncertainty estimates.
@@ -381,14 +393,14 @@ class Simulation(MCDCBase):
                 for material in self.materials[1:]
             )
 
-        self.technique.neutron_multigroup.hybrid = not (
+        self.settings.neutron_multigroup.hybrid = not (
             not materials_have_native_composition
             and materials_have_multigroup
             and multigroup_grids_are_identical
         )
 
         # Require physical energy boundaries wherever energy selects local groups.
-        if self.technique.neutron_multigroup.hybrid:
+        if self.settings.neutron_multigroup.hybrid:
             for material in self.materials:
                 model = material.neutron_multigroup
                 if model.G > 0 and not np.any(model.energy_grid):
@@ -428,10 +440,17 @@ class Simulation(MCDCBase):
                         f"0 <= energy < G (G={G})."
                     )
 
-        # Limit transport to the latest requested tally boundary
-        settings.time_boundary = min(
-            [settings.time_boundary] + [tally.time[-1] for tally in self.tallies]
+        # Stop after the latest tally time, respecting the user's earlier limit.
+        latest_tally_time = max(
+            (tally.time[-1] for tally in self.tallies), default=np.inf
         )
+        if latest_tally_time < settings.time_boundary:
+            if np.isfinite(settings.time_boundary):
+                print_msg(
+                    f"Adjusted time_boundary from {settings.time_boundary} s to "
+                    f"{latest_tally_time} s to match the latest tally time."
+                )
+            settings.time_boundary = latest_tally_time
 
         # Complete native-material compositions for the transported particles
         for material in self.materials:
@@ -454,6 +473,12 @@ class Simulation(MCDCBase):
                 nuclide.set_neutron_data(self)
             for material in self.materials:
                 update_fissionable_from_nuclides(material)
+
+        if settings.proton_transport.active:
+            for nuclide in self.nuclides:
+                nuclide.set_proton_data(self)
+            for material in self.materials:
+                update_radiation_length_from_nuclides(material)
 
         if settings.electron_transport.active:
             for element in self.elements:

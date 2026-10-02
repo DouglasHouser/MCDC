@@ -751,6 +751,7 @@ def set_object(
     # Check structure-record compatibility
     missing = set([x[0] for x in structure]) - set(record.keys())
     if len(missing) > 0:
+        print(f"record keys = {record.keys()}")
         print_error(f"Missing structure keys in record for {class_.label}: {missing}")
 
     # Register the record
