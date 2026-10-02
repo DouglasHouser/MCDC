@@ -445,10 +445,11 @@ class Simulation(MCDCBase):
             (tally.time[-1] for tally in self.tallies), default=np.inf
         )
         if latest_tally_time < settings.time_boundary:
-            print_msg(
-                f"Adjusted time_boundary from {settings.time_boundary} s to "
-                f"{latest_tally_time} s to match the latest tally time."
-            )
+            if np.isfinite(settings.time_boundary):
+                print_msg(
+                    f"Adjusted time_boundary from {settings.time_boundary} s to "
+                    f"{latest_tally_time} s to match the latest tally time."
+                )
             settings.time_boundary = latest_tally_time
 
         # Complete native-material compositions for the transported particles
