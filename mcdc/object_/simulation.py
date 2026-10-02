@@ -30,7 +30,7 @@ from numpy.typing import NDArray
 
 ####
 
-from mcdc.constant import PARTICLE_NEUTRON
+from mcdc.constant import PARTICLE_NEUTRON, PARTICLE_ELECTRON, PARTICLE_PROTON
 from mcdc.object_.base import MCDCBase
 from mcdc.object_.data import DataBase
 from mcdc.object_.distribution import DistributionBase
@@ -332,10 +332,28 @@ class Simulation(MCDCBase):
             set_elements_from_nuclides,
             set_nuclides_from_elements,
             update_fissionable_from_nuclides,
+            update_radiation_length_from_nuclides,
         )
         from mcdc.config import target
 
         settings = self.settings
+
+        if (
+            settings.neutron_transport.prioritize_low_energy
+            or settings.proton_transport.prioritize_low_energy
+        ):
+            print_error(
+                "prioritize_low_energy is currently supported only for electron transport."
+            )
+
+        # Enable transport for every particle species present in the sources.
+        for source in self.sources:
+            if source.particle_type == PARTICLE_NEUTRON:
+                settings.neutron_transport.active = True
+            elif source.particle_type == PARTICLE_ELECTRON:
+                settings.electron_transport.active = True
+            elif source.particle_type == PARTICLE_PROTON:
+                settings.proton_transport.active = True
 
         # Censuses split histories; GPU closeout aggregates them.
         # Both require batch samples for fixed-source uncertainty estimates.
@@ -436,30 +454,32 @@ class Simulation(MCDCBase):
         # Complete native-material compositions for the transported particles
         for material in self.materials:
             if (
-                settings.neutron_transport
+                settings.neutron_transport.active
                 and material.element_composition
                 and len(material.nuclides) == 0
             ):
                 set_nuclides_from_elements(material, self)
             if (
-                settings.electron_transport
+                settings.electron_transport.active
                 and material.nuclide_composition
                 and len(material.elements) == 0
             ):
                 set_elements_from_nuclides(material, self)
 
         # Load the physics data required by the completed material model
-        if settings.neutron_transport:
+        if settings.neutron_transport.active:
             for nuclide in self.nuclides:
                 nuclide.set_neutron_data(self)
             for material in self.materials:
                 update_fissionable_from_nuclides(material)
 
-        if settings.proton_transport:
+        if settings.proton_transport.active:
             for nuclide in self.nuclides:
                 nuclide.set_proton_data(self)
+            for material in self.materials:
+                update_radiation_length_from_nuclides(material)
 
-        if settings.electron_transport:
+        if settings.electron_transport.active:
             for element in self.elements:
                 element.set_electron_data(self)
 

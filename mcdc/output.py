@@ -136,6 +136,10 @@ def create_runtime_dataset(file, mcdc):
 
 def generate_performance_output(simulation):
     """Append performance metrics to the standard output on the master rank."""
+    import platform
+    from datetime import datetime, timezone
+
+    import mcdc.config as config
 
     if not simulation["mpi_master"]:
         return
@@ -159,6 +163,10 @@ def generate_performance_output(simulation):
         group.create_dataset(
             "effective_variance", data=simulation["effective_variance"]
         )
+        group.create_dataset("hostname", data=platform.node())
+        group.create_dataset("mode", data=config.mode)
+        group.create_dataset("target", data=config.target)
+        group.create_dataset("date", data=datetime.now(timezone.utc).isoformat())
 
 
 def read_census_score(simulation, data, tally, score, batch, census):
@@ -184,7 +192,7 @@ def read_census_score(simulation, data, tally, score, batch, census):
 
 
 def create_tally_dataset(file, mcdc, data):
-    from mcdc.constant import TALLY_TRACKLENGTH, TALLY_COLLISION
+    from mcdc.constant import TALLY_TRACKLENGTH, TALLY_INTERACTION
     from mcdc.object_.tally import decode_score_type
 
     # Loop over all tally types
@@ -212,8 +220,8 @@ def create_tally_dataset(file, mcdc, data):
         mesh_filtered_tally = None
         if tally["sub_type"] == TALLY_TRACKLENGTH:
             mesh_filtered_tally = mcdc["tracklength_tallies"][tally["sub_ID"]]
-        elif tally["sub_type"] == TALLY_COLLISION:
-            mesh_filtered_tally = mcdc["collision_tallies"][tally["sub_ID"]]
+        elif tally["sub_type"] == TALLY_INTERACTION:
+            mesh_filtered_tally = mcdc["interaction_tallies"][tally["sub_ID"]]
 
         if mesh_filtered_tally is not None and mesh_filtered_tally["mesh_filtered"]:
             mesh_base = mcdc["meshes"][mesh_filtered_tally["mesh_filter_ID"]]

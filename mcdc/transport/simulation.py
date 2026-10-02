@@ -330,7 +330,7 @@ def step_particle(particle_container, program, data):
             return
 
     # ==================================================================================
-    # Main events
+    # Main event
     # ==================================================================================
 
     # Time boundary crossing
@@ -490,16 +490,21 @@ def condensed_interactions(particle_container, distance, simulation, data):
     incident_container = util.local_array(1, type_.particle)
     incident_container[0] = particle
 
-    collision_data_container = util.local_array(1, type_.collision_data)
-    collision_data_container[0]["energy_deposition"] = 0.0
+    interaction_data_container = util.local_array(1, type_.interaction_data)
+    interaction_data_container[0]["energy_deposition"] = 0.0
 
-    physics.condensed_interactions(
-        particle_container, collision_data_container, distance, simulation, data
+    # Preserve the state before condensed interactions for tally filters.
+    particle_module.copy(
+        interaction_data_container["incident_particle"], particle_container
     )
 
-    # TODO: change this to tracklength tallies
-    score_collision_tallies(
-        particle_container, collision_data_container, simulation, data
+    physics.condensed_interactions(
+        particle_container, interaction_data_container, distance, simulation, data
+    )
+
+    # Score the condensed contribution at the step endpoint.
+    score_interaction_tallies(
+        particle_container, interaction_data_container, simulation, data
     )
 
     # Deflection can turn the particle back into the incident region.
@@ -514,16 +519,21 @@ def condensed_interactions(particle_container, distance, simulation, data):
 
 @njit
 def collision(particle_container, program, data):
-    """Perform collision and score collision tallies."""
+    """Perform a discrete collision and score its interaction contribution."""
     simulation = util.access_simulation(program)
 
-    collision_data_container = util.local_array(1, type_.collision_data)
-    collision_data_container[0]["energy_deposition"] = 0.0
+    interaction_data_container = util.local_array(1, type_.interaction_data)
+    interaction_data_container[0]["energy_deposition"] = 0.0
 
-    physics.collision(particle_container, collision_data_container, program, data)
+    # Preserve the incident state before the discrete collision.
+    particle_module.copy(
+        interaction_data_container["incident_particle"], particle_container
+    )
 
-    score_collision_tallies(
-        particle_container, collision_data_container, simulation, data
+    physics.collision(particle_container, interaction_data_container, program, data)
+
+    score_interaction_tallies(
+        particle_container, interaction_data_container, simulation, data
     )
 
 
@@ -604,17 +614,17 @@ def score_tracklength_tallies(particle_container, distance, simulation, data):
 
 
 @njit
-def score_collision_tallies(
-    particle_container, collision_data_container, simulation, data
+def score_interaction_tallies(
+    particle_container, interaction_data_container, simulation, data
 ):
-    """Score collision tallies using particle state and stored collision data."""
+    """Score interaction contributions in the incident cell."""
     particle = particle_container[0]
 
     if simulation["cycle_active"]:
         cell = simulation["cells"][particle["cell_ID"]]
-        for i in range(cell["N_collision_tally"]):
-            tally_ID = mcdc_get.cell.collision_tally_IDs(i, cell, data)
+        for i in range(cell["N_interaction_tally"]):
+            tally_ID = mcdc_get.cell.interaction_tally_IDs(i, cell, data)
             tally = simulation["tallies"][tally_ID]
-            tally_module.score.collision(
-                particle_container, collision_data_container, tally, simulation, data
+            tally_module.score.interaction(
+                interaction_data_container, tally, simulation, data
             )

@@ -105,9 +105,11 @@ data boundary between model compilation and transport.
 :ref:`generated_numba_support` distinguishes its three lifetimes, and
 :ref:`rebuilding_numba_support` gives the object model development workflow.
 
-The ``mcdc/transport`` package implements the shared-transport stage.
-:doc:`transport_execution` explains how the execution modes run it.
-:doc:`../extending/writing_numba_compatible_transport_code` provides practical rules for extending its algorithms.
+For details on the shared transport implementation in ``mcdc/transport``:
+
+- :doc:`particle_transport` explains particle steps, endpoint events, interaction data, and tally scoring triggers.
+- :doc:`transport_execution` explains how the execution modes run it.
+- :doc:`../extending/writing_numba_compatible_transport_code` provides practical rules for extending its algorithms.
 
 Results and Output
 ------------------
@@ -156,4 +158,5 @@ Promote a helper to a broader ``util.py`` only when multiple sibling components 
    python_first_numba_accelerated_design
    simulation_compilation
    runtime_data_layout
+   particle_transport
    transport_execution

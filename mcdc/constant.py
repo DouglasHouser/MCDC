@@ -176,9 +176,9 @@ COINCIDENCE_TOLERANCE_TIME = TINY * 1e-2
 # Tallies
 # ======================================================================================
 
-# Tally estimator types
+# Tally types
 TALLY_SURFACE_CROSSING = 0
-TALLY_COLLISION = 1
+TALLY_INTERACTION = 1
 TALLY_TRACKLENGTH = 2
 
 # Track-length scores
@@ -193,17 +193,17 @@ SCORE_CURRENT_NET = 100
 SCORE_CURRENT_IN = 101
 SCORE_CURRENT_OUT = 102
 
-# Collision scores
+# Interaction scores
 SCORE_ENERGY_DEPOSITION = 200
 
-# Supported scores by estimator type
+# Supported scores by tally type
 SUPPORTED_SCORES_SURFACE_CROSSING = {"current-net", "current-in", "current-out"}
 SUPPORTED_SCORES_TRACKLENGTH = {"flux", "density", "collision", "capture", "fission"}
-SUPPORTED_SCORES_COLLISION = {"energy_deposition"}
+SUPPORTED_SCORES_INTERACTION = {"energy_deposition"}
 SUPPORTED_SCORES = (
     SUPPORTED_SCORES_SURFACE_CROSSING
     | SUPPORTED_SCORES_TRACKLENGTH
-    | SUPPORTED_SCORES_COLLISION
+    | SUPPORTED_SCORES_INTERACTION
 )
 
 

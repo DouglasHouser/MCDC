@@ -477,13 +477,6 @@ def set_structure(
         hint_inner_dtype = None
         fixed_size_array = False
 
-        # Inline runtime fields use their class label as their field name
-        if embedded_mcdc_base and field != hint.label:
-            print_error(
-                f"Embedded MCDCBase field '{label}.{field}' must match the "
-                f"class label '{hint.label}'."
-            )
-
         # Process annotation
         if hint_origin is Annotated:
             hint_decoded = decode_annotated_ndarray(hint)
@@ -1491,7 +1484,7 @@ def singular_to_plural(word: str) -> str:
     return "_".join(parts)
 
 
-def decode_structure_item(item, prefix=""):
+def decode_structure_item(item, prefix="", embedded_label=None):
     """
     A structure item is a list describing a member field in the structure.
     The list contains [field name, field type, size].
@@ -1512,7 +1505,7 @@ def decode_structure_item(item, prefix=""):
         if len(item) == 3:
             return f"{prefix}    ('{item[0]}', {plural_to_singular(item[0])}, {item[2]}),\n"
         else:
-            return f"{prefix}    ('{item[0]}', {item[0]}),\n"
+            return f"{prefix}    ('{item[0]}', {embedded_label or item[0]}),\n"
 
 
 def build_structures():
@@ -1663,12 +1656,26 @@ def generate_numba_types(structures, structure_order):
     text += "\n###\n\n"
     text += "from mcdc.code_factory.numba_layers_generator import into_dtype\n\n"
 
+    # Embedded fields may reuse one configuration type under different names.
+    embedded_labels = {}
+    for class_ in mcdc_classes:
+        fields = {}
+        for parent in reversed(class_.__mro__):
+            fields.update(getattr(parent, "__annotations__", {}))
+        embedded_labels[class_.label] = {
+            field: hint.label
+            for field, hint in fields.items()
+            if is_embedded_mcdc_base(hint)
+        }
+
     for label in structure_order:
         if label in ["gpu_meta"] + bank_names + ["simulation"]:
             continue
         text += f"{label} = into_dtype([\n"
         for item in structures[label]:
-            text += decode_structure_item(item)
+            text += decode_structure_item(
+                item, embedded_label=embedded_labels.get(label, {}).get(item[0])
+            )
         text += "])\n\n"
 
     text += "gpu_meta = into_dtype([\n"

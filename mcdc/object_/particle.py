@@ -1,6 +1,6 @@
 import numpy as np
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Annotated
 from numpy import int64, uint64
 from numpy.typing import NDArray
@@ -32,13 +32,19 @@ class ParticleData(MCDCBase):
 
 
 @dataclass
-class CollisionData(MCDCBase):
-    """Per-collision values passed from physics to tally scoring."""
+class InteractionData(MCDCBase):
+    """Scoring data shared by discrete collisions and condensed interactions.
+
+    Each treatment records its incoming particle state before changing it and
+    accumulates weighted energy deposition in eV. Condensed interactions use
+    the step endpoint with energy and direction from before their application.
+    """
 
     # MC/DC framework metadata
-    label = "collision_data"
+    label = "interaction_data"
 
     energy_deposition: float = 0.0
+    incident_particle: ParticleData = field(default_factory=ParticleData)
 
 
 @dataclass

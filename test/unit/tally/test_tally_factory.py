@@ -5,7 +5,7 @@ import mcdc
 from mcdc.constant import PARTICLE_ANY
 
 from mcdc.object_.tally import (
-    TallyCollision,
+    TallyInteraction,
     TallySurfaceCrossing,
     TallyTracklength,
 )
@@ -31,7 +31,7 @@ def test_tally_factory_routing_surface_vs_tracklength_vs_collision(slab_plane_x)
         z=(-1.0, 1.0, 1),
     )
 
-    collision_tally = mcdc.Tally(
+    interaction_tally = mcdc.Tally(
         mesh=mesh,
         scores=["energy_deposition"],
     )
@@ -39,7 +39,7 @@ def test_tally_factory_routing_surface_vs_tracklength_vs_collision(slab_plane_x)
     assert isinstance(surface_crossing_tally, TallySurfaceCrossing)
     assert isinstance(surface_cell_filter_tally, TallySurfaceCrossing)
     assert isinstance(tracklength_tally, TallyTracklength)
-    assert isinstance(collision_tally, TallyCollision)
+    assert isinstance(interaction_tally, TallyInteraction)
 
     assert not tracklength_tally.cell_filtered
     assert tracklength_tally.cell_filter_ID == -1
@@ -153,12 +153,12 @@ def test_tally_factory_rejects_unsupported_energy_filter(capsys):
     assert "Unsupported tally energy filter: groups" in capsys.readouterr().out
 
 
-def test_tally_factory_rejects_mixed_estimator_scores(capsys):
+def test_tally_factory_rejects_mixed_tally_type_scores(capsys):
     with pytest.raises(SystemExit):
         mcdc.Tally(scores=["flux", "energy_deposition"])
 
     out = capsys.readouterr().out
-    assert "Cannot mix tally scores with different estimators" in out
+    assert "Cannot mix scores from different tally types" in out
     assert "flux" in out
     assert "energy_deposition" in out
 

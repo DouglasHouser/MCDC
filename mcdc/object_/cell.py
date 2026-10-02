@@ -30,7 +30,7 @@ from mcdc.constant import (
 )
 from mcdc.object_.base import MCDCObject
 from mcdc.object_.material import Material
-from mcdc.object_.tally import TallyCollision, TallyTracklength
+from mcdc.object_.tally import TallyInteraction, TallyTracklength
 from mcdc.object_.universe import Universe, Lattice
 from mcdc.print_ import print_error
 
@@ -205,7 +205,7 @@ class Cell(MCDCObject):
     rotation: Annotated[NDArray[float64], (3,)]
 
     # Attached tallies
-    collision_tallies: list[TallyCollision]
+    interaction_tallies: list[TallyInteraction]
     tracklength_tallies: list[TallyTracklength]
 
     def __init__(
@@ -235,7 +235,7 @@ class Cell(MCDCObject):
             self.rotation *= PI / 180.0
 
         # Cell tallies
-        self.collision_tallies = []
+        self.interaction_tallies = []
         self.tracklength_tallies = []
 
     def _compile_into_simulation(self, simulation) -> bool:
@@ -292,10 +292,8 @@ class Cell(MCDCObject):
         if self.fill_rotated:
             text += f"  - Rotation: {self.rotation * 180 / PI}\n"
         text += f"  - Bounding surfaces: {[x.name for x in self.surfaces]}\n"
-        if len(self.collision_tallies) > 0:
-            text += (
-                f"  - Collision tallies: {[x.name for x in self.collision_tallies]}\n"
-            )
+        if len(self.interaction_tallies) > 0:
+            text += f"  - Interaction tallies: {[x.name for x in self.interaction_tallies]}\n"
         if len(self.tracklength_tallies) > 0:
             text += f"  - Tracklength tallies: {[x.name for x in self.tracklength_tallies]}\n"
         return text

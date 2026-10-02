@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
+- Add developer documentation on particle transport architecture, covering particle steps, event handling, interaction data, and tally scoring triggers, from [@ilhamv]
 - Add time, polar-cosine, and azimuthal dependence to weight windows; consolidate lower, target, and upper weights into one array and extend flattened-data accessors to eight dimensions, from [@nglaser3]
 - Add a fissionable material and an outlet detector to the pulsed Kobayashi example, from [@ilhamv]
 - Add CI check requiring generated Numba support to match the rebuild script, from [@ilhamv]
@@ -17,6 +18,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Changed
 
+- Rename collision tally/data to interaction tally/data to cover both discrete collisions and condensed interactions; describe tally types by their transport scoring triggers rather than as estimators, from [@ilhamv]
+- Use the full incident-particle state for collision tally filtering, from [@ilhamv]
+- Make lower-energy-first transport rule configurable per particle, from [@ilhamv]
+- Introduce per-species transport settings with automatic activation of source particle types and nested settings in output files, replacing `set_transported_particles`, from [@ilhamv]
+- Generate the electron data library in eV, store the elastic transport cross section under MT-526, from [@melekderman]
+- Transport the lower-energy electron from ionization first for more effective bank usage, from [@melekderman]
+- Reuse electron cross-section energy-grid indices and cumulative subshell cross sections during collision sampling, from [@melekderman]
 - Unify polar–azimuthal basis construction across angle conversion, source direction sampling, and scattering, with robust Z-pole handling; the shared convention changes seeded particle trajectories, from [@nglaser3] and [@ilhamv]
 - Organize the Kobayashi examples under `examples/kobayashi-dogleg/` as `steady_state`, `pulsed`, and `pulsed_with_fission`; use the fission variant in the pulsed tutorial and clarify its relation to the original PNE benchmark and the Zenodo transient adaptation, from [@ilhamv]
 - Add standard `performance/` output metrics and replace `--runtime_output` with `--no-tally_output` to omit tally results, from [@ilhamv]
@@ -34,6 +42,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Fix tallies not applying their particle-type filter during scoring, from [@melekderman]
+- Fix collision tally energy filtering to use the incident energy, from [@melekderman]
+- Fix electron-ionization energy sampling, change the policy from [@melekderman]
+- Fix track-length tallies skipping tracks shorter than the time coincidence tolerance, which zeroed electron flux tallies, from [@melekderman]
+- Restore the Lockwood regression case to the 1 MeV benchmark and regenerate its answer, from [@melekderman]
+- Fix tabulated distribution sampling at the first CDF point, from [@melekderman]
 - Fix multi-table distribution sampling when the incident energy equals the first grid point, which used the last grid point as the lower bound and could fail or return wrong values, from [@melekderman]
 - Fix element densities when collapsing a nuclide composition into elements, which counted nuclides with a shared symbol prefix (e.g., `Cr52` as carbon, `He4` as hydrogen), from [@melekderman]
 - Correct ACEtk electron data loading units, elastic cross-section assignments, and CDF dataset names, from [@massimolarsen]

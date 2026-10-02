@@ -47,17 +47,17 @@ def max_condensed_step_distance(particle_container, simulation, data):
 
 @njit
 def condensed_interactions(
-    particle_container, collision_data_container, distance, simulation, data
+    particle_container, interaction_data_container, distance, simulation, data
 ):
     """Apply proton condensed interactions over the traveled distance."""
     particle = particle_container[0]
-    collision_data = collision_data_container[0]
+    interaction_data = interaction_data_container[0]
     material = simulation["materials"][particle["material_ID"]]
     E = particle["E"]
 
     # Check for cutoff energy
     if E <= PROTON_CUTOFF_ENERGY:
-        collision_data["energy_deposition"] += E * particle["w"]
+        interaction_data["energy_deposition"] += E * particle["w"]
         particle["alive"] = False
         particle["E"] = 0.0
         return
@@ -81,7 +81,7 @@ def condensed_interactions(
     # Clamping the energy loss to be between [0, particle["E"]]
     energy_loss = min(max(energy_loss, 0.0), E)
     particle["E"] = E - energy_loss
-    collision_data["energy_deposition"] += energy_loss * particle["w"]
+    interaction_data["energy_deposition"] += energy_loss * particle["w"]
 
     X0 = material["radiation_length"]
 

@@ -19,7 +19,7 @@ from mcdc.object_.secondary_product import SecondaryProduct
 from mcdc.object_.base import MCDCPolymorphic
 from mcdc.object_.data import DataBase, DataTable
 from mcdc.object_.distribution import DistributionBase, DistributionMultiTable
-from mcdc.print_ import print_1d_array
+from mcdc.print_ import print_1d_array, print_error
 
 # ======================================================================================
 # Electron reaction base class
@@ -135,12 +135,20 @@ class ElectronReactionIonization(ElectronReactionBase):
                 )
             )
 
-            # Secondary electron energy distribution
+            # Secondary electron energy distribution. The sampler skips the
+            # tables at or below the subshell binding energy.
             product = subshell["product"]
+            product_grid = read_energy(product["energy_grid"])
+            binding_energy = float(read_energy(subshell["binding_energy"]))
+            if product_grid[-1] <= binding_energy:
+                print_error(
+                    f"Ionization subshell {name} has no product spectrum above "
+                    "its binding energy."
+                )
             if "CDF" in product:
                 subshell_product.append(
                     DistributionMultiTable(
-                        read_energy(product["energy_grid"]),
+                        product_grid,
                         product["energy_offset"][()],
                         read_energy(product["value"]),
                         cdf=product["CDF"][()],
@@ -149,7 +157,7 @@ class ElectronReactionIonization(ElectronReactionBase):
             else:
                 subshell_product.append(
                     DistributionMultiTable(
-                        read_energy(product["energy_grid"]),
+                        product_grid,
                         product["energy_offset"][()],
                         read_energy(product["value"]),
                         product["PDF"][()],

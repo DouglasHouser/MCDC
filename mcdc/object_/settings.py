@@ -89,6 +89,25 @@ class CondensedInteractions(MCDCBase):
 
 
 # ======================================================================================
+# Particle-type transport settings
+# ======================================================================================
+
+
+@dataclass
+class ParticleTransportSettings(MCDCBase):
+    """Particle type-wise transport settings owned by simulation settings."""
+
+    # MC/DC framework metadata
+    label = "particle_transport_settings"
+
+    #: Whether this particle species is enabled.
+    active: bool = False
+    #: Request lower-energy outgoing particles to be transported first.
+    #: Defaults to ``True`` for electrons and ``False`` for neutrons and protons.
+    prioritize_low_energy: bool = False
+
+
+# ======================================================================================
 # Settings
 # ======================================================================================
 
@@ -153,10 +172,17 @@ class Settings(MCDCBase):
     #: is ``1.5``.
     future_bank_buffer_ratio: float = 1.5
 
-    # Multi-particle options
-    neutron_transport: bool = True
-    electron_transport: bool = False
-    proton_transport: bool = False
+    # Particle type-wise transport settings
+    neutron_transport: ParticleTransportSettings = field(
+        default_factory=ParticleTransportSettings
+    )
+    electron_transport: ParticleTransportSettings = field(
+        default_factory=lambda: ParticleTransportSettings(prioritize_low_energy=True)
+    )
+
+    proton_transport: ParticleTransportSettings = field(
+        default_factory=ParticleTransportSettings
+    )
 
     # Transport models
     neutron_multigroup: NeutronMultigroup = field(default_factory=NeutronMultigroup)
@@ -322,41 +348,3 @@ class Settings(MCDCBase):
         # Set number of particles
         with h5py.File(source_file_name, "r") as f:
             self.N_particle = int(f["particles_size"][()])
-
-    def set_transported_particles(self, transported_particles: list[str]) -> None:
-        """Select the particle species enabled during transport.
-
-        Parameters
-        ----------
-        transported_particles : list of {"neutron", "electron", "proton"}
-            Particle species to enable. Species not listed are disabled.
-
-        Examples
-        --------
-        Transport neutrons only:
-
-        >>> import mcdc
-        >>> simulation = mcdc.Simulation()
-        >>> simulation.settings.set_transported_particles(["neutron"])
-
-        Enable coupled neutron and electron transport:
-
-        >>> simulation.settings.set_transported_particles(
-        ...     ["neutron", "electron"],
-        ... )
-        """
-        # Reset the flags
-        self.neutron_transport = False
-        self.electron_transport = False
-        self.proton_transport = False
-
-        # Set flags
-        for particle in transported_particles:
-            if particle == "neutron":
-                self.neutron_transport = True
-            elif particle == "electron":
-                self.electron_transport = True
-            elif particle == "proton":
-                self.proton_transport = True
-            else:
-                print_error(r"Unsupported particle types: {particle}")

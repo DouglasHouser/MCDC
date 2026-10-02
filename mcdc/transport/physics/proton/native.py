@@ -195,10 +195,10 @@ def reaction_micro_xs(E, reaction_base, nuclide, data):
 
 
 @njit
-def collision(particle_container, collision_data_container, program, data):
+def collision(particle_container, interaction_data_container, program, data):
     simulation = util.access_simulation(program)
     particle = particle_container[0]
-    collision_data = collision_data_container[0]
+    interaction_data = interaction_data_container[0]
     material = simulation["materials"][particle["material_ID"]]
 
     # Particle properties
@@ -206,7 +206,7 @@ def collision(particle_container, collision_data_container, program, data):
 
     # Check for cutoff energy
     if E <= PROTON_CUTOFF_ENERGY:
-        collision_data["energy_deposition"] += E * particle["w"]
+        interaction_data["energy_deposition"] += E * particle["w"]
         particle["alive"] = False
         particle["E"] = 0.0
         return
@@ -266,7 +266,7 @@ def collision(particle_container, collision_data_container, program, data):
                 elastic_scattering(
                     reaction,
                     particle_container,
-                    collision_data_container,
+                    interaction_data_container,
                     nuclide,
                     simulation,
                     data,
@@ -294,7 +294,7 @@ def collision(particle_container, collision_data_container, program, data):
                 capture(
                     reaction,
                     particle_container,
-                    collision_data_container,
+                    interaction_data_container,
                     nuclide,
                     simulation,
                     data,
@@ -320,7 +320,7 @@ def collision(particle_container, collision_data_container, program, data):
                 inelastic_scattering(
                     reaction,
                     particle_container,
-                    collision_data_container,
+                    interaction_data_container,
                     nuclide,
                     program,
                     data,
@@ -336,10 +336,10 @@ def collision(particle_container, collision_data_container, program, data):
 # TODO: add secondaries from capture rxns
 @njit
 def capture(
-    reaction, particle_container, collision_data_container, nuclide, simulation, data
+    reaction, particle_container, interaction_data_container, nuclide, simulation, data
 ):
     particle = particle_container[0]
-    collision_data = collision_data_container[0]
+    interaction_data = interaction_data_container[0]
 
     # Terminate the particle
     particle["alive"] = False
@@ -347,7 +347,7 @@ def capture(
     # Energy deposition
     E = particle["E"]
     q_value = reaction["q_value"] * 1e6
-    collision_data["energy_deposition"] += (E + q_value) * particle["w"]
+    interaction_data["energy_deposition"] += (E + q_value) * particle["w"]
 
 
 # ======================================================================================
@@ -357,10 +357,10 @@ def capture(
 
 @njit
 def elastic_scattering(
-    reaction, particle_container, collision_data_container, nuclide, simulation, data
+    reaction, particle_container, interaction_data_container, nuclide, simulation, data
 ):
     particle = particle_container[0]
-    collision_data = collision_data_container[0]
+    interaction_data = interaction_data_container[0]
     sub_ID = reaction["sub_ID"]
     elastic_scattering = simulation["proton_elastic_scattering_reactions"][sub_ID]
 
@@ -371,7 +371,7 @@ def elastic_scattering(
     uz = particle["uz"]
 
     # Energy deposition
-    collision_data["energy_deposition"] += E * particle["w"]
+    interaction_data["energy_deposition"] += E * particle["w"]
 
     # Note: Q-value is zero in elastic scattering
 
@@ -445,7 +445,7 @@ def elastic_scattering(
     particle["uz"] = vz / speed
 
     # Subtract outgoing energy from energy deposition
-    collision_data["energy_deposition"] -= particle["E"] * particle["w"]
+    interaction_data["energy_deposition"] -= particle["E"] * particle["w"]
 
 
 @njit
@@ -504,11 +504,11 @@ def sample_nucleus_velocity(A, particle_container):
 # TODO: make inelastic scattering actually produce secondaries
 @njit
 def inelastic_scattering(
-    reaction, particle_container, collision_data_container, nuclide, program, data
+    reaction, particle_container, interaction_data_container, nuclide, program, data
 ):
     simulation = util.access_simulation(program)
     particle = particle_container[0]
-    collision_data = collision_data_container[0]
+    interaction_data = interaction_data_container[0]
     sub_ID = reaction["sub_ID"]
     inelastic_scattering = simulation["proton_inelastic_scattering_reactions"][sub_ID]
 
@@ -523,7 +523,7 @@ def inelastic_scattering(
 
     # Q-value energy available
     q_value = reaction["q_value"] * 1e6
-    collision_data["energy_deposition"] += (E + q_value) * particle["w"]
+    interaction_data["energy_deposition"] += (E + q_value) * particle["w"]
 
     # ===========================================================================
     # Sample outgoing proton
@@ -632,7 +632,7 @@ def inelastic_scattering(
         particle_new["particle_type"] = PARTICLE_PROTON
 
         # Subtract outgoing energy from energy deposition
-        collision_data["energy_deposition"] -= particle_new["E"] * particle_new["w"]
+        interaction_data["energy_deposition"] -= particle_new["E"] * particle_new["w"]
 
         # ==============================================================================
         # Bank the new particle
@@ -729,7 +729,7 @@ def inelastic_scattering(
                 particle_new["E"] = E_new
                 particle_new["particle_type"] = product_type
 
-                collision_data["energy_deposition"] -= E_new * particle_new["w"]
+                interaction_data["energy_deposition"] -= E_new * particle_new["w"]
 
                 if particle["event"] & EVENT_TIME_CENSUS:
                     particle_bank_module.bank_census_particle(

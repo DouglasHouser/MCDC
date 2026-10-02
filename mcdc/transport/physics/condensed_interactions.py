@@ -22,13 +22,13 @@ def max_condensed_step_distance(particle_container, simulation, data):
 
 @njit
 def condensed_interactions(
-    particle_container, collision_data_container, distance, simulation, data
+    particle_container, interaction_data_container, distance, simulation, data
 ):
     """Apply condensed interactions over the traveled distance."""
     particle = particle_container[0]
     if particle["particle_type"] == PARTICLE_PROTON:
         proton.condensed_interactions(
-            particle_container, collision_data_container, distance, simulation, data
+            particle_container, interaction_data_container, distance, simulation, data
         )
     else:
         raise ValueError(

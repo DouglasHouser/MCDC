@@ -59,7 +59,6 @@ simulation.set_tallies([tally])
 # Settings
 simulation.settings.N_particle = 1000000
 simulation.settings.N_batch = 1
-simulation.settings.set_transported_particles(["proton"])
 simulation.settings.condensed_interactions(max_fractional_energy_loss=0.001)
 
 # Techniques

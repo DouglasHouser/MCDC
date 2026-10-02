@@ -56,8 +56,8 @@ cell = into_dtype([
     ('fill_rotated', bool_),
     ('translation', float64, (3,)),
     ('rotation', float64, (3,)),
-    ('N_collision_tally', int64),
-    ('collision_tally_IDs_offset', int64),
+    ('N_interaction_tally', int64),
+    ('interaction_tally_IDs_offset', int64),
     ('N_tracklength_tally', int64),
     ('tracklength_tally_IDs_offset', int64),
     ('ID', int64),
@@ -103,7 +103,7 @@ material = into_dtype([
     ('ID', int64),
 ])
 
-collision_tally = into_dtype([
+interaction_tally = into_dtype([
     ('cell_filtered', bool_),
     ('cell_filter_ID', int64),
     ('mesh_filtered', bool_),
@@ -582,8 +582,9 @@ proton_inelastic_scattering_reaction = into_dtype([
     ('base_ID', int64),
 ])
 
-collision_data = into_dtype([
+interaction_data = into_dtype([
     ('energy_deposition', float64),
+    ('incident_particle', particle_data),
 ])
 
 particle_bank = into_dtype([
@@ -614,6 +615,11 @@ neutron_multigroup = into_dtype([
     ('hybrid', bool_),
 ])
 
+particle_transport_settings = into_dtype([
+    ('active', bool_),
+    ('prioritize_low_energy', bool_),
+])
+
 settings = into_dtype([
     ('N_particle', int64),
     ('N_batch', int64),
@@ -639,9 +645,9 @@ settings = into_dtype([
     ('census_bank_buffer_ratio', float64),
     ('source_bank_buffer_ratio', float64),
     ('future_bank_buffer_ratio', float64),
-    ('neutron_transport', bool_),
-    ('electron_transport', bool_),
-    ('proton_transport', bool_),
+    ('neutron_transport', particle_transport_settings),
+    ('electron_transport', particle_transport_settings),
+    ('proton_transport', particle_transport_settings),
     ('neutron_multigroup', neutron_multigroup),
     ('condensed_interactions', condensed_interactions),
     ('neutron_eigenvalue_mode', bool_),
@@ -929,8 +935,8 @@ def make_simulation_type(N: dict):
         ('N_structured_mesh', int64),
         ('uniform_meshes', uniform_mesh, (N['uniform_mesh'])),
         ('N_uniform_mesh', int64),
-        ('collision_tallies', collision_tally, (N['collision_tally'])),
-        ('N_collision_tally', int64),
+        ('interaction_tallies', interaction_tally, (N['interaction_tally'])),
+        ('N_interaction_tally', int64),
         ('tracklength_tallies', tracklength_tally, (N['tracklength_tally'])),
         ('N_tracklength_tally', int64),
         ('surface_crossing_tallies', surface_crossing_tally, (N['surface_crossing_tally'])),
