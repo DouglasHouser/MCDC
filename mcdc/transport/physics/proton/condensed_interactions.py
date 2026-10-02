@@ -4,8 +4,10 @@ from numba import njit
 ####
 
 import mcdc.mcdc_get as mcdc_get
+import mcdc.transport.rng as rng
 
 from mcdc.constant import PROTON_CUTOFF_ENERGY, PROTON_MASS
+from mcdc.transport.distribution import sample_normal
 
 
 @njit
@@ -73,8 +75,8 @@ def condensed_interactions(
     )
     # Convert to units of eV^2
     energy_straggling_variance *= (1e6) ** 2
-    energy_straggling_modifier = np.random.normal(
-        loc=0.0, scale=np.sqrt(energy_straggling_variance)
+    energy_straggling_modifier = np.sqrt(energy_straggling_variance) * sample_normal(
+        particle_container
     )
     energy_loss += energy_straggling_modifier
 
@@ -86,7 +88,9 @@ def condensed_interactions(
     X0 = material["radiation_length"]
 
     # Angular scattering according to MCS theory
-    phi, theta = sample_mcs_angle(particle["E"], distance, total_rho_gcm3, X0)
+    phi, theta = sample_mcs_angle(
+        particle["E"], distance, total_rho_gcm3, X0, particle_container
+    )
 
     rotate_direction(particle, phi, theta)
 
@@ -94,15 +98,15 @@ def condensed_interactions(
 
 
 @njit
-def sample_mcs_angle(E, distance, density, X0):
+def sample_mcs_angle(E, distance, density, X0, particle_container):
     sigma = highland_lynch_dahl_sigma(E, distance, density, X0)
 
     if sigma < 0.0:
         raise ValueError(f"negative sigma = {sigma}")
 
     # Sample theta from the Highland distribution; phi uniformly from (0, 2pi)
-    theta = np.abs(np.random.normal(0, sigma))
-    phi = np.random.uniform(0, 2 * np.pi)
+    theta = np.abs(sigma * sample_normal(particle_container))
+    phi = 2.0 * np.pi * rng.lcg(particle_container)
 
     return phi, theta
 
