@@ -7,16 +7,6 @@ from numpy.typing import ArrayLike, NDArray
 ####
 
 from mcdc.constant import *
-from mcdc.constant import (
-    ELECTRON_ENERGY_ANALOG,
-    ELECTRON_ENERGY_CSDA,
-    ELECTRON_ANGLE_ANALOG,
-    ELECTRON_ANGLE_FP,
-    ELECTRON_ANGLE_GFP2,
-    ELECTRON_ANGLE_GFP3,
-    ELECTRON_ANGLE_GFP4,
-    ELECTRON_ANGLE_NONE,
-)
 from mcdc.object_.base import MCDCBase
 from mcdc.object_.util import is_sorted
 from mcdc.print_ import print_error

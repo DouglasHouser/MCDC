@@ -606,9 +606,15 @@ proton_reaction = into_dtype([
     ('sub_ID', int64),
 ])
 
-condensed_interactions = into_dtype([
-    ('proton', bool_),
+condensed_particle_settings = into_dtype([
+    ('energy_model', int64),
+    ('angular_model', int64),
     ('max_fractional_energy_loss', float64),
+])
+
+condensed_interactions = into_dtype([
+    ('proton', condensed_particle_settings),
+    ('electron', condensed_particle_settings),
 ])
 
 neutron_multigroup = into_dtype([
