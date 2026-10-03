@@ -1,10 +1,15 @@
 # Photon Transport — Upstream Sync Handoff
 
-Planning state as of **2026-10-01**. **No code has been changed yet.** Everything below is
+Planning state as of **2026-10-03**. **No code has been changed yet.** Everything below is
 investigation + decisions. Pick up at §8 "Execution".
 
 Supersedes the 2026-09-18 revision. New findings in this revision are marked **[NEW]**;
 corrections to the previous revision are marked **[CORRECTED]**.
+
+**[REVISED 2026-10-03]** The 2026-10-01 revision told Phase 0 to archive
+`photon_transport_code/` wholesale. That was wrong — the folder holds **362 live tests** and
+every verification deck, and its "1.6 GB" is almost entirely SLURM job logs. Corrected in §3,
+§5 Phase 0, §5 Phase 3 and §6.3. See §9 for the measurements.
 
 ---
 
@@ -146,8 +151,14 @@ test/regression/<7 decks>/
 | `physics/photon/util.py` (84) | Split; see redundancies below |
 | `physics/photon/data_loader.py` (458) | → `tools/data_library_generator/photon/` |
 | `mcdc_get` / `mcdc_set` `photon_*.py`, `constant_xs_material.py` | Delete, regenerate |
-| `test/unit/transport/physics/photon/*.py` | Rename with `test_` prefix, relocate to `test/unit/photon/` |
-| **[NEW]** `photon_transport_code/` (1.6 GB) | Archive, then delete — see Phase 0 |
+| `test/unit/transport/physics/photon/*.py` (33 tests) | Rename with `test_` prefix, relocate to `test/unit/photon/`. **[REVISED]** 26 of the 33 are currently never collected — see Phase 3 |
+| **[REVISED]** `photon_transport_code/` | **Do not archive as a unit.** Split by role — see the five rows below |
+| `photon_transport_code/MCNP_Verification_Tests/**/*.py` (628 KB) | **Keep.** All decks `import mcdc`, so they are production-bound, not prototype-bound. Migrate the 7 chosen decks (§7) to `test/regression/` |
+| `photon_transport_code/examples/CARRE_examples/` (cubesat), `examples/photon_slab/` | **Keep.** Both `import mcdc` |
+| `photon_transport_code/test/` (**362 live tests**) | **Port alongside the physics.** Rewrite imports `photon_transport_code.transport.physics.photon.*` → `mcdc.transport.physics.photon.*`. This is the bulk of the real photon coverage |
+| `photon_transport_code/{transport,mcdc_get,mcdc_set}/`, `conftest.py`, `__init__.py` | Archive, then delete — the genuinely superseded duplicate source, and the only part "archive" ever should have referred to |
+| `photon_transport_code/examples/photon_transport_{compton,pair_production,photoelectric}/`, `debugging/`, `docs/` | Prototype-bound (`import photon_transport_code.*`); port or retire deliberately |
+| `photon_transport_code/**/*.{out,log,png}` (1.63 GB) | gitignore — upstream already ignores `*.out` and `*.log`. Delete locally for disk space; never committed |
 | **[NEW]** root `validate_*.py`, `compare_photon_xs.py`, `photon_issue_isolator.py`, `visualize_output.py` | Archive; upstream's root carries no loose scripts |
 
 **Already exists upstream — delete our copies:**
@@ -231,14 +242,27 @@ exist only in the working tree.
 2. Branch `wip/photon-snapshot-pre-refactor` off current `dev`; commit all source-like
    changes there in topical commits, **on the old base**, with no porting and no cleanup.
    Push to `origin`. This is a permanent diffable reference and is never merged.
-3. Archive `photon_transport_code/` (1.6 GB) and the loose root scripts separately — own
-   branch or a tarball outside the repo. **Do not delete until Phase 3 is green.**
+3. **[REVISED] Commit `photon_transport_code/` source too — do not archive the folder.**
+   Phase 0 is a snapshot, so everything source-like goes in, including the 362 tests and all
+   the verification decks. The only things excluded are the `.out` / `.log` / `.png` outputs
+   (1.63 GB), which `.gitignore` handles. Archive the loose root scripts separately.
+   **Nothing is deleted in Phase 0.**
 
-**[NEW] Provenance note:** `photon_transport_code/` is the **April prototype**, superseded by
-`mcdc/transport/physics/photon/`. Its modules import
-`photon_transport_code.transport.physics.photon`, and its 12 KB `native.py` is the ancestor
-of the July three-way split across `native.py` / `cross_sections.py` / `interface.py`. The
-`mcdc/` tree is authoritative. Verify this before deleting anything.
+**[REVISED] Provenance note.** Only
+`photon_transport_code/{transport,mcdc_get,mcdc_set}/` is superseded: that is the **April
+prototype** of the physics, whose 12 KB `native.py` is the ancestor of the July three-way
+split across `native.py` / `cross_sections.py` / `interface.py` in `mcdc/`, and whose modules
+import `photon_transport_code.transport.physics.photon`. For the physics modules the `mcdc/`
+tree is authoritative.
+
+The rest of the folder is **not** superseded and must not be swept up with it:
+
+- Every deck under `MCNP_Verification_Tests/`, plus the CARRE cubesat model and
+  `examples/photon_slab/`, does `import mcdc` — they already target the production package.
+- `photon_transport_code/test/` collects **362 tests cleanly** under `mcdc-env`. It is live,
+  not rotted, and it holds roughly 11× the coverage of the main tree's 33.
+
+Verify both claims before deleting anything.
 
 ### Phase 1 — Fresh branch, no merge
 
@@ -275,10 +299,17 @@ gone — rehome onto `Material.element_composition`.
 ### Phase 3 — Validate
 
 1. `pre-commit run --all-files` against upstream's pinned black 26.1.0 / py3.14.
-2. Move unit tests to `test/unit/photon/` and rename with the `test_` prefix (three of the
-   four currently lack it). **Reconcile** `test_energy_deposition.py` with upstream's
+2. **[REVISED] The `test_` prefix is a correctness problem, not a convention tidy-up.**
+   `pytest test/unit/transport/physics` collects **7 tests**, because only
+   `test_energy_deposition.py` matches the default discovery pattern.
+   `coherent_form_factor.py`, `cross_sections.py` and `fluorescence.py` hold **26 more tests
+   that never run** unless the files are named explicitly on the command line. Rename all
+   three, relocate to `test/unit/photon/`, and confirm the collected count rises 7 → 33.
+   **Reconcile** `test_energy_deposition.py` with upstream's
    `test/unit/tally/test_energy_deposition.py` instead of duplicating.
-3. Re-run the 117-test XS suite and the MCNP benchmarks from the archive.
+3. **[REVISED]** Port and re-run `photon_transport_code/test/` — **362 tests** — after
+   rewriting its imports onto `mcdc.transport.physics.photon.*`. Target: 362 + 33 collected,
+   all green. Then the MCNP benchmarks.
 4. Confirm neutron regression passes — `neutron/native.py` and `azurv1/input.py` were both
    touched locally.
 
@@ -327,12 +358,17 @@ covered — it is not, and it is in fact already committed.
 **Not covered — would land in the Phase 0 commit:**
 - `data/` as a whole — 872 MB. `*.h5` misses `data/endf/**/*.endf` (300 files, 116 MB),
   `data/raw/` (81 MB) and `data/mcplib84/` (16 MB).
-- `photon_transport_code/` (1.6 GB duplicate tree)
+- **[REVISED]** `photon_transport_code/` **outputs only** — 23 `.out` job logs (1.61 GB,
+  of which `benchmark_5/slurm-20749880.out` is 666 MB and `slurm-20696173.out` is 589 MB),
+  one 3.5 MB `.log`, and 61 `.png` plots (17.6 MB). The folder's `.py` content is 628 KB
+  total and **is** wanted in the snapshot.
 - `.sonar/`, `photon_standard_error_comparison.xlsx`, `photon_issue_report.txt`
 - root `validate_*.py`, `compare_photon_xs.py`, `photon_issue_isolator.py`,
   `visualize_output.py`
 
-**Add:** `data/`, `.sonar/`, `__pycache__/`, `*.xlsx`, `.coverage`.
+**Add:** `data/`, `.sonar/`, `__pycache__/`, `*.xlsx`, `.coverage`, and scoped output rules
+for the verification tree (`photon_transport_code/**/*.png`, `*.slurm` outputs). `*.out` and
+`*.log` already come from upstream's `.gitignore`.
 
 **Remove our blanket `*.h5` rule.** `data/` covers the bulk, and `*.h5` would silently
 swallow legitimate test fixtures later. Upstream uses narrow rules (`*output.h5`,
@@ -371,7 +407,8 @@ cd /c/Projects/MCDC
 # 0. Fix .gitignore FIRST, then snapshot
 git checkout -b wip/photon-snapshot-pre-refactor
 git add -A
-git status            # REVIEW: nothing from data/ or photon_transport_code/ may appear
+git status            # REVIEW: no data/, and no .out/.log/.png from photon_transport_code/.
+                      # The folder's .py files SHOULD appear — see §3.
 git commit -m "WIP: photon transport before upstream sync"
 git push -u origin wip/photon-snapshot-pre-refactor
 
@@ -388,3 +425,66 @@ Then: port the photon layer per §3/§4, regenerate Numba support with
 `rebuild_numba_support.py`, migrate the 7 decks, write the library merge script.
 
 Cleanup when done: `git worktree remove ../MCDC-photon-old`
+
+---
+
+## 9. `photon_transport_code/` — Measurements  **[NEW 2026-10-03]**
+
+Recorded because the 2026-10-01 revision mischaracterised this folder and told Phase 0 to
+archive it wholesale.
+
+### Size is job logs, not work
+
+| Extension | Bytes | Count |
+|---|---|---|
+| `.out` (SLURM stdout) | **1,610,652,045** | 23 |
+| `.png` | 17,654,723 | 61 |
+| `.log` | 3,556,249 | 1 |
+| `.h5` | 2,007,656 | 26 |
+| **`.py`** | **643,622** | **59** |
+
+99.6% of the folder is 23 job logs. Two files are 1.25 GB of that total.
+
+### Import boundary — what is production-bound vs prototype-bound
+
+`import mcdc` (production — survives the prototype being deleted):
+
+- every `MCNP_Verification_Tests/**/problem.py` and `neutron_problem.py`
+- `examples/CARRE_examples/10MeV_cubesat_model.py`
+- `examples/photon_slab/problem.py`
+
+`import photon_transport_code.*` (prototype-bound — dies with the duplicate source):
+
+- all of `test/` (unit, regression, integration)
+- `examples/photon_transport_{compton,pair_production,photoelectric}/problem.py`
+- `debugging/debug_cross_sections.py`, `docs/source/conf.py`
+
+### Test coverage lives in the prototype, not the main tree
+
+```
+pytest photon_transport_code/test --collect-only   ->  362 tests collected in 0.29s
+pytest test/unit/transport/physics --collect-only  ->    7 tests collected
+```
+
+Both under `C:\Users\dwhou\anaconda3\envs\mcdc-env`. The 362 collect cleanly — live, not
+rotted. Per-file counts in `test/unit/photon/`: `test_coverage_gaps` 50,
+`test_phase1_structure` 43, `test_photon_reaction` 37, `test_distributions` 28,
+`test_total_xsec` 26, `test_pair_production` 17, `test_photoelectric` 16,
+`test_klein_nishina` 15, `test_docstrings` 9 (241 total), plus 7 regression files and 1
+integration file.
+
+The main tree's 7 is not the whole story either: naming the three unprefixed files
+explicitly collects **26 more**, for 33 actual tests of which 26 never run by default.
+
+### The folder is under active development
+
+`MCNP_Verification_Tests/error_comparison/` was created **2026-10-02** and holds 102 KB of
+paper-figure tooling (`build_se_workbook.py`, `equivalence_analysis.py`, `main_build.py`,
+`welch_agreement.py`, `readme_block.py`, `overview.json`). It is self-contained — numpy /
+xlsxwriter / pyxlsb plus a local import — and it is the build path for
+`photon_standard_error_comparison.xlsx`, per `PHOTON_ERROR_ANALYSIS_HANDOFF.md` at the repo
+root. It did not exist when this folder was first surveyed earlier in the same session.
+
+**Conclusion:** the main tree is not a superset of the prototype's coverage, and this folder
+is live working tooling, not a dead prototype. Archiving it would have removed 362 live
+tests, every verification deck, and the in-flight paper analysis.
