@@ -9,7 +9,8 @@ corrections to the previous revision are marked **[CORRECTED]**.
 **[REVISED 2026-10-03]** The 2026-10-01 revision told Phase 0 to archive
 `photon_transport_code/` wholesale. That was wrong — the folder holds **362 live tests** and
 every verification deck, and its "1.6 GB" is almost entirely SLURM job logs. Corrected in §3,
-§5 Phase 0, §5 Phase 3 and §6.3. See §9 for the measurements.
+§5 Phase 0, §5 Phase 3 and §6.3. New sections: **§9** measurements, **§10** per-file test
+rewrite inventory, **§11** smoke-test references, **§12** paper-artifact policy.
 
 ---
 
@@ -308,8 +309,13 @@ gone — rehome onto `Material.element_composition`.
    **Reconcile** `test_energy_deposition.py` with upstream's
    `test/unit/tally/test_energy_deposition.py` instead of duplicating.
 3. **[REVISED]** Port and re-run `photon_transport_code/test/` — **362 tests** — after
-   rewriting its imports onto `mcdc.transport.physics.photon.*`. Target: 362 + 33 collected,
-   all green. Then the MCNP benchmarks.
+   rewriting its imports onto `mcdc.transport.physics.photon.*`. These were written against
+   the April API and many import symbols that no longer exist, so this is not a bulk
+   find-and-replace: **see §10 for the per-file inventory and the three rewrite tiers.**
+   Start with `test/regression/photon/conftest.py`, which gates 80 tests on its own.
+   Target: 362 + 33 collected, all green. Then the MCNP benchmarks.
+4. **[NEW]** Generate the smoke-test references for all 30 decks — **§11**. Last step; gate
+   it on items 1–3 being green.
 4. Confirm neutron regression passes — `neutron/native.py` and `azurv1/input.py` were both
    touched locally.
 
@@ -488,3 +494,143 @@ root. It did not exist when this folder was first surveyed earlier in the same s
 **Conclusion:** the main tree is not a superset of the prototype's coverage, and this folder
 is live working tooling, not a dead prototype. Archiving it would have removed 362 live
 tests, every verification deck, and the in-flight paper analysis.
+
+---
+
+## 10. Test Suite — Rewrite Inventory  **[NEW 2026-10-03]**
+
+The prototype tests were written against the **April** photon API. Several of the symbols
+they import no longer exist in `mcdc/transport/physics/photon/`. Measured by parsing each
+test's `from ...photon... import` list and checking each name against the current production
+modules, `mcdc/object_/photon*.py` and `mcdc/constant.py`.
+
+`tests` = count of `def test_` functions (287 total; 362 after parametrisation).
+`gone` = imported names with no current definition.
+
+### Tier A — import rewrite only (`gone` = 0) — 100 tests
+
+| File | tests |
+|---|---|
+| `photon_transport_code/test/unit/photon/test_photon_reaction.py` | 37 |
+| `photon_transport_code/test/unit/photon/test_phase1_structure.py` | 25 |
+| `photon_transport_code/test/unit/photon/test_docstrings.py` | 9 |
+| `photon_transport_code/test/unit/photon/conftest.py` | 0 |
+| `test/unit/transport/physics/photon/fluorescence.py` | 9 |
+| `test/unit/transport/physics/photon/coherent_form_factor.py` | 7 |
+| `test/unit/transport/physics/photon/cross_sections.py` | 7 |
+| `test/unit/transport/physics/photon/test_energy_deposition.py` | 6 |
+
+The four main-tree files already import `mcdc.*` — they need only the `test_` prefix and
+relocation to `test/unit/photon/`. The four prototype files need
+`photon_transport_code.transport.physics.photon.*` → `mcdc.transport.physics.photon.*`.
+
+### Tier B — partial rewrite (`gone` = 1–3) — 106 tests
+
+| File | tests | gone | Missing |
+|---|---|---|---|
+| `test/regression/photon/test_neutron_compatibility.py` | 24 | 3 | `get_element`, `get_material_name`, `get_n_elements` |
+| `test/regression/photon/test_photoelectric_absorption.py` | 13 | 3 | `photoelectric_absorption`, `photoelectric_select_shell`, `sample_photoelectric_shell` |
+| `test/unit/photon/test_pair_production.py` | 13 | 3 | `build_element_buffer`, `pair_production_xs`, `pair_production_xs_element` |
+| `test/unit/photon/test_photoelectric.py` | 9 | 3 | `build_element_buffer`, `photoelectric_xs`, `photoelectric_xs_element` |
+| `test/integration/test_photon_reaction_collision.py` | 12 | 2 | `PHOTON_ELEMENT_DTYPE`, `build_element_buffer` |
+| `test/unit/photon/test_klein_nishina.py` | 12 | 1 | `klein_nishina_differential` |
+| `test/regression/photon/test_pair_production.py` | 12 | 1 | `sample_pair_production` |
+| `test/regression/photon/test_compton_scattering.py` | 11 | 1 | `sample_klein_nishina` |
+| `test/regression/photon/conftest.py` | 0 | 1 | `build_element_buffer` |
+
+**Fix `test/regression/photon/conftest.py` first.** A conftest import error fails collection
+for its whole directory, so that single missing symbol gates **all 80 regression tests**.
+Highest-leverage fix in the suite.
+
+### Tier C — substantial rewrite (`gone` ≥ 5) — 110 tests
+
+| File | tests | gone | Missing |
+|---|---|---|---|
+| `test/unit/photon/test_coverage_gaps.py` | 50 | 5 | `PHOTON_ELEMENT_DTYPE`, `add_photon_material_to_mcdc`, `build_element_buffer`, `pair_production_xs_element`, `total_xs_element` |
+| `test/unit/photon/test_distributions.py` | 28 | 6 | `klein_nishina_differential`, `photoelectric_absorption`, `photoelectric_select_shell`, `sample_klein_nishina`, `sample_pair_production`, `sample_photoelectric_shell` |
+| `test/regression/photon/test_mixed_interactions.py` | 14 | 7 | `get_densities`, `get_element`, `get_elements`, `get_n_elements`, `photoelectric_absorption`, `sample_klein_nishina`, `sample_pair_production` |
+| `test/unit/photon/test_total_xsec.py` | 12 | 5 | `_loglog_interp_python`, `build_element_buffer`, `pair_production_xs`, `photoelectric_xs`, `total_xs` |
+| `test/regression/photon/test_performance_benchmark.py` | 6 | 5 | `build_element_buffer`, `photoelectric_absorption`, `photoelectric_select_shell`, `sample_klein_nishina`, `sample_pair_production` |
+
+### Why the symbols vanished — each maps to a decision already in this plan
+
+The tests are stale **in the direction the port is already going**, so rewriting them is part
+of the same work rather than extra scope.
+
+| Missing group | Superseded by | Files |
+|---|---|---|
+| `build_element_buffer`, `PHOTON_ELEMENT_DTYPE` | §4.3 annotated fields + the layer generator. The hand-built flat buffer is exactly what gets deleted | 7 |
+| `sample_klein_nishina`, `sample_pair_production`, `sample_photoelectric_shell`, `photoelectric_select_shell`, `klein_nishina_differential`, `photoelectric_absorption` | Folded/renamed into the current `native.py` / `distributions.py` during the July three-way split | 7 |
+| `total_xs`, `total_xs_element`, `pair_production_xs(_element)`, `photoelectric_xs(_element)` | §4.4 `macro_xs` → `total_micro_xs` → `reaction_micro_xs` | 4 |
+| `get_element`, `get_elements`, `get_densities`, `get_n_elements`, `get_material_name`, `add_photon_material_to_mcdc` | §3 — `photon_material.py` is deleted; use `Element` fields + `Material.element_densities` | 3 |
+| `_loglog_interp_python` | `DataTable(..., INTERPOLATION_LOG)` + `evaluate_table` | 1 |
+
+**Sequencing:** do Tier A during Phase 2 as each module lands, Tier B and C in Phase 3 once
+the production API is settled. Rewriting Tier C before the API is final means doing it twice.
+
+---
+
+## 11. Smoke-Test References  **[NEW 2026-10-03]**
+
+**Deliverable:** every runnable deck gets a small committed result file beside it, so that
+anyone picking up the code has a reference without a cluster run.
+
+**Scope: 30 decks** that `import mcdc` — 9 under `Complex_M&G/`, 6 under
+`MCNP_test_problems/`, 2 under `Error-Convergence_testing/`, 11 under `benchmark_*/`, plus
+`examples/CARRE_examples/10MeV_cubesat_model.py` and `examples/photon_slab/problem.py`.
+
+**Timing:** last, after all restructuring. A reference generated against a half-ported API is
+worthless. Gate it on Phase 3 being green.
+
+**Spec:**
+
+1. **`N_particle = 10_000`** as the default. Drop to `1_000` only where runtime demands it —
+   realistically the two `benchmark_5` decks.
+2. **Pin the RNG seed.** Without a fixed seed a committed reference cannot be compared
+   against anything and the whole exercise is pointless. No deck currently pins one.
+3. **Commit two files per deck:** `smoke_1e4.h5` (exact artifact) and `smoke_1e4.txt` (the
+   tally table as text). The text file is what makes a regression visible in a PR diff —
+   HDF5 is opaque to review.
+4. **Size is not a concern.** Tally array size is independent of history count: the AZURV1
+   outputs are 97,752 bytes at every history count from 1e6 to 1e9, and the cubesat h5 is
+   340 KB. 30 decks lands around 3–12 MB total.
+5. **Label them clearly as smoke tests, not validation.** At 1e4 histories the relative
+   error is percent-level or worse. These files prove a deck still runs and produces finite,
+   physical numbers. They do **not** demonstrate agreement with MCNP — that remains the job
+   of the full-history runs and the §7 regression decks.
+6. Record the MC/DC commit hash and the date in each `.txt` header.
+
+---
+
+## 12. Paper Artifacts — What Belongs in Git  **[NEW 2026-10-03]**
+
+Relates to `PHOTON_ERROR_ANALYSIS_HANDOFF.md` (repo root) and the standard-error workbook.
+The test is **irreplaceable input vs reproducible output**, not "is it paper-related".
+
+### Commit — irreplaceable, and small
+
+| Artifact | Size | Why |
+|---|---|---|
+| MCNP input decks (`*_MCNP.txt`, `Benchmark5_MCNP_Deck*.txt`) | 28.7 KB | Hand-written ground truth. Cannot be regenerated without MCNP and the effort that built them |
+| MCNP reference result tables (`*_results.txt`) | ~715 KB total `.txt` | Need an MCNP licence and cluster time to reproduce |
+| `MCNP_Verification_Tests/error_comparison/*.py` | 102 KB | Source. Builds the workbook |
+| Smoke-test references (§11) | ~3–12 MB | The point is that they are committed |
+| `PHOTON_ERROR_ANALYSIS_HANDOFF.md` | 14 KB | Same category as `photon-transport-docs/`. **Genericise the absolute paths first** — it currently points at `C:\Users\dwhou\Downloads\...` and a OneDrive `.xlsb`, which resolve for nobody else. Fork-only; do not send upstream |
+
+### Do not commit — reproducible, or bulky, or both
+
+| Artifact | Size | Instead |
+|---|---|---|
+| 23 SLURM `.out` logs | **1.61 GB** | Already ignored by upstream's `*.out`. Delete locally for disk |
+| 61 `.png` plots | 17.6 MB | Regenerate from the plotting scripts |
+| 26 `.h5` run products | 2 MB | Superseded in the reference role by §11 smoke files |
+| `photon_standard_error_comparison.xlsx` | 145 KB | Build output of `error_comparison/`. Commit the scripts, not the workbook |
+| Draft PDF | 1.7 MB | Belongs with the manuscript, not the code repo |
+
+### For the bulky run products, archive rather than discard
+
+The full-history outputs underpin the paper's figures, so they should be citable even though
+they do not belong in git. Deposit them in **Zenodo or figshare** for a DOI, and reference
+that DOI from `PHOTON_ERROR_ANALYSIS_HANDOFF.md`. That satisfies journal data-availability
+requirements, survives independently of the repo, and keeps 1.6 GB out of git history —
+where, unlike a working tree, it could never be removed.
