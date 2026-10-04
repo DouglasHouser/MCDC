@@ -1,0 +1,949 @@
+====================================================================================================
+EQUIVALENCE (TOST) ANALYSIS -- MC/DC vs MCNP
+Is MC/DC's photon transport demonstrably equivalent to MCNP within a
+stated tolerance?  (Companion to welch_satterthwaite_agreement.txt.)
+====================================================================================================
+
+Generated : 2026-10-02
+Script    : MCNP_Verification_Tests/error_comparison/equivalence_analysis.py
+Inputs    : identical to welch_satterthwaite_agreement.txt -- same files,
+            same bins, same nu_M = 9 / nu_N = nps - 1 dof treatment.
+
+
+1. WHY A SECOND METRIC IS NEEDED
+----------------------------------------------------------------------------------------------------
+
+The companion report answers 'what fraction of bins are statistically
+INDISTINGUISHABLE?'.  That is a significance test of H0: phi_M = phi_N, and
+as a verification figure of merit it runs backwards:
+
+  * Precision punishes you.  As histories -> inf, sigma -> 0, so |t| -> inf
+    for ANY nonzero bias, however physically trivial.  The mesh tally has
+    sigma ~1.4 % against a 5-12 % offset and scores 1.5 %.  Running MORE
+    histories would push that fraction toward 0 %.
+  * Noise rewards you.  Bins whose sigma reach 100 % 'agree' because
+    nothing can be resolved there at all.
+
+Worse, failing to reject H0 is not evidence FOR H0.  A low agreement
+fraction is therefore not evidence that MC/DC is wrong, and a high one
+would not have been evidence that it is right.
+
+The claim the paper wants is equivalence within a tolerance -- the reverse
+hypothesis:
+
+    H0: |phi_M/phi_N - 1| >= delta     (codes differ by at least delta)
+    H1: |phi_M/phi_N - 1| <  delta     (codes agree within delta)
+
+Rejecting THIS H0 is positive evidence of agreement, and precision now
+helps instead of hurting.  That is the TOST procedure, implemented here as
+a CI-containment test on the flux ratio:
+
+    R = phi_M/phi_N,   s_lnR = sqrt(re_M^2 + re_N^2)
+    nu_eff = (re_M^2+re_N^2)^2 / (re_M^4/nu_M + re_N^4/nu_N)
+    CI(R) = exp( ln R +/- t(0.975, nu_eff) * s_lnR )
+
+
+2. THREE-WAY VERDICT
+----------------------------------------------------------------------------------------------------
+
+A pass/fail split would hide the distinction that matters most here, so
+each bin gets one of three verdicts against tolerance delta:
+
+  EQUIVALENT    CI(R) lies entirely inside [1-delta, 1+delta].
+                Agreement within delta is DEMONSTRATED.
+  DIFFERENT     CI(R) lies entirely outside the band.
+                A discrepancy larger than delta is DEMONSTRATED.
+  INCONCLUSIVE  CI(R) straddles a boundary.  The run is too noisy to
+                decide at this delta -- not a defect, just no information.
+
+Separating INCONCLUSIVE from DIFFERENT is the whole point: under the
+indistinguishability metric those two were both counted as 'agreement',
+which is why noisy problems scored well and precise ones scored badly.
+
+
+3. PER-PROBLEM RESULTS
+----------------------------------------------------------------------------------------------------
+
+Tolerance delta = 5 %
+
+Problem                 bins    EQUIV   DIFF INCONC   95% CI on EQUIV frac   |d|<5%
+-----------------------------------------------------------------------------------
+Al 1 MeV                  20       20      0      0   [ 83.9%, 100.0%]    100.0%
+Al 10 MeV                 20       20      0      0   [ 83.9%, 100.0%]    100.0%
+Pb 1 MeV                  10        2      2      6   [  5.7%,  51.0%]     30.0%
+Pb 10 MeV                 16        6      1      9   [ 18.5%,  61.4%]     62.5%
+Pb Cylinder Off-Ctr       12        5      0      7   [ 19.3%,  68.0%]     66.7%
+MM Slab Collim Beam        4        3      1      0   [ 30.1%,  95.4%]     75.0%
+MM Slab Mesh Tally       200       37      0    163   [ 13.7%,  24.5%]     24.0%
+MM Sphere Spectrum       413      314     46     53   [ 71.7%,  79.9%]     84.7%
+-----------------------------------------------------------------------------------
+ALL POOLED               695      407     50    238   [ 54.9%,  62.2%]     66.5%
+
+  pooled EQUIV fraction          : 58.6%   95% CI [54.9%, 62.2%]
+  equal weight per problem       : 58.6%   sd 33.4%   95% CI [30.6%, 86.5%]
+  conventional TOST (90% CI)      : 59.9% pooled
+
+
+Tolerance delta = 10 %
+
+Problem                 bins    EQUIV   DIFF INCONC   95% CI on EQUIV frac  |d|<10%
+-----------------------------------------------------------------------------------
+Al 1 MeV                  20       20      0      0   [ 83.9%, 100.0%]    100.0%
+Al 10 MeV                 20       20      0      0   [ 83.9%, 100.0%]    100.0%
+Pb 1 MeV                  10        4      1      5   [ 16.8%,  68.7%]     60.0%
+Pb 10 MeV                 16        7      0      9   [ 23.1%,  66.8%]     68.8%
+Pb Cylinder Off-Ctr       12        7      0      5   [ 32.0%,  80.7%]     75.0%
+MM Slab Collim Beam        4        4      0      0   [ 51.0%, 100.0%]    100.0%
+MM Slab Mesh Tally       200       51      0    149   [ 20.0%,  32.0%]     90.5%
+MM Sphere Spectrum       413      367     31     15   [ 85.5%,  91.5%]     89.3%
+-----------------------------------------------------------------------------------
+ALL POOLED               695      480     32    183   [ 65.5%,  72.4%]     89.2%
+
+  pooled EQUIV fraction          : 69.1%   95% CI [65.5%, 72.4%]
+  equal weight per problem       : 69.6%   sd 31.1%   95% CI [43.6%, 95.5%]
+  conventional TOST (90% CI)      : 70.6% pooled
+
+
+4. THE THREE METRICS SIDE BY SIDE
+----------------------------------------------------------------------------------------------------
+
+Same bins, same sigmas, three different questions.  Note how the ordering
+of the problems changes completely between columns.
+
+Problem                 bins   indisting  equiv 5% equiv 10%  mean |d|
+----------------------------------------------------------------------
+Al 1 MeV                  20       30.0%    100.0%    100.0%     0.72%
+Al 10 MeV                 20      100.0%    100.0%    100.0%     0.09%
+Pb 1 MeV                  10       20.0%     20.0%     40.0%    22.78%
+Pb 10 MeV                 16       75.0%     37.5%     43.8%    13.34%
+Pb Cylinder Off-Ctr       12       58.3%     41.7%     58.3%     9.41%
+MM Slab Collim Beam        4        0.0%     75.0%    100.0%     2.93%
+MM Slab Mesh Tally       200        1.5%     18.5%     25.5%     6.61%
+MM Sphere Spectrum       413       46.5%     76.0%     88.9%     6.01%
+----------------------------------------------------------------------
+ALL POOLED               695       34.8%     58.6%     69.1%     6.31%
+
+Demonstrably DIFFERENT by more than  5 %: 7.2% of bins
+Demonstrably DIFFERENT by more than 10 %: 4.6% of bins
+
+Mean |relative difference| over all 695 bins : 6.31 %
+Median |relative difference|                : 2.06 %
+
+Read the two slab problems against each other to see the effect:
+  MM Slab Collim Beam   indisting   0.0%   equiv@5%  75.0%   equiv@10% 100.0%   mean |d|  2.93%
+  MM Slab Mesh Tally    indisting   1.5%   equiv@5%  18.5%   equiv@10%  25.5%   mean |d|  6.61%
+
+The collimated-beam slab is 'indistinguishable' in 0 of 4 bins yet
+demonstrably equivalent within 5 % in most of them: its sigmas are so
+small (~0.16 %) that a sub-percent difference is resolvable, which the
+significance test reads as failure and the equivalence test reads as a
+tight, well-located agreement.  That is the metric artefact in one line.
+
+
+4b. RESTRICTED TO BINS MCNP ITSELF CALLS RELIABLE
+----------------------------------------------------------------------------------------------------
+
+The paper already cites MCNP's 10 % reliability threshold.  Applying it as
+a pre-declared screen -- keeping only bins where BOTH codes report a
+relative error <= 10 % -- removes the bins that carry no information, and
+removes them by a published criterion rather than an ad hoc one.
+
+Problem                 bins   indisting  equiv 5% equiv 10%  mean |d|
+----------------------------------------------------------------------
+Al 1 MeV                  20       30.0%    100.0%    100.0%     0.72%
+Al 10 MeV                 20      100.0%    100.0%    100.0%     0.09%
+Pb 1 MeV                   7       28.6%     28.6%     57.1%     7.00%
+Pb 10 MeV                 11       63.6%     54.5%     63.6%     2.96%
+Pb Cylinder Off-Ctr        8       37.5%     62.5%     87.5%     1.98%
+MM Slab Collim Beam        4        0.0%     75.0%    100.0%     2.93%
+MM Slab Mesh Tally       200        1.5%     18.5%     25.5%     6.61%
+MM Sphere Spectrum       397       46.1%     79.1%     92.4%     4.16%
+----------------------------------------------------------------------
+ALL RELIABLE             667       33.6%     61.0%     72.0%
+
+  28 of 695 bins dropped as unreliable in one or both codes.
+  equivalent within  5 %: 61.0%   95% CI [57.3%, 64.6%]
+  equivalent within 10 %: 72.0%   95% CI [68.4%, 75.2%]
+  demonstrably different by >5 %: 5.8%
+
+  The screen barely moves the pooled numbers (58.6% -> 61.0% at delta = 5 %)
+  because the mesh tally dominates the bin count and all 200 of its bins
+  are well resolved -- its disagreement is a real offset, not noise.  It
+  does clean up the two Pb spheres and the cylinder substantially.
+
+
+5. HOW TO STATE THIS IN THE PAPER
+----------------------------------------------------------------------------------------------------
+
+Defensible, and all three from the same analysis:
+
+  * Mean absolute flux difference across all 695 comparable bins is 6.3 %,
+    median 2.1 %.
+  * 69.1% of bins are demonstrably equivalent within 10 % at 95 %
+    confidence; 58.6% within 5 %.
+  * 34.8% of bins are statistically indistinguishable, but this metric is
+    depressed by the high-precision runs and should be reported WITH the
+    equivalence result, not instead of it.
+
+Avoid: 'results within 5 % of MCNP' stated as a bound.  It is not a bound
+-- the largest differences reach 94 %.  It is true of the MEAN.
+
+
+6. PER-BIN DETAIL
+----------------------------------------------------------------------------------------------------
+
+
+Al 1 MeV -- Al sphere, 1 MeV point source
+  bins 20   EQUIV@5% 20   EQUIV@10% 20   mean |d| 0.72 %   max |d| 1.28 %
+
+  bin                            ratio R       d [%]     CI lo     CI hi   nu_eff    v@5%   v@10%
+  ------------------------------------------------------------------------------------------------------
+  r_vavg=  1.5000                0.99658     -0.342%   0.99530   0.99786     59.1   EQUIV   EQUIV
+  r_vavg=  3.2143                0.99492     -0.508%   0.99290   0.99694    161.8   EQUIV   EQUIV
+  r_vavg=  5.1316                0.99547     -0.453%   0.99305   0.99789     83.2   EQUIV   EQUIV
+  r_vavg=  7.0946                0.99446     -0.554%   0.99204   0.99687     83.2   EQUIV   EQUIV
+  r_vavg=  9.0738                0.99336     -0.664%   0.99095   0.99578     83.2   EQUIV   EQUIV
+  r_vavg= 11.0604                0.99175     -0.825%   0.98906   0.99444     44.9   EQUIV   EQUIV
+  r_vavg= 13.0512                0.99219     -0.781%   0.98934   0.99503     36.0   EQUIV   EQUIV
+  r_vavg= 15.0444                0.98997     -1.003%   0.98715   0.99279     56.0   EQUIV   EQUIV
+  r_vavg= 17.0392                0.99267     -0.733%   0.98786   0.99751     15.3   EQUIV   EQUIV
+  r_vavg= 19.0351                0.99443     -0.557%   0.98974   0.99915     17.6   EQUIV   EQUIV
+  r_vavg= 21.0317                0.99295     -0.705%   0.98847   0.99746     18.8   EQUIV   EQUIV
+  r_vavg= 23.0290                0.99680     -0.320%   0.99122   1.00240     15.7   EQUIV   EQUIV
+  r_vavg= 25.0267                0.99561     -0.439%   0.98936   1.00190     15.0   EQUIV   EQUIV
+  r_vavg= 27.0247                0.99274     -0.726%   0.98644   0.99907     16.0   EQUIV   EQUIV
+  r_vavg= 29.0230                0.99257     -0.743%   0.98580   0.99938     15.8   EQUIV   EQUIV
+  r_vavg= 31.0215                0.99675     -0.325%   0.98866   1.00491     14.1   EQUIV   EQUIV
+  r_vavg= 33.0202                0.98731     -1.269%   0.97964   0.99504     15.6   EQUIV   EQUIV
+  r_vavg= 35.0190                0.98715     -1.285%   0.97334   1.00116     10.8   EQUIV   EQUIV
+  r_vavg= 37.0180                0.98873     -1.127%   0.97505   1.00261     11.3   EQUIV   EQUIV
+  r_vavg= 39.0171                0.99046     -0.954%   0.97718   1.00393     11.5   EQUIV   EQUIV
+
+
+Al 10 MeV -- Al sphere, 10 MeV point source
+  bins 20   EQUIV@5% 20   EQUIV@10% 20   mean |d| 0.09 %   max |d| 0.20 %
+
+  bin                            ratio R       d [%]     CI lo     CI hi   nu_eff    v@5%   v@10%
+  ------------------------------------------------------------------------------------------------------
+  r_vavg=  1.5000                0.99996     -0.004%   0.99868   1.00124     59.1   EQUIV   EQUIV
+  r_vavg=  3.2143                0.99955     -0.045%   0.99727   1.00183     63.3   EQUIV   EQUIV
+  r_vavg=  5.1316                0.99932     -0.068%   0.99629   1.00236     30.0   EQUIV   EQUIV
+  r_vavg=  7.0946                0.99995     -0.005%   0.99724   1.00266     44.9   EQUIV   EQUIV
+  r_vavg=  9.0738                1.00005      0.005%   0.99735   1.00277     44.9   EQUIV   EQUIV
+  r_vavg= 11.0604                0.99884     -0.116%   0.99581   1.00188     30.0   EQUIV   EQUIV
+  r_vavg= 13.0512                0.99795     -0.205%   0.99525   1.00066     44.9   EQUIV   EQUIV
+  r_vavg= 15.0444                1.00086      0.086%   0.99754   1.00419     30.5   EQUIV   EQUIV
+  r_vavg= 17.0392                0.99853     -0.147%   0.99522   1.00185     30.5   EQUIV   EQUIV
+  r_vavg= 19.0351                0.99802     -0.198%   0.99504   1.00101     69.4   EQUIV   EQUIV
+  r_vavg= 21.0317                0.99870     -0.130%   0.99438   1.00304     20.2   EQUIV   EQUIV
+  r_vavg= 23.0290                0.99933     -0.067%   0.99527   1.00340     27.6   EQUIV   EQUIV
+  r_vavg= 25.0267                0.99987     -0.013%   0.99517   1.00460     23.2   EQUIV   EQUIV
+  r_vavg= 27.0247                1.00065      0.065%   0.99635   1.00496     36.0   EQUIV   EQUIV
+  r_vavg= 29.0230                0.99956     -0.044%   0.99544   1.00369     56.9   EQUIV   EQUIV
+  r_vavg= 31.0215                0.99850     -0.150%   0.99410   1.00291     55.1   EQUIV   EQUIV
+  r_vavg= 33.0202                0.99973     -0.027%   0.99505   1.00444     53.6   EQUIV   EQUIV
+  r_vavg= 35.0190                0.99832     -0.168%   0.99273   1.00394     32.6   EQUIV   EQUIV
+  r_vavg= 37.0180                0.99895     -0.105%   0.99429   1.00363    194.1   EQUIV   EQUIV
+  r_vavg= 39.0171                1.00124      0.124%   0.99523   1.00729     36.0   EQUIV   EQUIV
+
+
+Pb 1 MeV -- Pb sphere, 1 MeV point source
+  bins 10   EQUIV@5% 2   EQUIV@10% 4   mean |d| 22.78 %   max |d| 80.17 %
+
+  bin                            ratio R       d [%]     CI lo     CI hi   nu_eff    v@5%   v@10%
+  ------------------------------------------------------------------------------------------------------
+  r_vavg=  1.5000                0.97044     -2.956%   0.96920   0.97168     59.1   EQUIV   EQUIV
+  r_vavg=  3.2143                0.95768     -4.232%   0.95346   0.96192     55.1   EQUIV   EQUIV
+  r_vavg=  5.1316                0.95189     -4.811%   0.94115   0.96275     27.1  INCONC   EQUIV
+  r_vavg=  7.0946                0.93617     -6.383%   0.91408   0.95879     24.7  INCONC   EQUIV
+  r_vavg=  9.0738                0.91592     -8.408%   0.86898   0.96540     20.8  INCONC  INCONC
+  r_vavg= 11.0604                0.91904     -8.096%   0.82671   1.02167     21.5  INCONC  INCONC
+  r_vavg= 13.0512                0.85860    -14.140%   0.72221   1.02076     38.6  INCONC  INCONC
+  r_vavg= 15.0444                0.67032    -32.968%   0.48365   0.92904     47.0    DIFF  INCONC
+  r_vavg= 17.0392                0.34377    -65.623%   0.17096   0.69125     32.3    DIFF    DIFF
+  r_vavg= 19.0351                0.19829    -80.171%   0.03331   1.18051     14.2  INCONC  INCONC
+
+
+Pb 10 MeV -- Pb sphere, 10 MeV point source
+  bins 16   EQUIV@5% 6   EQUIV@10% 7   mean |d| 13.34 %   max |d| 76.39 %
+
+  bin                            ratio R       d [%]     CI lo     CI hi   nu_eff    v@5%   v@10%
+  ------------------------------------------------------------------------------------------------------
+  r_vavg=  1.5000                0.98479     -1.521%   0.98408   0.98549     95.1   EQUIV   EQUIV
+  r_vavg=  3.2143                0.97918     -2.082%   0.97638   0.98199     95.1   EQUIV   EQUIV
+  r_vavg=  5.1316                0.98354     -1.646%   0.97674   0.99038     30.7   EQUIV   EQUIV
+  r_vavg=  7.0946                0.98065     -1.935%   0.96649   0.99502     18.4   EQUIV   EQUIV
+  r_vavg=  9.0738                0.98613     -1.387%   0.96676   1.00589     26.1   EQUIV   EQUIV
+  r_vavg= 11.0604                0.99707     -0.293%   0.96655   1.02855     26.0   EQUIV   EQUIV
+  r_vavg= 13.0512                0.97560     -2.440%   0.92683   1.02695     22.5  INCONC   EQUIV
+  r_vavg= 15.0444                0.97464     -2.536%   0.89643   1.05967     20.1  INCONC  INCONC
+  r_vavg= 17.0392                0.94518     -5.482%   0.84868   1.05265     29.4  INCONC  INCONC
+  r_vavg= 19.0351                0.89458    -10.542%   0.75953   1.05365     29.5  INCONC  INCONC
+  r_vavg= 21.0317                1.02649      2.649%   0.81754   1.28884     45.2  INCONC  INCONC
+  r_vavg= 23.0290                0.87962    -12.038%   0.58828   1.31524     33.1  INCONC  INCONC
+  r_vavg= 25.0267                1.18011     18.011%   0.61604   2.26067     49.1  INCONC  INCONC
+  r_vavg= 27.0247                1.04744      4.744%   0.41783   2.62579     62.0  INCONC  INCONC
+  r_vavg= 29.0230                0.30228    -69.772%   0.09957   0.91770     98.2    DIFF  INCONC
+  r_vavg= 31.0215                0.23612    -76.388%   0.03815   1.46128     28.6  INCONC  INCONC
+
+
+Pb Cylinder Off-Ctr -- Pb finite cylinder, off-centre 1 MeV source
+  bins 12   EQUIV@5% 5   EQUIV@10% 7   mean |d| 9.41 %   max |d| 53.20 %
+
+  bin                            ratio R       d [%]     CI lo     CI hi   nu_eff    v@5%   v@10%
+  ------------------------------------------------------------------------------------------------------
+  r0 z0 (cell 11)                1.00301      0.301%   1.00280   1.00323    475.9   EQUIV   EQUIV
+  r0 z1 (cell 12)                1.01290      1.290%   1.00829   1.01753     29.9   EQUIV   EQUIV
+  r0 z2 (cell 13)                1.04519      4.519%   0.78643   1.38909     53.1  INCONC  INCONC
+  r1 z0 (cell 21)                1.01018      1.018%   1.00840   1.01196     33.5   EQUIV   EQUIV
+  r1 z1 (cell 22)                1.01411      1.411%   1.00634   1.02193     42.5   EQUIV   EQUIV
+  r1 z2 (cell 23)                1.23571     23.571%   0.90426   1.68865     37.3  INCONC  INCONC
+  r2 z0 (cell 31)                1.02013      2.013%   1.00790   1.03252     33.0   EQUIV   EQUIV
+  r2 z1 (cell 32)                0.97676     -2.324%   0.94383   1.01084     41.3  INCONC   EQUIV
+  r2 z2 (cell 33)                1.15801     15.801%   0.59930   2.23760     36.1  INCONC  INCONC
+  r3 z0 (cell 41)                0.98544     -1.456%   0.92018   1.05533    113.0  INCONC   EQUIV
+  r3 z1 (cell 42)                0.93962     -6.038%   0.73834   1.19578     23.4  INCONC  INCONC
+  r3 z2 (cell 43)                0.46796    -53.204%   0.04032   5.43174     16.1  INCONC  INCONC
+
+
+MM Slab Collim Beam -- Multi-material slab, 1 MeV collimated beam
+  bins 4   EQUIV@5% 3   EQUIV@10% 4   mean |d| 2.93 %   max |d| 8.24 %
+
+  bin                            ratio R       d [%]     CI lo     CI hi   nu_eff    v@5%   v@10%
+  ------------------------------------------------------------------------------------------------------
+  slab 0 lead                    1.00320      0.320%   1.00295   1.00346     63.7   EQUIV   EQUIV
+  slab 1 water                   1.00856      0.856%   1.00648   1.01065     22.1   EQUIV   EQUIV
+  slab 2 concrete                1.02293      2.293%   1.02040   1.02547     28.3   EQUIV   EQUIV
+  slab 3 air                     1.08241      8.241%   1.06744   1.09760     32.3    DIFF   EQUIV
+
+
+MM Slab Mesh Tally -- Multi-material slab, 1 MeV point source, mesh tally
+  bins 200   EQUIV@5% 37   EQUIV@10% 51   mean |d| 6.61 %   max |d| 12.51 %
+
+  bin                            ratio R       d [%]     CI lo     CI hi   nu_eff    v@5%   v@10%
+  ------------------------------------------------------------------------------------------------------
+  z=   0.50 lead                 1.00174      0.174%   1.00126   1.00223     23.1   EQUIV   EQUIV
+  z=   1.50 lead                 1.00431      0.431%   1.00337   1.00525     22.9   EQUIV   EQUIV
+  z=   2.50 lead                 1.00498      0.498%   1.00383   1.00614     58.0   EQUIV   EQUIV
+  z=   3.50 lead                 1.00714      0.714%   1.00503   1.00926     31.0   EQUIV   EQUIV
+  z=   4.50 lead                 1.00830      0.830%   1.00462   1.01201     22.6   EQUIV   EQUIV
+  z=   5.50 water                1.01294      1.294%   1.00600   1.01994     22.0   EQUIV   EQUIV
+  z=   6.50 water                1.00983      0.983%   1.00313   1.01658     26.6   EQUIV   EQUIV
+  z=   7.50 water                1.01216      1.216%   1.00372   1.02067     18.0   EQUIV   EQUIV
+  z=   8.50 water                1.01401      1.401%   1.00402   1.02409     14.9   EQUIV   EQUIV
+  z=   9.50 water                1.01556      1.556%   1.00752   1.02366     20.7   EQUIV   EQUIV
+  z=  10.50 water                1.01368      1.368%   1.00655   1.02087     27.6   EQUIV   EQUIV
+  z=  11.50 water                1.01180      1.180%   1.00573   1.01790     51.8   EQUIV   EQUIV
+  z=  12.50 water                1.01136      1.136%   1.00528   1.01747     55.4   EQUIV   EQUIV
+  z=  13.50 water                1.00828      0.828%   1.00153   1.01509     36.4   EQUIV   EQUIV
+  z=  14.50 water                1.01098      1.098%   1.00457   1.01743     48.1   EQUIV   EQUIV
+  z=  15.50 water                1.01036      1.036%   1.00325   1.01753     33.7   EQUIV   EQUIV
+  z=  16.50 water                1.01393      1.393%   1.00728   1.02062     47.1   EQUIV   EQUIV
+  z=  17.50 water                1.01261      1.261%   1.00493   1.02035     29.7   EQUIV   EQUIV
+  z=  18.50 water                1.01396      1.396%   1.00668   1.02128     36.9   EQUIV   EQUIV
+  z=  19.50 water                1.01206      1.206%   1.00454   1.01963     34.8   EQUIV   EQUIV
+  z=  20.50 water                1.01380      1.380%   1.00561   1.02207     28.3   EQUIV   EQUIV
+  z=  21.50 water                1.01586      1.586%   1.00952   1.02223    109.1   EQUIV   EQUIV
+  z=  22.50 water                1.01581      1.581%   1.00687   1.02482     25.0   EQUIV   EQUIV
+  z=  23.50 water                1.01423      1.423%   1.00546   1.02308     27.3   EQUIV   EQUIV
+  z=  24.50 water                1.01674      1.674%   1.00896   1.02459     42.7   EQUIV   EQUIV
+  z=  25.50 concrete             1.01997      1.997%   1.01183   1.02818     31.2   EQUIV   EQUIV
+  z=  26.50 concrete             1.02183      2.183%   1.01309   1.03066     30.0   EQUIV   EQUIV
+  z=  27.50 concrete             1.02449      2.449%   1.01387   1.03521     21.7   EQUIV   EQUIV
+  z=  28.50 concrete             1.02000      2.000%   1.00927   1.03084     23.7   EQUIV   EQUIV
+  z=  29.50 concrete             1.02424      2.424%   1.01369   1.03490     28.7   EQUIV   EQUIV
+  z=  30.50 concrete             1.02104      2.104%   1.01141   1.03076     48.2   EQUIV   EQUIV
+  z=  31.50 concrete             1.02950      2.950%   1.01970   1.03940     59.6   EQUIV   EQUIV
+  z=  32.50 concrete             1.03440      3.440%   1.02013   1.04886     21.4   EQUIV   EQUIV
+  z=  33.50 concrete             1.03220      3.220%   1.01983   1.04472     36.0   EQUIV   EQUIV
+  z=  34.50 concrete             1.03080      3.080%   1.01374   1.04816     19.0   EQUIV   EQUIV
+  z=  35.50 concrete             1.03210      3.210%   1.01543   1.04904     22.1   EQUIV   EQUIV
+  z=  36.50 concrete             1.03690      3.690%   1.01995   1.05414     24.4  INCONC   EQUIV
+  z=  37.50 concrete             1.03063      3.063%   1.01358   1.04797     27.5   EQUIV   EQUIV
+  z=  38.50 concrete             1.03990      3.990%   1.02242   1.05767     30.5  INCONC   EQUIV
+  z=  39.50 concrete             1.04116      4.116%   1.02085   1.06187     24.5  INCONC   EQUIV
+  z=  40.50 concrete             1.04230      4.230%   1.02386   1.06107     39.1  INCONC   EQUIV
+  z=  41.50 concrete             1.04836      4.836%   1.02929   1.06779     44.5  INCONC   EQUIV
+  z=  42.50 concrete             1.05506      5.506%   1.03552   1.07497     54.2  INCONC   EQUIV
+  z=  43.50 concrete             1.05394      5.394%   1.03252   1.07582     45.9  INCONC   EQUIV
+  z=  44.50 concrete             1.06808      6.808%   1.04801   1.08853    110.4  INCONC   EQUIV
+  z=  45.50 concrete             1.06764      6.764%   1.04488   1.09089     67.8  INCONC   EQUIV
+  z=  46.50 concrete             1.03987      3.987%   1.01479   1.06557     50.4  INCONC   EQUIV
+  z=  47.50 concrete             1.03695      3.695%   1.00994   1.06468     48.6  INCONC   EQUIV
+  z=  48.50 concrete             1.04399      4.399%   1.01550   1.07327     49.4  INCONC   EQUIV
+  z=  49.50 concrete             1.04266      4.266%   1.01022   1.07614     36.9  INCONC   EQUIV
+  z=  50.50 concrete             1.05934      5.934%   1.02431   1.09557     37.9  INCONC   EQUIV
+  z=  51.50 concrete             1.06605      6.605%   1.03104   1.10224     55.7  INCONC  INCONC
+  z=  52.50 concrete             1.07219      7.219%   1.03624   1.10938     73.8  INCONC  INCONC
+  z=  53.50 concrete             1.06819      6.819%   1.02600   1.11211     43.8  INCONC  INCONC
+  z=  54.50 concrete             1.07016      7.016%   1.03224   1.10948     90.7  INCONC  INCONC
+  z=  55.50 air                  1.09886      9.886%   1.02798   1.17462     18.4  INCONC  INCONC
+  z=  56.50 air                  1.09854      9.854%   1.02762   1.17435     18.4  INCONC  INCONC
+  z=  57.50 air                  1.09880      9.880%   1.02773   1.17478     18.4  INCONC  INCONC
+  z=  58.50 air                  1.09965      9.965%   1.02840   1.17584     18.3  INCONC  INCONC
+  z=  59.50 air                  1.09943      9.943%   1.02814   1.17567     18.3  INCONC  INCONC
+  z=  60.50 air                  1.10018     10.018%   1.02886   1.17644     18.3  INCONC  INCONC
+  z=  61.50 air                  1.09882      9.882%   1.02725   1.17537     18.2  INCONC  INCONC
+  z=  62.50 air                  1.09479      9.479%   1.02944   1.16429     21.1  INCONC  INCONC
+  z=  63.50 air                  1.06524      6.524%   1.02280   1.10945    116.5  INCONC  INCONC
+  z=  64.50 air                  1.06608      6.608%   1.02364   1.11028    116.9  INCONC  INCONC
+  z=  65.50 air                  1.06612      6.612%   1.02369   1.11031    117.0  INCONC  INCONC
+  z=  66.50 air                  1.06713      6.713%   1.02462   1.11140    115.8  INCONC  INCONC
+  z=  67.50 air                  1.06731      6.731%   1.02496   1.11142    121.3  INCONC  INCONC
+  z=  68.50 air                  1.06983      6.983%   1.02819   1.11315    148.2  INCONC  INCONC
+  z=  69.50 air                  1.07638      7.638%   1.03355   1.12098    117.1  INCONC  INCONC
+  z=  70.50 air                  1.07403      7.403%   1.02975   1.12020     86.5  INCONC  INCONC
+  z=  71.50 air                  1.07386      7.386%   1.02955   1.12008     85.8  INCONC  INCONC
+  z=  72.50 air                  1.07414      7.414%   1.02984   1.12034     86.2  INCONC  INCONC
+  z=  73.50 air                  1.07460      7.460%   1.03029   1.12083     86.3  INCONC  INCONC
+  z=  74.50 air                  1.07668      7.668%   1.03256   1.12269     83.7  INCONC  INCONC
+  z=  75.50 air                  1.07881      7.881%   1.03489   1.12460     81.2  INCONC  INCONC
+  z=  76.50 air                  1.08135      8.135%   1.03748   1.12707     77.0  INCONC  INCONC
+  z=  77.50 air                  1.08157      8.157%   1.03762   1.12738     76.2  INCONC  INCONC
+  z=  78.50 air                  1.08139      8.139%   1.03750   1.12713     76.5  INCONC  INCONC
+  z=  79.50 air                  1.08160      8.160%   1.03784   1.12720     78.3  INCONC  INCONC
+  z=  80.50 air                  1.08144      8.144%   1.03765   1.12707     77.8  INCONC  INCONC
+  z=  81.50 air                  1.08068      8.068%   1.03670   1.12652     75.1  INCONC  INCONC
+  z=  82.50 air                  1.08054      8.054%   1.03658   1.12637     75.2  INCONC  INCONC
+  z=  83.50 air                  1.08004      8.004%   1.03613   1.12582     75.6  INCONC  INCONC
+  z=  84.50 air                  1.07961      7.961%   1.03566   1.12542     75.2  INCONC  INCONC
+  z=  85.50 air                  1.07806      7.806%   1.03343   1.12463     67.2  INCONC  INCONC
+  z=  86.50 air                  1.07854      7.854%   1.03388   1.12513     67.2  INCONC  INCONC
+  z=  87.50 air                  1.08458      8.458%   1.04105   1.12994     83.1  INCONC  INCONC
+  z=  88.50 air                  1.08867      8.867%   1.04349   1.13580     66.3  INCONC  INCONC
+  z=  89.50 air                  1.08516      8.516%   1.03941   1.13292     69.8  INCONC  INCONC
+  z=  90.50 air                  1.08512      8.512%   1.03929   1.13296     70.4  INCONC  INCONC
+  z=  91.50 air                  1.08501      8.501%   1.03921   1.13283     70.3  INCONC  INCONC
+  z=  92.50 air                  1.08462      8.462%   1.03880   1.13247     70.1  INCONC  INCONC
+  z=  93.50 air                  1.08448      8.448%   1.03866   1.13233     70.1  INCONC  INCONC
+  z=  94.50 air                  1.08416      8.416%   1.03820   1.13215     68.6  INCONC  INCONC
+  z=  95.50 air                  1.08757      8.757%   1.03883   1.13860     49.8  INCONC  INCONC
+  z=  96.50 air                  1.08863      8.863%   1.03794   1.14179     42.1  INCONC  INCONC
+  z=  97.50 air                  1.08715      8.715%   1.03650   1.14028     42.0  INCONC  INCONC
+  z=  98.50 air                  1.08421      8.421%   1.03638   1.13425     54.3  INCONC  INCONC
+  z=  99.50 air                  1.08381      8.381%   1.03645   1.13334     57.1  INCONC  INCONC
+  z= 100.50 air                  1.08556      8.556%   1.03813   1.13515     56.9  INCONC  INCONC
+  z= 101.50 air                  1.08384      8.384%   1.03653   1.13332     57.2  INCONC  INCONC
+  z= 102.50 air                  1.08506      8.506%   1.03883   1.13335     65.8  INCONC  INCONC
+  z= 103.50 air                  1.08558      8.558%   1.03933   1.13389     65.8  INCONC  INCONC
+  z= 104.50 air                  1.08597      8.597%   1.03969   1.13432     65.8  INCONC  INCONC
+  z= 105.50 air                  1.08639      8.639%   1.04015   1.13468     66.0  INCONC  INCONC
+  z= 106.50 air                  1.08713      8.713%   1.04097   1.13534     66.6  INCONC  INCONC
+  z= 107.50 air                  1.08849      8.849%   1.04200   1.13707     63.9  INCONC  INCONC
+  z= 108.50 air                  1.08924      8.924%   1.04124   1.13946     54.8  INCONC  INCONC
+  z= 109.50 air                  1.08317      8.317%   1.03859   1.12966     84.5  INCONC  INCONC
+  z= 110.50 air                  1.08403      8.403%   1.03946   1.13052     84.5  INCONC  INCONC
+  z= 111.50 air                  1.08452      8.452%   1.03992   1.13104     84.6  INCONC  INCONC
+  z= 112.50 air                  1.09187      9.187%   1.04599   1.13975     72.8  INCONC  INCONC
+  z= 113.50 air                  1.11538     11.538%   1.03826   1.19823     16.5  INCONC  INCONC
+  z= 114.50 air                  1.11449     11.449%   1.03694   1.19784     16.4  INCONC  INCONC
+  z= 115.50 air                  1.11457     11.457%   1.03701   1.19793     16.4  INCONC  INCONC
+  z= 116.50 air                  1.11460     11.460%   1.03699   1.19803     16.4  INCONC  INCONC
+  z= 117.50 air                  1.11383     11.383%   1.03598   1.19753     16.3  INCONC  INCONC
+  z= 118.50 air                  1.11389     11.389%   1.03604   1.19760     16.3  INCONC  INCONC
+  z= 119.50 air                  1.11345     11.345%   1.03564   1.19710     16.3  INCONC  INCONC
+  z= 120.50 air                  1.11558     11.558%   1.03856   1.19831     16.6  INCONC  INCONC
+  z= 121.50 air                  1.12508     12.508%   1.04702   1.20896     16.2  INCONC  INCONC
+  z= 122.50 air                  1.12047     12.047%   1.04231   1.20450     16.7  INCONC  INCONC
+  z= 123.50 air                  1.11282     11.282%   1.03262   1.19926     16.0  INCONC  INCONC
+  z= 124.50 air                  1.11256     11.256%   1.03215   1.19924     15.9  INCONC  INCONC
+  z= 125.50 air                  1.11710     11.710%   1.03663   1.20381     15.2  INCONC  INCONC
+  z= 126.50 air                  1.12340     12.340%   1.04263   1.21043     14.8  INCONC  INCONC
+  z= 127.50 air                  1.12386     12.386%   1.04322   1.21074     14.8  INCONC  INCONC
+  z= 128.50 air                  1.12230     12.230%   1.04261   1.20809     14.9  INCONC  INCONC
+  z= 129.50 air                  1.12269     12.269%   1.04294   1.20855     14.9  INCONC  INCONC
+  z= 130.50 air                  1.11334     11.334%   1.04834   1.18237     19.6  INCONC  INCONC
+  z= 131.50 air                  1.09090      9.090%   1.04375   1.14019     45.4  INCONC  INCONC
+  z= 132.50 air                  1.09090      9.090%   1.04394   1.13997     46.0  INCONC  INCONC
+  z= 133.50 air                  1.09151      9.151%   1.04458   1.14056     46.3  INCONC  INCONC
+  z= 134.50 air                  1.08770      8.770%   1.04149   1.13596     49.0  INCONC  INCONC
+  z= 135.50 air                  1.08074      8.074%   1.03287   1.13082     40.8  INCONC  INCONC
+  z= 136.50 air                  1.08024      8.024%   1.03246   1.13023     41.0  INCONC  INCONC
+  z= 137.50 air                  1.07995      7.995%   1.03211   1.13001     40.7  INCONC  INCONC
+  z= 138.50 air                  1.07928      7.928%   1.03092   1.12991     38.9  INCONC  INCONC
+  z= 139.50 air                  1.07908      7.908%   1.03076   1.12967     39.0  INCONC  INCONC
+  z= 140.50 air                  1.07888      7.888%   1.03056   1.12947     38.9  INCONC  INCONC
+  z= 141.50 air                  1.07940      7.940%   1.03105   1.13002     39.0  INCONC  INCONC
+  z= 142.50 air                  1.07967      7.967%   1.03131   1.13029     38.9  INCONC  INCONC
+  z= 143.50 air                  1.07741      7.741%   1.02678   1.13053     32.8  INCONC  INCONC
+  z= 144.50 air                  1.07695      7.695%   1.02538   1.13112     30.8  INCONC  INCONC
+  z= 145.50 air                  1.07620      7.620%   1.02487   1.13010     31.2  INCONC  INCONC
+  z= 146.50 air                  1.07591      7.591%   1.02467   1.12971     31.4  INCONC  INCONC
+  z= 147.50 air                  1.07615      7.615%   1.02490   1.12996     31.4  INCONC  INCONC
+  z= 148.50 air                  1.07624      7.624%   1.02499   1.13006     31.4  INCONC  INCONC
+  z= 149.50 air                  1.07641      7.641%   1.02518   1.13019     31.4  INCONC  INCONC
+  z= 150.50 air                  1.07621      7.621%   1.02502   1.12996     31.5  INCONC  INCONC
+  z= 151.50 air                  1.07571      7.571%   1.02477   1.12919     31.9  INCONC  INCONC
+  z= 152.50 air                  1.07349      7.349%   1.02348   1.12594     33.7  INCONC  INCONC
+  z= 153.50 air                  1.07295      7.295%   1.02328   1.12503     34.4  INCONC  INCONC
+  z= 154.50 air                  1.07249      7.249%   1.02291   1.12448     34.6  INCONC  INCONC
+  z= 155.50 air                  1.07307      7.307%   1.02347   1.12507     34.6  INCONC  INCONC
+  z= 156.50 air                  1.06412      6.412%   1.01194   1.11899     45.7  INCONC  INCONC
+  z= 157.50 air                  1.06115      6.115%   1.00771   1.11744     51.2  INCONC  INCONC
+  z= 158.50 air                  1.06165      6.165%   1.00805   1.11809     50.6  INCONC  INCONC
+  z= 159.50 air                  1.06793      6.793%   1.01108   1.12798     39.9  INCONC  INCONC
+  z= 160.50 air                  1.06262      6.262%   1.00595   1.12248     39.7  INCONC  INCONC
+  z= 161.50 air                  1.06239      6.239%   1.00575   1.12222     39.7  INCONC  INCONC
+  z= 162.50 air                  1.06127      6.127%   1.00517   1.12051     41.2  INCONC  INCONC
+  z= 163.50 air                  1.06132      6.132%   1.00554   1.12019     42.2  INCONC  INCONC
+  z= 164.50 air                  1.06329      6.329%   1.00695   1.12279     40.8  INCONC  INCONC
+  z= 165.50 air                  1.06490      6.490%   1.00821   1.12478     40.1  INCONC  INCONC
+  z= 166.50 air                  1.06479      6.479%   1.00803   1.12476     39.9  INCONC  INCONC
+  z= 167.50 air                  1.06450      6.450%   1.00756   1.12466     39.3  INCONC  INCONC
+  z= 168.50 air                  1.06450      6.450%   1.00709   1.12518     38.1  INCONC  INCONC
+  z= 169.50 air                  1.06410      6.410%   1.00657   1.12492     37.8  INCONC  INCONC
+  z= 170.50 air                  1.06407      6.407%   1.00654   1.12489     37.8  INCONC  INCONC
+  z= 171.50 air                  1.06529      6.529%   1.00785   1.12600     38.2  INCONC  INCONC
+  z= 172.50 air                  1.06537      6.537%   1.00767   1.12636     37.6  INCONC  INCONC
+  z= 173.50 air                  1.06612      6.612%   1.00763   1.12801     35.8  INCONC  INCONC
+  z= 174.50 air                  1.06619      6.619%   1.00769   1.12809     35.8  INCONC  INCONC
+  z= 175.50 air                  1.06583      6.583%   1.00712   1.12796     35.4  INCONC  INCONC
+  z= 176.50 air                  1.06394      6.394%   1.00572   1.12552     36.2  INCONC  INCONC
+  z= 177.50 air                  1.06507      6.507%   1.00756   1.12587     38.0  INCONC  INCONC
+  z= 178.50 air                  1.06509      6.509%   1.00766   1.12580     38.3  INCONC  INCONC
+  z= 179.50 air                  1.06533      6.533%   1.00772   1.12624     37.7  INCONC  INCONC
+  z= 180.50 air                  1.06691      6.691%   1.00876   1.12842     36.6  INCONC  INCONC
+  z= 181.50 air                  1.06670      6.670%   1.00853   1.12824     36.5  INCONC  INCONC
+  z= 182.50 air                  1.06652      6.652%   1.00845   1.12792     36.8  INCONC  INCONC
+  z= 183.50 air                  1.06612      6.612%   1.00817   1.12740     37.0  INCONC  INCONC
+  z= 184.50 air                  1.06612      6.612%   1.00817   1.12740     37.0  INCONC  INCONC
+  z= 185.50 air                  1.06718      6.718%   1.00925   1.12843     37.2  INCONC  INCONC
+  z= 186.50 air                  1.06580      6.580%   1.00804   1.12688     37.4  INCONC  INCONC
+  z= 187.50 air                  1.06353      6.353%   1.00587   1.12449     37.9  INCONC  INCONC
+  z= 188.50 air                  1.06353      6.353%   1.00587   1.12449     37.9  INCONC  INCONC
+  z= 189.50 air                  1.06109      6.109%   1.00398   1.12145     39.0  INCONC  INCONC
+  z= 190.50 air                  1.05986      5.986%   1.00284   1.12012     39.1  INCONC  INCONC
+  z= 191.50 air                  1.05010      5.010%   0.99923   1.10357     65.4  INCONC  INCONC
+  z= 192.50 air                  1.04789      4.789%   0.99736   1.10097     67.5  INCONC  INCONC
+  z= 193.50 air                  1.04859      4.859%   0.99946   1.10013     56.5  INCONC  INCONC
+  z= 194.50 air                  1.05692      5.692%   1.01023   1.10576     42.7  INCONC  INCONC
+  z= 195.50 air                  1.05637      5.637%   1.01029   1.10456     45.1  INCONC  INCONC
+  z= 196.50 air                  1.05653      5.653%   1.00994   1.10528     43.1  INCONC  INCONC
+  z= 197.50 air                  1.05655      5.655%   1.00954   1.10574     41.5  INCONC  INCONC
+  z= 198.50 air                  1.05657      5.657%   1.00956   1.10577     41.5  INCONC  INCONC
+  z= 199.50 air                  1.05662      5.662%   1.00950   1.10594     41.1  INCONC  INCONC
+
+
+MM Sphere Spectrum -- Multi-material sphere, 1-10 MeV source, energy spectrum
+  bins 413   EQUIV@5% 314   EQUIV@10% 367   mean |d| 6.01 %   max |d| 93.59 %
+
+  bin                            ratio R       d [%]     CI lo     CI hi   nu_eff    v@5%   v@10%
+  ------------------------------------------------------------------------------------------------------
+  reg  0 lead      Ebin  9       0.12117    -87.883%   0.11347   0.12939 99999999.0    DIFF    DIFF
+  reg  0 lead      Ebin 10       0.14224    -85.776%   0.13827   0.14632     11.4    DIFF    DIFF
+  reg  0 lead      Ebin 11       1.05839      5.839%   1.05418   1.06261     37.1    DIFF   EQUIV
+  reg  0 lead      Ebin 12       1.04303      4.303%   1.04244   1.04361     39.1   EQUIV   EQUIV
+  reg  0 lead      Ebin 13       1.05378      5.378%   1.05246   1.05511     27.5    DIFF   EQUIV
+  reg  0 lead      Ebin 14       0.53272    -46.728%   0.52647   0.53904     28.2    DIFF    DIFF
+  reg  0 lead      Ebin 15       0.74149    -25.851%   0.73567   0.74735     19.0    DIFF    DIFF
+  reg  0 lead      Ebin 16       0.75667    -24.333%   0.75394   0.75940     40.4    DIFF    DIFF
+  reg  0 lead      Ebin 17       1.07212      7.212%   1.07024   1.07400     68.0    DIFF   EQUIV
+  reg  0 lead      Ebin 18       1.00583      0.583%   1.00409   1.00758     34.9   EQUIV   EQUIV
+  reg  0 lead      Ebin 19       1.00940      0.940%   1.00796   1.01084     36.8   EQUIV   EQUIV
+  reg  0 lead      Ebin 20       1.00107      0.107%   0.99956   1.00258     30.6   EQUIV   EQUIV
+  reg  0 lead      Ebin 21       1.00035      0.035%   0.99909   1.00162     63.0   EQUIV   EQUIV
+  reg  0 lead      Ebin 22       1.00210      0.210%   1.00078   1.00343     50.6   EQUIV   EQUIV
+  reg  0 lead      Ebin 23       1.00289      0.289%   1.00227   1.00351     28.8   EQUIV   EQUIV
+  reg  0 lead      Ebin 24       1.00043      0.043%   0.99843   1.00244     67.4   EQUIV   EQUIV
+  reg  0 lead      Ebin 25       1.00152      0.152%   0.99971   1.00334    155.9   EQUIV   EQUIV
+  reg  0 lead      Ebin 26       1.00005      0.005%   0.99797   1.00213     54.5   EQUIV   EQUIV
+  reg  0 lead      Ebin 27       1.00140      0.140%   0.99903   1.00378     22.9   EQUIV   EQUIV
+  reg  0 lead      Ebin 28       1.00132      0.132%   0.99984   1.00280     76.7   EQUIV   EQUIV
+  reg  0 lead      Ebin 29       0.99922     -0.078%   0.99762   1.00082     25.9   EQUIV   EQUIV
+  reg  0 lead      Ebin 30       1.00018      0.018%   0.99886   1.00150     50.9   EQUIV   EQUIV
+  reg  0 lead      Ebin 31       1.00095      0.095%   0.99908   1.00282     19.1   EQUIV   EQUIV
+  reg  0 lead      Ebin 32       0.99977     -0.023%   0.99837   1.00117     39.0   EQUIV   EQUIV
+  reg  0 lead      Ebin 33       0.99973     -0.027%   0.99829   1.00118     20.3   EQUIV   EQUIV
+  reg  0 lead      Ebin 34       1.00002      0.002%   0.99868   1.00136     23.5   EQUIV   EQUIV
+  reg  0 lead      Ebin 35       1.00075      0.075%   0.99985   1.00166    158.1   EQUIV   EQUIV
+  reg  0 lead      Ebin 36       1.00008      0.008%   0.99907   1.00110     62.7   EQUIV   EQUIV
+  reg  0 lead      Ebin 37       1.00065      0.065%   0.99985   1.00146     47.3   EQUIV   EQUIV
+  reg  0 lead      Ebin 38       1.00031      0.031%   0.99957   1.00104     76.6   EQUIV   EQUIV
+  reg  0 lead      Ebin 39       1.00042      0.042%   0.99968   1.00116     73.2   EQUIV   EQUIV
+  reg  0 lead      Ebin 40       0.99992     -0.008%   0.99912   1.00072     47.8   EQUIV   EQUIV
+  reg  1 lead      Ebin  9       0.13086    -86.914%   0.11962   0.14315 99999999.0    DIFF    DIFF
+  reg  1 lead      Ebin 10       0.14465    -85.535%   0.14115   0.14824     15.4    DIFF    DIFF
+  reg  1 lead      Ebin 11       1.05653      5.653%   1.05093   1.06215     32.8    DIFF   EQUIV
+  reg  1 lead      Ebin 12       1.04357      4.357%   1.04280   1.04434     78.9   EQUIV   EQUIV
+  reg  1 lead      Ebin 13       1.05550      5.550%   1.05384   1.05716     27.3    DIFF   EQUIV
+  reg  1 lead      Ebin 14       0.53186    -46.814%   0.52008   0.54391     15.0    DIFF    DIFF
+  reg  1 lead      Ebin 15       0.74329    -25.671%   0.73467   0.75201     15.6    DIFF    DIFF
+  reg  1 lead      Ebin 16       0.76929    -23.071%   0.76550   0.77309     34.5    DIFF    DIFF
+  reg  1 lead      Ebin 17       1.06141      6.141%   1.05823   1.06460     23.7    DIFF   EQUIV
+  reg  1 lead      Ebin 18       1.01244      1.244%   1.00971   1.01518     23.1   EQUIV   EQUIV
+  reg  1 lead      Ebin 19       1.01360      1.360%   1.01172   1.01548     49.5   EQUIV   EQUIV
+  reg  1 lead      Ebin 20       1.00037      0.037%   0.99867   1.00208     82.8   EQUIV   EQUIV
+  reg  1 lead      Ebin 21       1.00119      0.119%   0.99967   1.00272     62.5   EQUIV   EQUIV
+  reg  1 lead      Ebin 22       1.00489      0.489%   1.00330   1.00647     51.8   EQUIV   EQUIV
+  reg  1 lead      Ebin 23       1.00361      0.361%   1.00291   1.00431     21.5   EQUIV   EQUIV
+  reg  1 lead      Ebin 24       1.00642      0.642%   1.00438   1.00846    167.5   EQUIV   EQUIV
+  reg  1 lead      Ebin 25       1.00251      0.251%   0.99985   1.00517     32.7   EQUIV   EQUIV
+  reg  1 lead      Ebin 26       1.00521      0.521%   1.00259   1.00784     24.8   EQUIV   EQUIV
+  reg  1 lead      Ebin 27       1.00329      0.329%   1.00051   1.00607     21.9   EQUIV   EQUIV
+  reg  1 lead      Ebin 28       1.00316      0.316%   1.00130   1.00502     49.5   EQUIV   EQUIV
+  reg  1 lead      Ebin 29       1.00029      0.029%   0.99811   1.00248     27.9   EQUIV   EQUIV
+  reg  1 lead      Ebin 30       1.00014      0.014%   0.99833   1.00196     55.4   EQUIV   EQUIV
+  reg  1 lead      Ebin 31       1.00080      0.080%   0.99862   1.00298     20.0   EQUIV   EQUIV
+  reg  1 lead      Ebin 32       1.00030      0.030%   0.99859   1.00202     36.2   EQUIV   EQUIV
+  reg  1 lead      Ebin 33       0.99985     -0.015%   0.99788   1.00183     24.3   EQUIV   EQUIV
+  reg  1 lead      Ebin 34       0.99975     -0.025%   0.99797   1.00154     31.9   EQUIV   EQUIV
+  reg  1 lead      Ebin 35       1.00040      0.040%   0.99889   1.00192     65.2   EQUIV   EQUIV
+  reg  1 lead      Ebin 36       0.99939     -0.061%   0.99783   1.00096     27.4   EQUIV   EQUIV
+  reg  1 lead      Ebin 37       1.00193      0.193%   1.00019   1.00367     21.7   EQUIV   EQUIV
+  reg  1 lead      Ebin 38       1.00061      0.061%   0.99951   1.00170    252.5   EQUIV   EQUIV
+  reg  1 lead      Ebin 39       1.00077      0.077%   0.99951   1.00203     64.7   EQUIV   EQUIV
+  reg  1 lead      Ebin 40       0.99991     -0.009%   0.99855   1.00126     45.3   EQUIV   EQUIV
+  reg  2 lead      Ebin  9       0.15877    -84.123%   0.13866   0.18180 99999999.0    DIFF    DIFF
+  reg  2 lead      Ebin 10       0.15315    -84.685%   0.14604   0.16061     12.5    DIFF    DIFF
+  reg  2 lead      Ebin 11       1.05794      5.794%   1.05040   1.06552     60.4    DIFF   EQUIV
+  reg  2 lead      Ebin 12       1.04395      4.395%   1.04274   1.04516     34.8   EQUIV   EQUIV
+  reg  2 lead      Ebin 13       1.05540      5.540%   1.05331   1.05750     71.6    DIFF   EQUIV
+  reg  2 lead      Ebin 14       0.69647    -30.353%   0.68576   0.70735     51.9    DIFF    DIFF
+  reg  2 lead      Ebin 15       0.82976    -17.024%   0.82123   0.83838     29.9    DIFF    DIFF
+  reg  2 lead      Ebin 16       0.83148    -16.852%   0.82419   0.83884     17.2    DIFF    DIFF
+  reg  2 lead      Ebin 17       1.04352      4.352%   1.03899   1.04806     23.6   EQUIV   EQUIV
+  reg  2 lead      Ebin 18       1.01057      1.057%   1.00764   1.01352     50.2   EQUIV   EQUIV
+  reg  2 lead      Ebin 19       1.01635      1.635%   1.01381   1.01890     67.8   EQUIV   EQUIV
+  reg  2 lead      Ebin 20       1.00067      0.067%   0.99740   1.00395     24.6   EQUIV   EQUIV
+  reg  2 lead      Ebin 21       0.99838     -0.162%   0.99526   1.00151     27.6   EQUIV   EQUIV
+  reg  2 lead      Ebin 22       1.00579      0.579%   1.00324   1.00835     38.2   EQUIV   EQUIV
+  reg  2 lead      Ebin 23       1.00304      0.304%   1.00203   1.00405     66.5   EQUIV   EQUIV
+  reg  2 lead      Ebin 24       1.00852      0.852%   1.00478   1.01227     36.5   EQUIV   EQUIV
+  reg  2 lead      Ebin 25       1.00623      0.623%   1.00301   1.00946     48.1   EQUIV   EQUIV
+  reg  2 lead      Ebin 26       1.00592      0.592%   1.00149   1.01037     17.2   EQUIV   EQUIV
+  reg  2 lead      Ebin 27       1.00318      0.318%   1.00041   1.00595     41.8   EQUIV   EQUIV
+  reg  2 lead      Ebin 28       1.00358      0.358%   1.00127   1.00590    130.9   EQUIV   EQUIV
+  reg  2 lead      Ebin 29       1.00095      0.095%   0.99862   1.00328     56.2   EQUIV   EQUIV
+  reg  2 lead      Ebin 30       1.00006      0.006%   0.99686   1.00326     20.8   EQUIV   EQUIV
+  reg  2 lead      Ebin 31       1.00274      0.274%   0.99991   1.00558     27.2   EQUIV   EQUIV
+  reg  2 lead      Ebin 32       0.99960     -0.040%   0.99689   1.00231     30.7   EQUIV   EQUIV
+  reg  2 lead      Ebin 33       0.99901     -0.099%   0.99663   1.00140     49.3   EQUIV   EQUIV
+  reg  2 lead      Ebin 34       1.00090      0.090%   0.99858   1.00323     57.0   EQUIV   EQUIV
+  reg  2 lead      Ebin 35       1.00201      0.201%   0.99999   1.00403     65.1   EQUIV   EQUIV
+  reg  2 lead      Ebin 36       1.00022      0.022%   0.99781   1.00264     30.7   EQUIV   EQUIV
+  reg  2 lead      Ebin 37       1.00206      0.206%   0.99925   1.00488     21.3   EQUIV   EQUIV
+  reg  2 lead      Ebin 38       1.00079      0.079%   0.99891   1.00267    108.9   EQUIV   EQUIV
+  reg  2 lead      Ebin 39       1.00088      0.088%   0.99889   1.00288     69.7   EQUIV   EQUIV
+  reg  2 lead      Ebin 40       0.99965     -0.035%   0.99725   1.00205     31.0   EQUIV   EQUIV
+  reg  3 iron      Ebin  8       0.32084    -67.916%   0.14336   0.71800 99999999.0    DIFF    DIFF
+  reg  3 iron      Ebin  9       0.47436    -52.564%   0.34803   0.64655     13.3    DIFF    DIFF
+  reg  3 iron      Ebin 10       0.61732    -38.268%   0.59416   0.64139     41.0    DIFF    DIFF
+  reg  3 iron      Ebin 11       0.84129    -15.871%   0.82619   0.85667     19.4    DIFF    DIFF
+  reg  3 iron      Ebin 12       0.93949     -6.051%   0.93439   0.94462    101.6    DIFF   EQUIV
+  reg  3 iron      Ebin 13       0.97348     -2.652%   0.96898   0.97800     34.9   EQUIV   EQUIV
+  reg  3 iron      Ebin 14       1.00474      0.474%   1.00120   1.00829     33.1   EQUIV   EQUIV
+  reg  3 iron      Ebin 15       1.01258      1.258%   1.00926   1.01591     24.6   EQUIV   EQUIV
+  reg  3 iron      Ebin 16       1.01158      1.158%   1.00883   1.01435     30.1   EQUIV   EQUIV
+  reg  3 iron      Ebin 17       1.02097      2.097%   1.01817   1.02377     29.8   EQUIV   EQUIV
+  reg  3 iron      Ebin 18       1.00901      0.901%   1.00570   1.01234     19.8   EQUIV   EQUIV
+  reg  3 iron      Ebin 19       1.01104      1.104%   1.00828   1.01381     30.0   EQUIV   EQUIV
+  reg  3 iron      Ebin 20       1.00589      0.589%   1.00286   1.00893     30.6   EQUIV   EQUIV
+  reg  3 iron      Ebin 21       1.00562      0.562%   1.00241   1.00884     26.1   EQUIV   EQUIV
+  reg  3 iron      Ebin 22       1.00451      0.451%   1.00132   1.00772     34.7   EQUIV   EQUIV
+  reg  3 iron      Ebin 23       1.00363      0.363%   1.00157   1.00570     58.2   EQUIV   EQUIV
+  reg  3 iron      Ebin 24       1.00517      0.517%   1.00159   1.00877     60.8   EQUIV   EQUIV
+  reg  3 iron      Ebin 25       1.00770      0.770%   1.00371   1.01170     37.7   EQUIV   EQUIV
+  reg  3 iron      Ebin 26       1.00456      0.456%   1.00069   1.00844     32.1   EQUIV   EQUIV
+  reg  3 iron      Ebin 27       1.00316      0.316%   0.99892   1.00741     25.0   EQUIV   EQUIV
+  reg  3 iron      Ebin 28       1.00222      0.222%   0.99922   1.00523    129.4   EQUIV   EQUIV
+  reg  3 iron      Ebin 29       1.00076      0.076%   0.99726   1.00427     33.9   EQUIV   EQUIV
+  reg  3 iron      Ebin 30       1.00145      0.145%   0.99796   1.00495     34.3   EQUIV   EQUIV
+  reg  3 iron      Ebin 31       1.00527      0.527%   1.00206   1.00849     48.3   EQUIV   EQUIV
+  reg  3 iron      Ebin 32       0.99903     -0.097%   0.99631   1.00175    154.2   EQUIV   EQUIV
+  reg  3 iron      Ebin 33       1.00160      0.160%   0.99809   1.00513     33.6   EQUIV   EQUIV
+  reg  3 iron      Ebin 34       1.00297      0.297%   0.99979   1.00617     49.7   EQUIV   EQUIV
+  reg  3 iron      Ebin 35       1.00382      0.382%   1.00042   1.00723     38.0   EQUIV   EQUIV
+  reg  3 iron      Ebin 36       1.00094      0.094%   0.99724   1.00465     36.9   EQUIV   EQUIV
+  reg  3 iron      Ebin 37       1.00186      0.186%   0.99801   1.00572     32.4   EQUIV   EQUIV
+  reg  3 iron      Ebin 38       1.00195      0.195%   0.99907   1.00485    206.3   EQUIV   EQUIV
+  reg  3 iron      Ebin 39       1.00094      0.094%   0.99740   1.00449     44.1   EQUIV   EQUIV
+  reg  3 iron      Ebin 40       0.99956     -0.044%   0.99486   1.00429     23.2   EQUIV   EQUIV
+  reg  4 iron      Ebin  8       0.07781    -92.219%   0.03212   0.18851 99999999.0    DIFF    DIFF
+  reg  4 iron      Ebin  9       0.40694    -59.306%   0.35159   0.47101 99999999.0    DIFF    DIFF
+  reg  4 iron      Ebin 10       0.64049    -35.951%   0.61334   0.66884     85.2    DIFF    DIFF
+  reg  4 iron      Ebin 11       0.81526    -18.474%   0.79594   0.83506     19.0    DIFF    DIFF
+  reg  4 iron      Ebin 12       0.92081     -7.919%   0.91385   0.92782     78.5    DIFF   EQUIV
+  reg  4 iron      Ebin 13       0.97925     -2.075%   0.97397   0.98455     37.1   EQUIV   EQUIV
+  reg  4 iron      Ebin 14       1.01076      1.076%   1.00603   1.01552     27.6   EQUIV   EQUIV
+  reg  4 iron      Ebin 15       1.01929      1.929%   1.01603   1.02257     48.0   EQUIV   EQUIV
+  reg  4 iron      Ebin 16       1.01791      1.791%   1.01422   1.02160     30.5   EQUIV   EQUIV
+  reg  4 iron      Ebin 17       1.02274      2.274%   1.01953   1.02596     36.5   EQUIV   EQUIV
+  reg  4 iron      Ebin 18       1.01328      1.328%   1.01012   1.01644     37.6   EQUIV   EQUIV
+  reg  4 iron      Ebin 19       1.01433      1.433%   1.01074   1.01793     32.6   EQUIV   EQUIV
+  reg  4 iron      Ebin 20       1.01293      1.293%   1.00997   1.01591     79.5   EQUIV   EQUIV
+  reg  4 iron      Ebin 21       1.01056      1.056%   1.00779   1.01334    515.1   EQUIV   EQUIV
+  reg  4 iron      Ebin 22       1.00994      0.994%   1.00641   1.01347     68.9   EQUIV   EQUIV
+  reg  4 iron      Ebin 23       1.00612      0.612%   1.00350   1.00875    100.0   EQUIV   EQUIV
+  reg  4 iron      Ebin 24       1.00605      0.605%   1.00136   1.01075     55.4   EQUIV   EQUIV
+  reg  4 iron      Ebin 25       1.00539      0.539%   1.00013   1.01069     33.9   EQUIV   EQUIV
+  reg  4 iron      Ebin 26       1.00532      0.532%   1.00003   1.01065     33.3   EQUIV   EQUIV
+  reg  4 iron      Ebin 27       0.99985     -0.015%   0.99410   1.00564     26.0   EQUIV   EQUIV
+  reg  4 iron      Ebin 28       1.00240      0.240%   0.99740   1.00742     40.6   EQUIV   EQUIV
+  reg  4 iron      Ebin 29       1.00326      0.326%   0.99868   1.00786     61.6   EQUIV   EQUIV
+  reg  4 iron      Ebin 30       1.00436      0.436%   0.99908   1.00967     33.5   EQUIV   EQUIV
+  reg  4 iron      Ebin 31       1.00515      0.515%   0.99950   1.01084     27.5   EQUIV   EQUIV
+  reg  4 iron      Ebin 32       0.99388     -0.612%   0.98959   0.99818     90.2   EQUIV   EQUIV
+  reg  4 iron      Ebin 33       1.00432      0.432%   0.99901   1.00966     32.9   EQUIV   EQUIV
+  reg  4 iron      Ebin 34       1.00472      0.472%   0.99936   1.01012     31.9   EQUIV   EQUIV
+  reg  4 iron      Ebin 35       1.00483      0.483%   1.00015   1.00953     76.4   EQUIV   EQUIV
+  reg  4 iron      Ebin 36       1.00145      0.145%   0.99626   1.00666     43.3   EQUIV   EQUIV
+  reg  4 iron      Ebin 37       1.00062      0.062%   0.99582   1.00545     63.4   EQUIV   EQUIV
+  reg  4 iron      Ebin 38       1.00267      0.267%   0.99692   1.00845     35.7   EQUIV   EQUIV
+  reg  4 iron      Ebin 39       1.00070      0.070%   0.99495   1.00649     42.5   EQUIV   EQUIV
+  reg  4 iron      Ebin 40       0.99620     -0.380%   0.98831   1.00416     20.2   EQUIV   EQUIV
+  reg  5 iron      Ebin  7       0.70861    -29.139%   0.22461   2.23554 99999999.0  INCONC  INCONC
+  reg  5 iron      Ebin  8       0.82802    -17.198%   0.59246   1.15725 99999999.0  INCONC  INCONC
+  reg  5 iron      Ebin  9       0.74845    -25.155%   0.64351   0.87051     26.9    DIFF    DIFF
+  reg  5 iron      Ebin 10       0.77463    -22.537%   0.74105   0.80973     70.1    DIFF    DIFF
+  reg  5 iron      Ebin 11       0.87428    -12.572%   0.85290   0.89619     27.5    DIFF    DIFF
+  reg  5 iron      Ebin 12       0.92217     -7.783%   0.91205   0.93240     51.8    DIFF   EQUIV
+  reg  5 iron      Ebin 13       0.98150     -1.850%   0.97426   0.98879     42.8   EQUIV   EQUIV
+  reg  5 iron      Ebin 14       1.01511      1.511%   1.00973   1.02051     63.8   EQUIV   EQUIV
+  reg  5 iron      Ebin 15       1.02068      2.068%   1.01453   1.02687     23.3   EQUIV   EQUIV
+  reg  5 iron      Ebin 16       1.01598      1.598%   1.01000   1.02198     21.8   EQUIV   EQUIV
+  reg  5 iron      Ebin 17       1.01965      1.965%   1.01586   1.02344    120.4   EQUIV   EQUIV
+  reg  5 iron      Ebin 18       1.01663      1.663%   1.01148   1.02182     31.4   EQUIV   EQUIV
+  reg  5 iron      Ebin 19       1.01289      1.289%   1.00685   1.01897     21.2   EQUIV   EQUIV
+  reg  5 iron      Ebin 20       1.01195      1.195%   1.00538   1.01857     20.1   EQUIV   EQUIV
+  reg  5 iron      Ebin 21       1.01123      1.123%   1.00599   1.01650     43.2   EQUIV   EQUIV
+  reg  5 iron      Ebin 22       1.01110      1.110%   1.00650   1.01572    144.3   EQUIV   EQUIV
+  reg  5 iron      Ebin 23       1.00199      0.199%   0.99738   1.00663     44.6   EQUIV   EQUIV
+  reg  5 iron      Ebin 24       1.00437      0.437%   0.99511   1.01371     20.8   EQUIV   EQUIV
+  reg  5 iron      Ebin 25       1.00779      0.779%   1.00039   1.01524     37.6   EQUIV   EQUIV
+  reg  5 iron      Ebin 26       0.99871     -0.129%   0.99230   1.00516     72.5   EQUIV   EQUIV
+  reg  5 iron      Ebin 27       1.00539      0.539%   0.99707   1.01378     28.9   EQUIV   EQUIV
+  reg  5 iron      Ebin 28       1.00431      0.431%   0.99767   1.01099     76.8   EQUIV   EQUIV
+  reg  5 iron      Ebin 29       1.01127      1.127%   1.00470   1.01788     86.9   EQUIV   EQUIV
+  reg  5 iron      Ebin 30       1.00529      0.529%   0.99606   1.01461     22.5   EQUIV   EQUIV
+  reg  5 iron      Ebin 31       1.00634      0.634%   0.99811   1.01463     30.0   EQUIV   EQUIV
+  reg  5 iron      Ebin 32       0.99536     -0.464%   0.98799   1.00279     41.9   EQUIV   EQUIV
+  reg  5 iron      Ebin 33       1.00529      0.529%   0.99884   1.01177     96.5   EQUIV   EQUIV
+  reg  5 iron      Ebin 34       1.00577      0.577%   0.99764   1.01397     34.7   EQUIV   EQUIV
+  reg  5 iron      Ebin 35       1.00518      0.518%   0.99680   1.01364     31.4   EQUIV   EQUIV
+  reg  5 iron      Ebin 36       0.99836     -0.164%   0.99027   1.00652     39.0   EQUIV   EQUIV
+  reg  5 iron      Ebin 37       1.00322      0.322%   0.99332   1.01322     24.2   EQUIV   EQUIV
+  reg  5 iron      Ebin 38       1.00478      0.478%   0.99675   1.01287     56.0   EQUIV   EQUIV
+  reg  5 iron      Ebin 39       0.99849     -0.151%   0.98889   1.00818     30.6   EQUIV   EQUIV
+  reg  5 iron      Ebin 40       0.99746     -0.254%   0.98657   1.00846     27.5   EQUIV   EQUIV
+  reg  6 concrete  Ebin  6       0.21482    -78.518%   0.10168   0.45382 99999999.0    DIFF    DIFF
+  reg  6 concrete  Ebin  7       0.73504    -26.496%   0.58850   0.91807     45.0    DIFF  INCONC
+  reg  6 concrete  Ebin  8       0.86485    -13.515%   0.81075   0.92256     33.8    DIFF  INCONC
+  reg  6 concrete  Ebin  9       0.94336     -5.664%   0.92148   0.96577     73.6  INCONC   EQUIV
+  reg  6 concrete  Ebin 10       0.98453     -1.547%   0.96678   1.00260     25.1   EQUIV   EQUIV
+  reg  6 concrete  Ebin 11       1.00105      0.105%   0.99110   1.01111     80.9   EQUIV   EQUIV
+  reg  6 concrete  Ebin 12       1.01398      1.398%   1.00618   1.02184    151.7   EQUIV   EQUIV
+  reg  6 concrete  Ebin 13       1.01209      1.209%   1.00301   1.02124     34.4   EQUIV   EQUIV
+  reg  6 concrete  Ebin 14       1.01410      1.410%   1.00564   1.02263     35.1   EQUIV   EQUIV
+  reg  6 concrete  Ebin 15       1.01587      1.587%   1.00597   1.02587     23.1   EQUIV   EQUIV
+  reg  6 concrete  Ebin 16       1.01994      1.994%   1.01095   1.02902     29.5   EQUIV   EQUIV
+  reg  6 concrete  Ebin 17       1.01532      1.532%   1.00889   1.02179    246.0   EQUIV   EQUIV
+  reg  6 concrete  Ebin 18       1.01242      1.242%   1.00468   1.02023     59.4   EQUIV   EQUIV
+  reg  6 concrete  Ebin 19       1.00774      0.774%   1.00009   1.01545     76.1   EQUIV   EQUIV
+  reg  6 concrete  Ebin 20       1.00588      0.588%   0.99336   1.01856     19.5   EQUIV   EQUIV
+  reg  6 concrete  Ebin 21       1.01024      1.024%   1.00162   1.01893     78.5   EQUIV   EQUIV
+  reg  6 concrete  Ebin 22       1.01961      1.961%   1.01006   1.02926     53.0   EQUIV   EQUIV
+  reg  6 concrete  Ebin 23       1.01201      1.201%   1.00373   1.02035     49.9   EQUIV   EQUIV
+  reg  6 concrete  Ebin 24       1.01809      1.809%   1.00753   1.02876     71.5   EQUIV   EQUIV
+  reg  6 concrete  Ebin 25       1.00763      0.763%   0.99735   1.01800     80.4   EQUIV   EQUIV
+  reg  6 concrete  Ebin 26       1.00915      0.915%   0.99693   1.02151     32.1   EQUIV   EQUIV
+  reg  6 concrete  Ebin 27       1.01833      1.833%   1.00664   1.03016     38.5   EQUIV   EQUIV
+  reg  6 concrete  Ebin 28       1.00216      0.216%   0.99163   1.01281     50.5   EQUIV   EQUIV
+  reg  6 concrete  Ebin 29       1.01690      1.690%   1.00341   1.03056     23.7   EQUIV   EQUIV
+  reg  6 concrete  Ebin 30       1.00588      0.588%   0.99490   1.01699     42.5   EQUIV   EQUIV
+  reg  6 concrete  Ebin 31       1.01255      1.255%   1.00055   1.02470     31.7   EQUIV   EQUIV
+  reg  6 concrete  Ebin 32       0.98788     -1.212%   0.97498   1.00095     23.1   EQUIV   EQUIV
+  reg  6 concrete  Ebin 33       0.99869     -0.131%   0.98602   1.01153     26.2   EQUIV   EQUIV
+  reg  6 concrete  Ebin 34       1.00888      0.888%   0.99701   1.02089     32.4   EQUIV   EQUIV
+  reg  6 concrete  Ebin 35       1.00586      0.586%   0.99331   1.01857     27.4   EQUIV   EQUIV
+  reg  6 concrete  Ebin 36       1.00373      0.373%   0.99145   1.01616     31.0   EQUIV   EQUIV
+  reg  6 concrete  Ebin 37       1.00622      0.622%   0.99266   1.01997     25.5   EQUIV   EQUIV
+  reg  6 concrete  Ebin 38       1.00785      0.785%   0.99513   1.02073     35.2   EQUIV   EQUIV
+  reg  6 concrete  Ebin 39       1.00233      0.233%   0.98782   1.01704     28.3   EQUIV   EQUIV
+  reg  6 concrete  Ebin 40       0.99656     -0.344%   0.98099   1.01236     28.7   EQUIV   EQUIV
+  reg  7 concrete  Ebin  6       0.24820    -75.180%   0.09812   0.62783 99999999.0    DIFF    DIFF
+  reg  7 concrete  Ebin  7       0.76904    -23.096%   0.58588   1.00945     17.7  INCONC  INCONC
+  reg  7 concrete  Ebin  8       0.87443    -12.557%   0.83237   0.91862     58.5    DIFF  INCONC
+  reg  7 concrete  Ebin  9       0.92925     -7.075%   0.90723   0.95181     35.1  INCONC   EQUIV
+  reg  7 concrete  Ebin 10       1.00119      0.119%   0.98571   1.01691     27.9   EQUIV   EQUIV
+  reg  7 concrete  Ebin 11       1.01396      1.396%   0.99967   1.02845     19.1   EQUIV   EQUIV
+  reg  7 concrete  Ebin 12       1.02241      2.241%   1.01321   1.03170     38.0   EQUIV   EQUIV
+  reg  7 concrete  Ebin 13       1.03191      3.191%   1.02263   1.04127     30.8   EQUIV   EQUIV
+  reg  7 concrete  Ebin 14       1.03393      3.393%   1.02533   1.04261     40.1   EQUIV   EQUIV
+  reg  7 concrete  Ebin 15       1.02955      2.955%   1.02091   1.03825     38.9   EQUIV   EQUIV
+  reg  7 concrete  Ebin 16       1.02854      2.854%   1.01848   1.03870     29.0   EQUIV   EQUIV
+  reg  7 concrete  Ebin 17       1.01861      1.861%   1.00879   1.02852     33.3   EQUIV   EQUIV
+  reg  7 concrete  Ebin 18       1.01966      1.966%   1.01009   1.02931     46.1   EQUIV   EQUIV
+  reg  7 concrete  Ebin 19       1.03147      3.147%   1.02269   1.04032     98.9   EQUIV   EQUIV
+  reg  7 concrete  Ebin 20       1.02063      2.063%   1.00835   1.03306     28.2   EQUIV   EQUIV
+  reg  7 concrete  Ebin 21       1.01932      1.932%   1.00626   1.03255     29.1   EQUIV   EQUIV
+  reg  7 concrete  Ebin 22       1.01859      1.859%   1.00592   1.03142     34.2   EQUIV   EQUIV
+  reg  7 concrete  Ebin 23       1.01903      1.903%   1.00943   1.02873     69.9   EQUIV   EQUIV
+  reg  7 concrete  Ebin 24       1.01046      1.046%   0.99854   1.02252     84.9   EQUIV   EQUIV
+  reg  7 concrete  Ebin 25       1.00982      0.982%   0.99567   1.02417     35.5   EQUIV   EQUIV
+  reg  7 concrete  Ebin 26       1.01042      1.042%   0.99754   1.02346     52.9   EQUIV   EQUIV
+  reg  7 concrete  Ebin 27       1.02792      2.792%   1.01417   1.04185     42.4   EQUIV   EQUIV
+  reg  7 concrete  Ebin 28       1.00249      0.249%   0.98645   1.01878     23.3   EQUIV   EQUIV
+  reg  7 concrete  Ebin 29       1.01675      1.675%   1.00021   1.03357     22.5   EQUIV   EQUIV
+  reg  7 concrete  Ebin 30       1.00816      0.816%   0.99609   1.02037     67.0   EQUIV   EQUIV
+  reg  7 concrete  Ebin 31       1.01287      1.287%   0.99911   1.02681     34.3   EQUIV   EQUIV
+  reg  7 concrete  Ebin 32       0.99804     -0.196%   0.98445   1.01183     33.9   EQUIV   EQUIV
+  reg  7 concrete  Ebin 33       0.99989     -0.011%   0.98540   1.01459     28.2   EQUIV   EQUIV
+  reg  7 concrete  Ebin 34       1.01726      1.726%   1.00445   1.03023     50.6   EQUIV   EQUIV
+  reg  7 concrete  Ebin 35       1.01577      1.577%   1.00179   1.02995     35.2   EQUIV   EQUIV
+  reg  7 concrete  Ebin 36       1.00856      0.856%   0.99349   1.02385     29.1   EQUIV   EQUIV
+  reg  7 concrete  Ebin 37       1.00888      0.888%   0.99273   1.02530     25.5   EQUIV   EQUIV
+  reg  7 concrete  Ebin 38       1.00754      0.754%   0.99007   1.02533     23.2   EQUIV   EQUIV
+  reg  7 concrete  Ebin 39       1.00534      0.534%   0.98927   1.02167     33.5   EQUIV   EQUIV
+  reg  7 concrete  Ebin 40       0.99541     -0.459%   0.97757   1.01357     29.2   EQUIV   EQUIV
+  reg  8 concrete  Ebin  5       1.88802     88.802%   0.60518   5.89018 99999999.0  INCONC  INCONC
+  reg  8 concrete  Ebin  6       0.71007    -28.993%   0.50970   0.98921     29.5  INCONC  INCONC
+  reg  8 concrete  Ebin  7       0.98529     -1.471%   0.88350   1.09882     32.9  INCONC  INCONC
+  reg  8 concrete  Ebin  8       0.94267     -5.733%   0.90424   0.98273     41.8  INCONC   EQUIV
+  reg  8 concrete  Ebin  9       0.99753     -0.247%   0.97615   1.01939     45.0   EQUIV   EQUIV
+  reg  8 concrete  Ebin 10       1.02148      2.148%   1.00892   1.03420     97.3   EQUIV   EQUIV
+  reg  8 concrete  Ebin 11       1.02652      2.652%   1.01414   1.03905     32.4   EQUIV   EQUIV
+  reg  8 concrete  Ebin 12       1.04260      4.260%   1.03236   1.05294     48.3  INCONC   EQUIV
+  reg  8 concrete  Ebin 13       1.03829      3.829%   1.02629   1.05042     23.9  INCONC   EQUIV
+  reg  8 concrete  Ebin 14       1.03914      3.914%   1.02969   1.04867     53.7   EQUIV   EQUIV
+  reg  8 concrete  Ebin 15       1.02597      2.597%   1.01396   1.03813     24.7   EQUIV   EQUIV
+  reg  8 concrete  Ebin 16       1.03211      3.211%   1.02127   1.04307     40.5   EQUIV   EQUIV
+  reg  8 concrete  Ebin 17       1.02467      2.467%   1.01453   1.03492     60.6   EQUIV   EQUIV
+  reg  8 concrete  Ebin 18       1.02532      2.532%   1.01292   1.03787     34.8   EQUIV   EQUIV
+  reg  8 concrete  Ebin 19       1.03036      3.036%   1.01887   1.04197     53.9   EQUIV   EQUIV
+  reg  8 concrete  Ebin 20       1.03100      3.100%   1.01602   1.04621     27.9   EQUIV   EQUIV
+  reg  8 concrete  Ebin 21       1.02171      2.171%   1.00611   1.03755     28.9   EQUIV   EQUIV
+  reg  8 concrete  Ebin 22       1.01805      1.805%   0.99833   1.03817     18.9   EQUIV   EQUIV
+  reg  8 concrete  Ebin 23       1.01576      1.576%   0.99956   1.03222     22.4   EQUIV   EQUIV
+  reg  8 concrete  Ebin 24       1.03083      3.083%   1.01609   1.04579     79.9   EQUIV   EQUIV
+  reg  8 concrete  Ebin 25       1.01982      1.982%   1.00324   1.03667     40.6   EQUIV   EQUIV
+  reg  8 concrete  Ebin 26       1.00770      0.770%   0.98910   1.02664     25.8   EQUIV   EQUIV
+  reg  8 concrete  Ebin 27       1.03104      3.104%   1.01130   1.05117     23.7  INCONC   EQUIV
+  reg  8 concrete  Ebin 28       1.00547      0.547%   0.98836   1.02288     32.4   EQUIV   EQUIV
+  reg  8 concrete  Ebin 29       1.01784      1.784%   1.00136   1.03458     36.2   EQUIV   EQUIV
+  reg  8 concrete  Ebin 30       1.01129      1.129%   0.99647   1.02632     55.9   EQUIV   EQUIV
+  reg  8 concrete  Ebin 31       1.00266      0.266%   0.98330   1.02241     22.4   EQUIV   EQUIV
+  reg  8 concrete  Ebin 32       1.00170      0.170%   0.98773   1.01586     67.2   EQUIV   EQUIV
+  reg  8 concrete  Ebin 33       1.00822      0.822%   0.99144   1.02528     31.2   EQUIV   EQUIV
+  reg  8 concrete  Ebin 34       1.01848      1.848%   1.00223   1.03499     35.9   EQUIV   EQUIV
+  reg  8 concrete  Ebin 35       1.02529      2.529%   1.00868   1.04218     36.1   EQUIV   EQUIV
+  reg  8 concrete  Ebin 36       1.01788      1.788%   1.00252   1.03349     48.1   EQUIV   EQUIV
+  reg  8 concrete  Ebin 37       1.00983      0.983%   0.99397   1.02595     43.5   EQUIV   EQUIV
+  reg  8 concrete  Ebin 38       1.00903      0.903%   0.99011   1.02832     28.2   EQUIV   EQUIV
+  reg  8 concrete  Ebin 39       1.00538      0.538%   0.98795   1.02313     43.3   EQUIV   EQUIV
+  reg  8 concrete  Ebin 40       0.99214     -0.786%   0.97251   1.01216     34.8   EQUIV   EQUIV
+  reg  9 water     Ebin  4       1.26299     26.299%   0.19093   8.35453     33.4  INCONC  INCONC
+  reg  9 water     Ebin  5       0.74410    -25.590%   0.54867   1.00914     26.1  INCONC  INCONC
+  reg  9 water     Ebin  6       0.89330    -10.670%   0.81493   0.97921     23.3  INCONC  INCONC
+  reg  9 water     Ebin  7       0.97827     -2.173%   0.94909   1.00835     75.4  INCONC   EQUIV
+  reg  9 water     Ebin  8       1.00419      0.419%   0.98646   1.02224    110.5   EQUIV   EQUIV
+  reg  9 water     Ebin  9       1.04847      4.847%   1.03141   1.06580     35.6  INCONC   EQUIV
+  reg  9 water     Ebin 10       1.02809      2.809%   1.01525   1.04110     52.6   EQUIV   EQUIV
+  reg  9 water     Ebin 11       1.04957      4.957%   1.03599   1.06334     32.4  INCONC   EQUIV
+  reg  9 water     Ebin 12       1.05227      5.227%   1.04142   1.06324     74.0  INCONC   EQUIV
+  reg  9 water     Ebin 13       1.03791      3.791%   1.02223   1.05382     20.1  INCONC   EQUIV
+  reg  9 water     Ebin 14       1.04131      4.131%   1.02508   1.05780     19.8  INCONC   EQUIV
+  reg  9 water     Ebin 15       1.04371      4.371%   1.03280   1.05474    114.5  INCONC   EQUIV
+  reg  9 water     Ebin 16       1.03610      3.610%   1.01850   1.05400     20.7  INCONC   EQUIV
+  reg  9 water     Ebin 17       1.03971      3.971%   1.02468   1.05496     34.2  INCONC   EQUIV
+  reg  9 water     Ebin 18       1.03491      3.491%   1.01533   1.05487     20.3  INCONC   EQUIV
+  reg  9 water     Ebin 19       1.02096      2.096%   1.00834   1.03375    158.9   EQUIV   EQUIV
+  reg  9 water     Ebin 20       1.04665      4.665%   1.02954   1.06405     42.4  INCONC   EQUIV
+  reg  9 water     Ebin 21       1.03151      3.151%   1.01010   1.05338     24.6  INCONC   EQUIV
+  reg  9 water     Ebin 22       1.02175      2.175%   1.00005   1.04393     24.2   EQUIV   EQUIV
+  reg  9 water     Ebin 23       1.00969      0.969%   0.99659   1.02297    208.8   EQUIV   EQUIV
+  reg  9 water     Ebin 24       1.02050      2.050%   1.00309   1.03821     84.5   EQUIV   EQUIV
+  reg  9 water     Ebin 25       1.00390      0.390%   0.98508   1.02308     45.4   EQUIV   EQUIV
+  reg  9 water     Ebin 26       0.99694     -0.306%   0.97577   1.01856     29.2   EQUIV   EQUIV
+  reg  9 water     Ebin 27       1.02719      2.719%   1.00750   1.04727     41.3   EQUIV   EQUIV
+  reg  9 water     Ebin 28       1.01141      1.141%   0.99639   1.02665    290.8   EQUIV   EQUIV
+  reg  9 water     Ebin 29       1.03589      3.589%   1.01679   1.05534     45.9  INCONC   EQUIV
+  reg  9 water     Ebin 30       1.02397      2.397%   1.00704   1.04120     77.3   EQUIV   EQUIV
+  reg  9 water     Ebin 31       0.99379     -0.621%   0.97085   1.01728     21.6   EQUIV   EQUIV
+  reg  9 water     Ebin 32       1.01597      1.597%   0.99800   1.03427     48.5   EQUIV   EQUIV
+  reg  9 water     Ebin 33       1.01730      1.730%   0.99573   1.03933     25.2   EQUIV   EQUIV
+  reg  9 water     Ebin 34       1.02463      2.463%   1.00380   1.04589     28.0   EQUIV   EQUIV
+  reg  9 water     Ebin 35       1.03108      3.108%   1.01153   1.05101     34.6  INCONC   EQUIV
+  reg  9 water     Ebin 36       1.02087      2.087%   1.00323   1.03883     54.4   EQUIV   EQUIV
+  reg  9 water     Ebin 37       1.01072      1.072%   0.99242   1.02935     46.6   EQUIV   EQUIV
+  reg  9 water     Ebin 38       1.01159      1.159%   0.99097   1.03265     33.0   EQUIV   EQUIV
+  reg  9 water     Ebin 39       1.01127      1.127%   0.98940   1.03363     32.6   EQUIV   EQUIV
+  reg  9 water     Ebin 40       0.98991     -1.009%   0.96678   1.01359     31.3   EQUIV   EQUIV
+  reg 10 water     Ebin  4       0.44697    -55.303%   0.13411   1.48971     36.3  INCONC  INCONC
+  reg 10 water     Ebin  5       0.64199    -35.801%   0.47459   0.86842     18.6    DIFF    DIFF
+  reg 10 water     Ebin  6       0.88195    -11.805%   0.82967   0.93751     49.2    DIFF  INCONC
+  reg 10 water     Ebin  7       0.98024     -1.976%   0.95546   1.00566     92.9   EQUIV   EQUIV
+  reg 10 water     Ebin  8       1.02280      2.280%   1.00508   1.04083     63.1   EQUIV   EQUIV
+  reg 10 water     Ebin  9       1.04090      4.090%   1.02157   1.06060     21.8  INCONC   EQUIV
+  reg 10 water     Ebin 10       1.04720      4.720%   1.03448   1.06008     54.6  INCONC   EQUIV
+  reg 10 water     Ebin 11       1.05448      5.448%   1.03586   1.07344     17.5  INCONC   EQUIV
+  reg 10 water     Ebin 12       1.05600      5.600%   1.03988   1.07237     22.5  INCONC   EQUIV
+  reg 10 water     Ebin 13       1.04087      4.087%   1.02877   1.05312     70.4  INCONC   EQUIV
+  reg 10 water     Ebin 14       1.03990      3.990%   1.02627   1.05371     42.3  INCONC   EQUIV
+  reg 10 water     Ebin 15       1.03498      3.498%   1.02050   1.04967     41.4   EQUIV   EQUIV
+  reg 10 water     Ebin 16       1.02524      2.524%   1.00967   1.04105     37.6   EQUIV   EQUIV
+  reg 10 water     Ebin 17       1.02027      2.027%   1.00536   1.03541     56.6   EQUIV   EQUIV
+  reg 10 water     Ebin 18       1.02045      2.045%   0.99852   1.04286     20.1   EQUIV   EQUIV
+  reg 10 water     Ebin 19       1.03407      3.407%   1.01893   1.04942    112.3   EQUIV   EQUIV
+  reg 10 water     Ebin 20       1.04198      4.198%   1.02511   1.05913     90.6  INCONC   EQUIV
+  reg 10 water     Ebin 21       1.01359      1.359%   0.98685   1.04104     19.3   EQUIV   EQUIV
+  reg 10 water     Ebin 22       1.02820      2.820%   1.00691   1.04994     39.9   EQUIV   EQUIV
+  reg 10 water     Ebin 23       1.01249      1.249%   0.99435   1.03096     52.5   EQUIV   EQUIV
+  reg 10 water     Ebin 24       1.01370      1.370%   0.99460   1.03318    108.4   EQUIV   EQUIV
+  reg 10 water     Ebin 25       0.99463     -0.537%   0.97225   1.01753     37.1   EQUIV   EQUIV
+  reg 10 water     Ebin 26       0.99880     -0.120%   0.97358   1.02468     26.1   EQUIV   EQUIV
+  reg 10 water     Ebin 27       1.03618      3.618%   1.01285   1.06005     37.0  INCONC   EQUIV
+  reg 10 water     Ebin 28       1.01001      1.001%   0.98832   1.03219     42.3   EQUIV   EQUIV
+  reg 10 water     Ebin 29       1.03636      3.636%   1.01475   1.05844     48.2  INCONC   EQUIV
+  reg 10 water     Ebin 30       1.02942      2.942%   1.00978   1.04945     73.8   EQUIV   EQUIV
+  reg 10 water     Ebin 31       0.99171     -0.829%   0.96661   1.01746     23.8   EQUIV   EQUIV
+  reg 10 water     Ebin 32       1.02193      2.193%   1.00329   1.04092     93.5   EQUIV   EQUIV
+  reg 10 water     Ebin 33       1.01706      1.706%   0.98886   1.04607     19.4   EQUIV   EQUIV
+  reg 10 water     Ebin 34       1.02180      2.180%   1.00066   1.04338     40.0   EQUIV   EQUIV
+  reg 10 water     Ebin 35       1.03630      3.630%   1.01675   1.05623     62.1  INCONC   EQUIV
+  reg 10 water     Ebin 36       1.01484      1.484%   0.99199   1.03821     30.0   EQUIV   EQUIV
+  reg 10 water     Ebin 37       1.00717      0.717%   0.98468   1.03018     32.0   EQUIV   EQUIV
+  reg 10 water     Ebin 38       1.01650      1.650%   0.99374   1.03977     36.1   EQUIV   EQUIV
+  reg 10 water     Ebin 39       1.00738      0.738%   0.98067   1.03480     25.4   EQUIV   EQUIV
+  reg 10 water     Ebin 40       0.98865     -1.135%   0.96377   1.01417     36.2   EQUIV   EQUIV
+  reg 11 water     Ebin  4       0.06415    -93.585%   0.01425   0.28866 99999999.0    DIFF    DIFF
+  reg 11 water     Ebin  5       0.60909    -39.091%   0.42167   0.87981     19.7    DIFF    DIFF
+  reg 11 water     Ebin  6       0.94499     -5.501%   0.86614   1.03101     35.3  INCONC  INCONC
+  reg 11 water     Ebin  7       0.98152     -1.848%   0.94469   1.01980     43.4  INCONC   EQUIV
+  reg 11 water     Ebin  8       1.03874      3.874%   1.01240   1.06577     35.2  INCONC   EQUIV
+  reg 11 water     Ebin  9       1.05490      5.490%   1.03357   1.07667     32.4  INCONC   EQUIV
+  reg 11 water     Ebin 10       1.04634      4.634%   1.02745   1.06558     31.5  INCONC   EQUIV
+  reg 11 water     Ebin 11       1.03775      3.775%   1.02139   1.05438     46.1  INCONC   EQUIV
+  reg 11 water     Ebin 12       1.03162      3.162%   1.01261   1.05098     27.1  INCONC   EQUIV
+  reg 11 water     Ebin 13       1.02899      2.899%   1.01152   1.04677     36.6   EQUIV   EQUIV
+  reg 11 water     Ebin 14       1.02711      2.711%   1.00802   1.04656     30.3   EQUIV   EQUIV
+  reg 11 water     Ebin 15       1.02977      2.977%   1.01398   1.04580     98.1   EQUIV   EQUIV
+  reg 11 water     Ebin 16       1.02334      2.334%   1.00562   1.04137     58.3   EQUIV   EQUIV
+  reg 11 water     Ebin 17       1.00716      0.716%   0.98922   1.02543     68.8   EQUIV   EQUIV
+  reg 11 water     Ebin 18       1.01935      1.935%   0.99667   1.04255     31.1   EQUIV   EQUIV
+  reg 11 water     Ebin 19       1.02397      2.397%   0.99968   1.04885     28.9   EQUIV   EQUIV
+  reg 11 water     Ebin 20       1.03612      3.612%   1.01587   1.05678     88.7  INCONC   EQUIV
+  reg 11 water     Ebin 21       1.01965      1.965%   0.99907   1.04065     91.1   EQUIV   EQUIV
+  reg 11 water     Ebin 22       1.01488      1.488%   0.98984   1.04055     37.4   EQUIV   EQUIV
+  reg 11 water     Ebin 23       1.00678      0.678%   0.98575   1.02826     54.0   EQUIV   EQUIV
+  reg 11 water     Ebin 24       1.00437      0.437%   0.97358   1.03613     23.5   EQUIV   EQUIV
+  reg 11 water     Ebin 25       0.98919     -1.081%   0.96271   1.01640     31.7   EQUIV   EQUIV
+  reg 11 water     Ebin 26       1.01527      1.527%   0.99120   1.03993     53.8   EQUIV   EQUIV
+  reg 11 water     Ebin 27       1.03124      3.124%   1.00430   1.05890     35.6  INCONC   EQUIV
+  reg 11 water     Ebin 28       1.01891      1.891%   0.98813   1.05065     23.1  INCONC   EQUIV
+  reg 11 water     Ebin 29       1.03531      3.531%   1.00897   1.06234     37.7  INCONC   EQUIV
+  reg 11 water     Ebin 30       1.01851      1.851%   0.99270   1.04499     36.7   EQUIV   EQUIV
+  reg 11 water     Ebin 31       1.00433      0.433%   0.97837   1.03098     31.9   EQUIV   EQUIV
+  reg 11 water     Ebin 32       1.02383      2.383%   0.99818   1.05014     35.4  INCONC   EQUIV
+  reg 11 water     Ebin 33       1.01163      1.163%   0.97886   1.04550     18.7   EQUIV   EQUIV
+  reg 11 water     Ebin 34       1.02408      2.408%   0.99972   1.04903     39.4   EQUIV   EQUIV
+  reg 11 water     Ebin 35       1.03215      3.215%   1.00949   1.05533     53.4  INCONC   EQUIV
+  reg 11 water     Ebin 36       1.01382      1.382%   0.98722   1.04115     27.6   EQUIV   EQUIV
+  reg 11 water     Ebin 37       1.00495      0.495%   0.97533   1.03546     21.7   EQUIV   EQUIV
+  reg 11 water     Ebin 38       1.01872      1.872%   0.99266   1.04547     34.2   EQUIV   EQUIV
+  reg 11 water     Ebin 39       1.00014      0.014%   0.97061   1.03056     25.6   EQUIV   EQUIV
+  reg 11 water     Ebin 40       0.99336     -0.664%   0.96532   1.02222     35.0   EQUIV   EQUIV
+
+
+====================================================================================================
+END
+====================================================================================================
