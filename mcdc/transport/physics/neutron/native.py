@@ -18,6 +18,7 @@ from mcdc.constant import (
     BOLTZMANN_K,
     THERMAL_THRESHOLD_FACTOR,
     LIGHT_SPEED,
+    MATERIAL_CONSTANT_XS,
     NEUTRON_MASS,
     PI,
     PI_HALF,
@@ -72,6 +73,23 @@ def particle_energy_from_speed(speed):
 @njit
 def macro_xs(reaction_type, particle_container, mcdc, data):
     particle = particle_container[0]
+    material_ID = particle["material_ID"]
+    mat_base = mcdc["materials"][material_ID]
+
+    # Constant-XS shortcut: energy-independent scatter/absorb material used by
+    # analytical benchmarks (Case-de Hoffmann-Placzek). Bypasses the nuclide
+    # iteration since constant_xs materials carry no nuclides.
+    if mat_base["child_type"] == MATERIAL_CONSTANT_XS:
+        cxs = mcdc["constant_xs_materials"][mat_base["child_ID"]]
+        if reaction_type == NEUTRON_REACTION_ELASTIC_SCATTERING:
+            return cxs["sigma_scatter"]
+        elif reaction_type == NEUTRON_REACTION_CAPTURE:
+            return cxs["sigma_absorb"]
+        elif reaction_type == NEUTRON_REACTION_TOTAL:
+            return cxs["sigma_total"]
+        else:
+            return 0.0
+
     material = mcdc["native_materials"][particle["material_ID"]]
     E = particle["E"]
 
@@ -130,6 +148,19 @@ def reaction_micro_xs(E, reaction_base, nuclide, data):
 def neutron_production_xs(reaction_type, particle_container, mcdc, data):
     particle = particle_container[0]
     material_base = mcdc["materials"][particle["material_ID"]]
+
+    # Constant-XS materials have no inelastic/fission channels; elastic scatter
+    # is treated as energy-preserving so its production XS equals macro_xs.
+    if material_base["child_type"] == MATERIAL_CONSTANT_XS:
+        if reaction_type == NEUTRON_REACTION_ELASTIC_SCATTERING:
+            return macro_xs(reaction_type, particle_container, mcdc, data)
+        elif reaction_type == NEUTRON_REACTION_TOTAL:
+            return macro_xs(
+                NEUTRON_REACTION_ELASTIC_SCATTERING, particle_container, mcdc, data
+            )
+        else:
+            return 0.0
+
     material = mcdc["native_materials"][material_base["child_ID"]]
 
     if reaction_type == NEUTRON_REACTION_TOTAL:
@@ -220,6 +251,31 @@ def neutron_production_xs(reaction_type, particle_container, mcdc, data):
 @njit
 def collision(particle_container, mcdc, data):
     particle = particle_container[0]
+
+    # ==================================================================================
+    # Constant-XS dispatch: energy-independent scatter/absorb with isotropic-
+    # elastic redirection (no energy change). Used for analytical benchmarks
+    # (Case-de Hoffmann-Placzek). Mirrors the photon constant-XS path.
+    # ==================================================================================
+    mat_base = mcdc["materials"][particle["material_ID"]]
+    if mat_base["child_type"] == MATERIAL_CONSTANT_XS:
+        cxs = mcdc["constant_xs_materials"][mat_base["child_ID"]]
+        sigma_t = cxs["sigma_total"]
+        if sigma_t <= 0.0:
+            return
+        sigma_a = cxs["sigma_absorb"]
+        xi = rng.lcg(particle_container) * sigma_t
+        if xi < sigma_a:
+            particle["alive"] = False
+            return
+        mu = 2.0 * rng.lcg(particle_container) - 1.0
+        azi = 2.0 * PI * rng.lcg(particle_container)
+        c = math.sqrt(max(0.0, 1.0 - mu * mu))
+        particle["ux"] = mu
+        particle["uy"] = math.cos(azi) * c
+        particle["uz"] = math.sin(azi) * c
+        return
+
     material = mcdc["native_materials"][particle["material_ID"]]
 
     # Particle properties
