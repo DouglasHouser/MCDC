@@ -12,6 +12,28 @@ every verification deck, and its "1.6 GB" is almost entirely SLURM job logs. Cor
 §5 Phase 0, §5 Phase 3 and §6.3. New sections: **§9** measurements, **§10** per-file test
 rewrite inventory, **§11** smoke-test references, **§12** paper-artifact policy.
 
+**[REWRITTEN 2026-10-03] §6.3 `.gitignore`** is now a full specification — what upstream already
+covers, a per-path audit with verdicts, the annotated block to append, a verification gate with
+expected numbers, and the Phase 1 handover. It **corrects four rules the previous revision
+proposed**: `__pycache__/` and the scoped `*.png` rule are redundant, a blanket `*.xlsx` would
+delete advisor-supplied benchmark input, and a `*.slurm` rule would delete the 21 job submission
+scripts. It also records that upstream does **not** ignore `*.log`, that upstream's global `*.csv`
+rule is silently hiding nine files, and that the blanket `*.h5` must be kept through Phase 0.
+
+**[OWNER DECISIONS 2026-10-03]** Two exclusions from the Phase 0 snapshot, decided by the
+repo owner rather than by the §6.3 audit. The 21 `*.slurm` job submission scripts are **not**
+committed, which reverses the §6.3.3 row arguing they were source worth keeping; they remain
+on disk, untracked, so this is reversible. And `test/regression/azurv1/input.py` is **not**
+committed — its local edits were photon experimentation and the working deck on `dev` stands.
+
+**[OWNER DECISIONS — second round]** Four further exclusions, all ignored rather than committed,
+all still on disk: **every MCNP input deck** (the five `*_MCNP.txt` files plus
+`benchmark_5/Benchmark5_MCNP_Deck.txt` and `Benchmark5_MCNP_Deck_MCDC_equivalent.txt`, which do
+not match the glob but are MCNP decks by their own headers) — this reverses the §12 row that
+called them irreplaceable ground truth; **nine named decks and analysis scripts** under
+`Complex_M&G/`; and the whole **`Complex_M&G/1e7_results/comparisons/`** folder. The snapshot is
+now 199 files. The §7 deck set is intact, but its MCNP comparison targets are not in git.
+
 ---
 
 ## 1. Repo State
@@ -20,10 +42,10 @@ rewrite inventory, **§11** smoke-test references, **§12** paper-artifact polic
 |---|---|
 | `origin` | `DouglasHouser/MCDC` (fork) |
 | `upstream` | `CEMeNT-PSAAP/MCDC`; `mcdc-project/mcdc` is the same codebase, now CARRE-led |
-| Local branch | `dev` @ `bb8df96d` — **2 commits ahead** of the merge base **[CORRECTED]** |
+| Local branch | `dev` @ `86ee515a` — **5 commits ahead** of the merge base, and **already pushed** (`dev` == `origin/dev`) **[CORRECTED 2026-10-03]** |
 | Merge base | `10b7b85e` (PR #385) |
-| Divergence | **2 ours / 715 theirs** vs `upstream/dev` (`ae7d416e`, PR #523) |
-| Our 2 commits | **markdown only** — `photon-transport-docs/`, `photon-transport-directions/` (~9,500 lines) |
+| Divergence | **5 ours / 715 theirs** vs `upstream/dev` (`ae7d416e`, PR #523) |
+| Our 5 commits | **markdown only** — `photon-transport-docs/`, `photon-transport-directions/` (~9,500 lines) |
 | Photon code | **entirely uncommitted** in the working tree (~2,300 lines, 28 files, ~113 KB) |
 
 **[CORRECTED] `git merge --ff-only upstream/dev` will now fail.** The previous revision
@@ -159,7 +181,7 @@ test/regression/<7 decks>/
 | `photon_transport_code/test/` (**362 live tests**) | **Port alongside the physics.** Rewrite imports `photon_transport_code.transport.physics.photon.*` → `mcdc.transport.physics.photon.*`. This is the bulk of the real photon coverage |
 | `photon_transport_code/{transport,mcdc_get,mcdc_set}/`, `conftest.py`, `__init__.py` | Archive, then delete — the genuinely superseded duplicate source, and the only part "archive" ever should have referred to |
 | `photon_transport_code/examples/photon_transport_{compton,pair_production,photoelectric}/`, `debugging/`, `docs/` | Prototype-bound (`import photon_transport_code.*`); port or retire deliberately |
-| `photon_transport_code/**/*.{out,log,png}` (1.63 GB) | gitignore — upstream already ignores `*.out` and `*.log`. Delete locally for disk space; never committed |
+| `photon_transport_code/**/*.{out,log,png}` (1.63 GB) | gitignore — upstream ignores `*.out` and `*.png`, but **not** `*.log`; §6.3.5 adds a scoped rule for the one 3.4 MB log. Delete locally for disk space; never committed |
 | **[NEW]** root `validate_*.py`, `compare_photon_xs.py`, `photon_issue_isolator.py`, `visualize_output.py` | Archive; upstream's root carries no loose scripts |
 
 **Already exists upstream — delete our copies:**
@@ -239,15 +261,18 @@ Schema fixes needed in our files:
 Nothing else happens until the work is recoverable. 2,300 lines of photon source currently
 exist only in the working tree.
 
-1. **`.gitignore` first** (see §6.3). Nothing from `data/` may appear in `git status`.
+1. **`.gitignore` first, as its own commit** — the full specification is §6.3, the block to
+   append is §6.3.5, and §6.3.6 is the verification gate that must pass before anything is
+   staged. Nothing from `data/` may appear in `git status`.
 2. Branch `wip/photon-snapshot-pre-refactor` off current `dev`; commit all source-like
    changes there in topical commits, **on the old base**, with no porting and no cleanup.
    Push to `origin`. This is a permanent diffable reference and is never merged.
 3. **[REVISED] Commit `photon_transport_code/` source too — do not archive the folder.**
    Phase 0 is a snapshot, so everything source-like goes in, including the 362 tests and all
    the verification decks. The only things excluded are the `.out` / `.log` / `.png` outputs
-   (1.63 GB), which `.gitignore` handles. Archive the loose root scripts separately.
-   **Nothing is deleted in Phase 0.**
+   (1.63 GB), which `.gitignore` handles once §6.3.5 is applied — the `.log` is **not**
+   covered by upstream and needs the new rule. Commit the loose root scripts (they are
+   source; §6.3.2) and relocate them in Phase 2. **Nothing is deleted in Phase 0.**
 
 **[REVISED] Provenance note.** Only
 `photon_transport_code/{transport,mcdc_get,mcdc_set}/` is superseded: that is the **April
@@ -314,10 +339,13 @@ gone — rehome onto `Material.element_composition`.
    find-and-replace: **see §10 for the per-file inventory and the three rewrite tiers.**
    Start with `test/regression/photon/conftest.py`, which gates 80 tests on its own.
    Target: 362 + 33 collected, all green. Then the MCNP benchmarks.
-4. **[NEW]** Generate the smoke-test references for all 30 decks — **§11**. Last step; gate
-   it on items 1–3 being green.
-4. Confirm neutron regression passes — `neutron/native.py` and `azurv1/input.py` were both
-   touched locally.
+4. Confirm the neutron regression passes. `neutron/native.py` carries the constant-XS
+   dispatch and **is** in the snapshot, so it is the thing to re-verify.
+   **[RESOLVED 2026-10-03]** `azurv1/input.py` is no longer a concern: the local edits to it
+   were photon experimentation, not a change to carry forward, and the deck was
+   deliberately **left out of the Phase 0 snapshot**. The working version on `dev` stands.
+5. **[NEW]** Generate the smoke-test references for all 30 decks — **§11**. Last step; gate
+   it on items 1–4 being green.
 
 ### Phase 4 — Publish
 
@@ -354,35 +382,247 @@ parts into `docs/` or keep them fork-only.
    rewritten), and fluorescence is effectively untested (both Pb decks at 10 MeV; Pb K-edge
    is 88 keV). Unit tests still cover both.
 
-### .gitignore  **[CORRECTED]**
+### 6.3 `.gitignore` — full specification  **[REWRITTEN 2026-10-03]**
 
-Actually present in the local uncommitted diff: `.claude/`, `.coverage`, `*.h5`,
-`mcnp_val_extracted.txt`, `MCNP_validation_test.pdf`, `examine_h5.py`,
-`examine_photon_h5.py`. The previous revision also listed `photon-transport-docs/` as
-covered — it is not, and it is in fact already committed.
+This is **Phase 0 step 1 and it is its own commit**, made before any source is staged.
+The reason is asymmetry: an output file left out of the snapshot can be added in a later
+commit, but an output file committed once lives in the history permanently and can only be
+removed by a filter-repo rewrite that invalidates every clone and every open PR. The working
+tree currently holds **2.5 GB**, of which **~2.5 MB across 199 files** belongs in git
+(measured after applying §6.3.5).
 
-**Not covered — would land in the Phase 0 commit:**
-- `data/` as a whole — 872 MB. `*.h5` misses `data/endf/**/*.endf` (300 files, 116 MB),
-  `data/raw/` (81 MB) and `data/mcplib84/` (16 MB).
-- **[REVISED]** `photon_transport_code/` **outputs only** — 23 `.out` job logs (1.61 GB,
-  of which `benchmark_5/slurm-20749880.out` is 666 MB and `slurm-20696173.out` is 589 MB),
-  one 3.5 MB `.log`, and 61 `.png` plots (17.6 MB). The folder's `.py` content is 628 KB
-  total and **is** wanted in the snapshot.
-- `.sonar/`, `photon_standard_error_comparison.xlsx`, `photon_issue_report.txt`
-- root `validate_*.py`, `compare_photon_xs.py`, `photon_issue_isolator.py`,
-  `visualize_output.py`
+Measured on the tree at `86ee515a`. Reproduce any figure here with the commands in §6.3.6.
 
-**Add:** `data/`, `.sonar/`, `__pycache__/`, `*.xlsx`, `.coverage`, and scoped output rules
-for the verification tree (`photon_transport_code/**/*.png`, `*.slurm` outputs). `*.out` and
-`*.log` already come from upstream's `.gitignore`.
+#### 6.3.1 What upstream's `.gitignore` already covers
 
-**Remove our blanket `*.h5` rule.** `data/` covers the bulk, and `*.h5` would silently
-swallow legitimate test fixtures later. Upstream uses narrow rules (`*output.h5`,
-`output*.h5`, `dummy_nuclide.h5`, `source_particles.h5`).
+Upstream's 71-line file (unchanged at the merge base) already handles more than the previous
+revision credited it with. Do not re-add any of these:
 
-**Conflict warning:** `.gitignore` has 23 uncommitted local insertions AND upstream rewrote
-it. Take upstream's version first, then re-add photon rules — **scoped**.
+| Rule | Line | Covers in our tree |
+|---|---|---|
+| `__pycache__`, `*.pyc`, `*.nbc`, `*.nbi` | 11–14 | All Python and Numba cache. **The previous revision wrongly listed `__pycache__/` as missing** |
+| `*.png`, `*.mp4`, `*.gif` | 29–31 | All 76 plots under `photon_transport_code/`. **Also already covered — the previous revision's scoped png rule is redundant** |
+| `*.out` | 38 | All 23 SLURM job logs, 1.61 GB, including the 666 MB and 589 MB files in `benchmark_5/` |
+| `*.pbs` | 39 | Cluster scripts in the PBS dialect (we use SLURM — see the trap in §6.3.3) |
+| `.pytest_cache`, `pytestdebug.log` | 52–53 | Test cache only — **not** `*.log` generally |
+| `*.prof`, `*.core`, `*.swp`, `.vscode/`, `**/.DS_Store` | various | Profiler, editor, OS noise |
+| `dummy_nuclide.h5`, `source_particles.h5`, `*output.h5`, `output*.h5` | 26–28, 65–66 | The *narrow* h5 rules. See §6.3.4 |
+| `docs/build`, `docs/source/pythonapi/generated/` | 59–60 | Root `docs/` only — **path-anchored, so it does not reach `photon_transport_code/docs/`** |
 
+**Two traps in upstream's file that bite the photon tree specifically:**
+
+1. **`*.csv` is ignored globally (line 62).** Nine CSV files exist in our tree —
+   `AZURV1_photon_comparison_table.csv`, its `_post_one_half_mft` variant, and seven under
+   `xs_compare/`. All nine are invisible to `git status` today and **would be silently
+   omitted from the snapshot with no warning at all**. Per the §12 test, the two AZURV1
+   comparison tables are derived output (regenerate from `error_comparison/*.py`) and the
+   `xs_compare/` set is output of `compare_photon_xs.py`, so leaving them ignored is the
+   right outcome — but it must be a *decision*, not an accident. If any CSV later becomes
+   irreplaceable input it needs an explicit `!` negation.
+2. **The `*.png` negation is path-anchored to the root docs tree** —
+   `!docs/source/images/**/*.png` (line 34). Any photon figure that later needs committing
+   must get its own negation; it will not inherit this one.
+
+#### 6.3.2 Audit — every uncovered path, with verdict
+
+592 files appear in `git status --porcelain -uall` today, totalling **128 MB**. The table
+accounts for all of it.
+
+Several paths were excluded from the snapshot by **owner decision** rather than by the audit
+below. The audit records what the artifact *is*; these override what happens to it:
+
+| Excluded by decision | Count | Note |
+|---|---|---|
+| All MCNP input decks | 7 | Reverses the §12 row. Five `*_MCNP.txt` plus two `benchmark_5/Benchmark5_MCNP_Deck*.txt` that do not match the glob but are MCNP decks by their own headers |
+| `1e7_results/meshtam` | 1 | MCNP6 mesh tally output. Deleted from the branch by the owner in commit `6c06c947`; now excluded so it never enters history |
+| `**/*.slurm` job scripts | 21 | §6.3.3 |
+| Named decks and scripts under `Complex_M&G/` | 9 | `lead_finite_cylinder.py`, `lead_finite_cylinder_energy_deposition.py`, `multi_material_slabs.py`, `multi_material_spheres.py`, `multi_material_spheres_energy_spectrum.py`, `multi_material_spheres_energy_spectrum_results.txt`, `Convergence/compare_mcdc_mcnp_spectrum_1e7.py`, `Convergence/compare_mcdc_mcnp_spectrum_1e7_postprocessed.py`, `Convergence/mm_spheres_1to10mev_sdev_convergence.py` |
+| `Complex_M&G/1e7_results/comparisons/` | 4 | Whole folder |
+| `test/regression/azurv1/input.py` | 1 | Local edits were photon experimentation; working version lives on `dev` |
+
+Every one is an exact path or scoped glob, so the four §7 decks that share name prefixes are
+unaffected, and every excluded file remains on disk untracked — each decision is reversible.
+
+| Path | Size | Files | Verdict | Rationale |
+|---|---|---|---|---|
+| `data/mcdc/` | 204 MB | ~330 `.h5` | **ignore** | Generated by `tools/data_library_generator/`. Authoritative at runtime but reproducible from `data/endf/` plus the generator. Masked today only by our blanket `*.h5` |
+| `data/mcdc.backup/` | 262 MB | ~330 | **ignore + delete** | Stale duplicate — §6 item 3 |
+| `data/mcdc_reformatted/` | 196 MB | ~330 | **ignore + delete** | Stale duplicate — §6 item 3 |
+| `data/endf/` | 116 MB | 300 `.endf` | **ignore** | **The single largest gap.** Plain text, so `*.h5` never touched it. Upstream fetches its libraries rather than vendoring them; ENDF/B and EPDL are redistributable but belong behind a fetch script, not in history |
+| `data/raw/` | 81 MB | — | **ignore** | Generator intermediate |
+| `data/mcplib84/` | 16 MB | — | **ignore** | Third-party library, fetched not vendored |
+| `.sonar/` | 5 KB | few | **ignore** | SonarQube scanner state, machine-local |
+| `photon_transport_code/docs/source/_build/` | 1.7 MB | 46 | **ignore** | Sphinx HTML output — vendored `jquery-3.6.0.js`, 7 binary `.doctree` files, `.buildinfo`, `objects.inv`, a `.pickle`. Reproducible by `make html`. Upstream's `docs/build` rule is path-anchored and misses this |
+| `.../MCNP_test_problems/_pb_full_run.log` | 3.4 MB | 1 | **ignore** | **The largest single file that would actually land.** The previous revision's claim that "`*.log` already comes from upstream's `.gitignore`" is **wrong** — only `pytestdebug.log` is listed |
+| `.../Error-Convergence_testing/v004t11a003-icone22-30156.pdf` | 1.7 MB | 1 | **ignore** | Draft manuscript PDF. §12: belongs with the manuscript, not the code repo |
+| `photon_standard_error_comparison.xlsx` | 144 KB | 1 | **ignore** | Build output of `error_comparison/` — §12 |
+| `.../MCNP_test_problems/For Doug - bench 1.xlsx` | 16 KB | 1 | **COMMIT** | Advisor-supplied benchmark data = irreplaceable *input* under the §12 test. **A blanket `*.xlsx` rule would destroy this** — see §6.3.3 |
+| `photon_issue_report.txt` | small | 1 | **ignore** | Output of `photon_issue_isolator.py` |
+| root `validate_*.py`, `compare_photon_xs.py`, `photon_issue_isolator.py`, `visualize_output.py` | ~60 KB | 6 | **commit, then relocate** | Source, and the only record of several validation procedures. Upstream's root carries no loose scripts, so commit them in the snapshot and rehome them under `tools/` or `test/` during Phase 2. Do **not** ignore them |
+| `mcdc/` photon modules, `test/unit/transport/physics/`, `photon_transport_code/**/*.py` | ~800 KB | ~240 | **commit** | The snapshot itself |
+
+#### 6.3.3 Rules the previous revision proposed that must **not** be added
+
+| Proposed | Why it is wrong |
+|---|---|
+| `__pycache__/` | Already upstream line 11 |
+| scoped `photon_transport_code/**/*.png` | Already covered by the global `*.png`, line 29 |
+| ~~`*.slurm`~~ **[SUPERSEDED 2026-10-03]** | This row argued the rule was destructive, because SLURM *outputs* are `slurm-<jobid>.out` and already caught by `*.out`, while the 21 `*.slurm` files are hand-written **job submission scripts**. **Owner decision overrides this: the scripts are excluded from the snapshot.** The rule is now in §6.3.5, scoped to `photon_transport_code/**/*.slurm`. Accepted consequence: git no longer records how each benchmark was launched — only the decks themselves. The files stay on disk, untracked, so the decision is reversible |
+| blanket `*.xlsx` | Catches `For Doug - bench 1.xlsx`, which §6.3.2 keeps. Anchor the rule to the one file instead |
+| removing `*.h5` **in Phase 0** | See §6.3.4 — correct eventually, wrong now |
+
+#### 6.3.4 The `*.h5` rule — keep in Phase 0, narrow in Phase 1
+
+The earlier instruction to drop our blanket `*.h5` is right in principle and wrong in
+sequencing. `*.h5` is currently the **only** thing standing between the snapshot commit and
+**666 HDF5 files**, roughly 700 MB, most of it `data/mcdc*/`.
+
+- **Phase 0:** keep `*.h5`. The new `data/` rule and `*.h5` overlap heavily, and that
+  redundancy is deliberate belt-and-braces for the one commit that cannot be undone.
+- **Phase 1:** when taking upstream's `.gitignore` wholesale, drop `*.h5` and rely on
+  `data/` plus upstream's narrow rules (`*output.h5`, `output*.h5`, `dummy_nuclide.h5`,
+  `source_particles.h5`). The rationale is unchanged: a blanket `*.h5` would later swallow
+  legitimate test fixtures, and the §11 smoke-test references are the obvious casualty.
+- Audit at that point with `git check-ignore -v` over every `.h5` path and confirm each hit
+  is attributed to `data/` or to a narrow rule, never to a blanket one.
+
+#### 6.3.5 The block to append — Phase 0
+
+Append verbatim beneath the existing 23 local insertions. Every rule carries the reason it
+exists, because the next person to read this file will otherwise re-litigate all of it.
+
+```gitignore
+# ---------------------------------------------------------------------------
+# Photon transport — Phase 0 snapshot rules (see UPSTREAM_SYNC_HANDOFF §6.3)
+# ---------------------------------------------------------------------------
+
+# Nuclear data libraries — 857 MB. Generated by tools/data_library_generator/
+# or fetched from ENDF/EPDL upstream. data/endf/ is 116 MB of plain text and is
+# NOT caught by *.h5. data/mcdc.backup/ and data/mcdc_reformatted/ are stale
+# duplicates slated for deletion (handoff section 6, item 3).
+data/
+
+# SonarQube scanner state — machine-local
+.sonar/
+
+# Sphinx output in the verification tree. Upstream's `docs/build` rule is
+# path-anchored to the repo root and does not reach here. Reproduce with
+# `make html`.
+photon_transport_code/docs/source/_build/
+
+# Full-run capture, 3.4 MB. Upstream ignores only pytestdebug.log, NOT *.log,
+# so this needs an explicit rule. Scoped rather than blanket *.log so that a
+# deliberately committed log stays possible.
+photon_transport_code/**/*_full_run.log
+
+# Draft manuscript PDF — belongs with the paper, not the code (section 12)
+photon_transport_code/**/*.pdf
+
+# Build output of MCNP_Verification_Tests/error_comparison/*.py (section 12).
+# Anchored with a leading slash: "For Doug - bench 1.xlsx" in the verification
+# tree is advisor-supplied INPUT and must stay committable.
+/photon_standard_error_comparison.xlsx
+
+# Output of photon_issue_isolator.py
+/photon_issue_report.txt
+
+# SLURM job submission scripts. Excluded by owner decision 2026-10-03,
+# reversing the 6.3.3 note that treated these as source. They remain on
+# disk, untracked.
+photon_transport_code/**/*.slurm
+
+# MCNP input decks. Not to be included in the repo. Reverses the section 12
+# row that called them irreplaceable ground truth. The two benchmark_5 decks
+# do not match the *_MCNP.txt glob but are MCNP input decks by their own
+# headers.
+photon_transport_code/**/*_MCNP.txt
+photon_transport_code/MCNP_Verification_Tests/benchmark_5/Benchmark5_MCNP_Deck.txt
+photon_transport_code/MCNP_Verification_Tests/benchmark_5/Benchmark5_MCNP_Deck_MCDC_equivalent.txt
+
+# Verification decks and analysis scripts excluded by owner decision. Exact
+# paths, so the kept siblings (lead_finite_cylinder_off_center.py,
+# multi_material_slabs_collimated_beam.py, multi_material_slabs_mesh_tally.py,
+# multi_material_spheres_1to10mev_spectrum.py) are unaffected.
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/lead_finite_cylinder.py
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/lead_finite_cylinder_energy_deposition.py
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/multi_material_slabs.py
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/multi_material_spheres.py
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/multi_material_spheres_energy_spectrum.py
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/multi_material_spheres_energy_spectrum_results.txt
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/Convergence/compare_mcdc_mcnp_spectrum_1e7.py
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/Convergence/compare_mcdc_mcnp_spectrum_1e7_postprocessed.py
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/Convergence/mm_spheres_1to10mev_sdev_convergence.py
+
+# Whole folder excluded by owner decision
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/1e7_results/comparisons/
+
+# MCNP6 mesh tally output. Deleted from the branch by the owner in commit
+# 6c06c947 "cleanup"; excluded here so it never enters history at all.
+photon_transport_code/MCNP_Verification_Tests/Complex_M&G/1e7_results/meshtam
+```
+
+Deliberately **not** in the block, so that nobody adds them later: `__pycache__`, `*.png`,
+`*.out` (upstream already has them); `*.xlsx`, `*.log` and `*.pdf` unanchored (each would eat
+source — §6.3.3); `*.h5` (already present locally, keep until Phase 1 — §6.3.4).
+
+#### 6.3.6 Verification gate — run before staging anything
+
+```bash
+# 1. The two monsters must already be ignored by upstream's *.out
+git check-ignore -v photon_transport_code/MCNP_Verification_Tests/benchmark_5/slurm-20749880.out
+
+# 2. File count: 592 before the block, 199 after (measured)
+git status --porcelain --untracked-files=all | wc -l
+
+# 3. Total bytes about to enter history: 128 MB before, ~2.5 MB after (measured)
+git status --porcelain -uall | awk '{print $2}' \
+  | while read -r f; do [ -f "$f" ] && du -k "$f"; done \
+  | awk '{s+=$1} END {print s " KB"}'
+
+# 4. Nothing from data/ may appear. Expect zero lines.
+git status --porcelain -uall | grep '^?? data/' | head
+
+# 5. The 21 .slurm job scripts are now EXCLUDED by owner decision. Expect 0
+#    listed, and 21 still present on disk.
+git status --porcelain -uall | grep -c 'slurm$'
+find photon_transport_code -name '*.slurm' | wc -l
+
+# 6. The advisor's benchmark workbook MUST still be listed. Expect 1.
+git status --porcelain -uall | grep -c 'bench 1.xlsx'
+
+# 6b. No MCNP input deck may be listed. Expect 0 and 0.
+git status --porcelain -uall | grep -c '_MCNP.txt$'
+git status --porcelain -uall | grep -c 'Benchmark5_MCNP_Deck'
+
+# 6c. The four section 7 decks sharing name prefixes MUST survive. Expect 4.
+git status --porcelain -uall | grep -cE 'lead_finite_cylinder_off_center\.py|multi_material_slabs_collimated_beam\.py|multi_material_slabs_mesh_tally\.py|multi_material_spheres_1to10mev_spectrum\.py'
+
+# 7. Largest file about to be committed — expect 348 KB
+#    (Error-Convergence_testing/AZURV1_photon_error_analysis.txt); nothing else above 104 KB
+git status --porcelain -uall | awk '{print $2}' \
+  | while read -r f; do [ -f "$f" ] && du -k "$f"; done | sort -rn | head -5
+
+# 8. After committing, before pushing: confirm the pack is small
+git count-objects -vH    # size-pack should be single-digit MB
+```
+
+**Gate:** items 2, 3, 5 and 6 must all hit their expected values before anything is staged.
+GitHub hard-rejects any single file over 100 MB and warns above 50 MB; nothing in the
+corrected set approaches either, so a failure here means a rule is missing — not that the
+limit is tight.
+
+#### 6.3.7 Phase 1 handover
+
+`.gitignore` is a guaranteed conflict: it carries 23 uncommitted local insertions plus the
+Phase 0 block above, **and** upstream rewrote the file across the 715-commit divergence.
+Resolution order is not negotiable:
+
+1. Take **upstream's version wholesale** — `git checkout upstream/dev -- .gitignore`.
+2. Re-add only what §6.3.5 justifies, minus anything upstream has since absorbed. Re-check
+   §6.3.1 against the new file rather than assuming the line numbers above still hold.
+3. Drop the blanket `*.h5` at this point (§6.3.4) and re-run the §6.3.6 audit.
+4. `data/` is fork-only — upstream fetches its libraries. Keep the rule locally, but it does
+   not go up in the Phase 4 PR.
 ---
 
 ## 7. The 7 Decks
@@ -611,7 +851,7 @@ The test is **irreplaceable input vs reproducible output**, not "is it paper-rel
 
 | Artifact | Size | Why |
 |---|---|---|
-| MCNP input decks (`*_MCNP.txt`, `Benchmark5_MCNP_Deck*.txt`) | 28.7 KB | Hand-written ground truth. Cannot be regenerated without MCNP and the effort that built them |
+| ~~MCNP input decks (`*_MCNP.txt`, `Benchmark5_MCNP_Deck*.txt`)~~ **[SUPERSEDED 2026-10-03]** | 28.7 KB | This row argued they were hand-written ground truth that cannot be regenerated without MCNP. **Owner decision overrides it: no MCNP input deck goes in the repo.** Ignored per §6.3.5. The consequence is that for the four §7 decks compared against MCNP, the comparison target is no longer in git — only the MCDC decks and the result tables are. The files stay on disk, so this is reversible |
 | MCNP reference result tables (`*_results.txt`) | ~715 KB total `.txt` | Need an MCNP licence and cluster time to reproduce |
 | `MCNP_Verification_Tests/error_comparison/*.py` | 102 KB | Source. Builds the workbook |
 | Smoke-test references (§11) | ~3–12 MB | The point is that they are committed |
@@ -622,7 +862,7 @@ The test is **irreplaceable input vs reproducible output**, not "is it paper-rel
 | Artifact | Size | Instead |
 |---|---|---|
 | 23 SLURM `.out` logs | **1.61 GB** | Already ignored by upstream's `*.out`. Delete locally for disk |
-| 61 `.png` plots | 17.6 MB | Regenerate from the plotting scripts |
+| 76 `.png` plots | 17.6 MB | Regenerate from the plotting scripts. Already covered by upstream's global `*.png` (§6.3.1) |
 | 26 `.h5` run products | 2 MB | Superseded in the reference role by §11 smoke files |
 | `photon_standard_error_comparison.xlsx` | 145 KB | Build output of `error_comparison/`. Commit the scripts, not the workbook |
 | Draft PDF | 1.7 MB | Belongs with the manuscript, not the code repo |
