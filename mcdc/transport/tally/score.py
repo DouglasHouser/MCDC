@@ -23,6 +23,7 @@ from mcdc.constant import (
     SCORE_CAPTURE,
     SCORE_FISSION,
     SCORE_NET_CURRENT,
+    SCORE_ENERGY_DEPOSIT,
     SPATIAL_FILTER_MESH,
 )
 from mcdc.transport.geometry.surface import get_normal_component
@@ -58,6 +59,10 @@ def make_scores(particle_container, flux, tally, idx_base, mcdc, data):
             surface = mcdc["surfaces"][particle["surface_ID"]]
             mu = get_normal_component(particle_container, speed, surface, data)
             score = flux * mu
+        elif score_type == SCORE_ENERGY_DEPOSIT:
+            # Collision (point) estimator only — the flux/track-length sweep must
+            # never write into this slot (scored in collision_energy_tally).
+            score = 0.0
         atomic_add(data, idx_base + i_score, score)
 
 
@@ -325,6 +330,82 @@ def tracklength_tally(particle_container, distance, tally, mcdc, data):
                     if i_z == -1:
                         return
                     idx_base -= tally["mesh_stride_z"]
+
+
+# ======================================================================================
+# Collision energy-deposition tally (point estimator)
+# ======================================================================================
+
+
+@njit
+def collision_energy_tally(particle_container, E_dep, tally, mcdc, data):
+    """
+    Score locally-deposited photon energy at the collision site.
+
+    This is a point (analog collision) estimator: no distance sweep. It mirrors the
+    mesh-indexing of tracklength_tally but scores E_dep * w into a single voxel. The
+    direction (mu, azi) and energy phase-space filters are not applied; only the
+    spatial mesh and (optionally) the time filter apply. The slot check makes it a
+    no-op for tallies that do not request the energy-deposit score, so it is safe to
+    call on every tracklength tally.
+    """
+    particle = particle_container[0]
+    tally_base = mcdc["tallies"][tally["parent_ID"]]
+
+    # Locate the energy-deposit score slot; no-op if this tally doesn't request it
+    i_edep = -1
+    for i_score in range(tally_base["scores_length"]):
+        if mcdc_get.tally.scores(i_score, tally_base, data) == SCORE_ENERGY_DEPOSIT:
+            i_edep = i_score
+            break
+    if i_edep == -1:
+        return
+
+    # Time-filter index at the collision point (point estimator: filters other than
+    # time are ignored, so keep i_mu = i_azi = i_energy = 0).
+    MG_mode = mcdc["settings"]["multigroup_mode"]
+    i_mu, i_azi, i_energy, i_time = get_filter_indices(
+        particle_container, tally_base, data, MG_mode
+    )
+    if i_time == -1:
+        return
+    i_mu = 0
+    i_azi = 0
+    i_energy = 0
+
+    # Mesh voxel index at the collision point; return if outside the mesh grid
+    mesh_tally = tally["spatial_filter_type"] == SPATIAL_FILTER_MESH
+    i_x, i_y, i_z = 0, 0, 0
+    if mesh_tally:
+        mesh = mcdc["meshes"][tally["spatial_filter_ID"]]
+        i_x, i_y, i_z = mesh_module.get_indices(particle_container, mesh, mcdc, data)
+        if (
+            i_x < 0
+            or i_x >= mesh["Nx"]
+            or i_y < 0
+            or i_y >= mesh["Ny"]
+            or i_z < 0
+            or i_z >= mesh["Nz"]
+        ):
+            return
+
+    # Tally base index (mirrors tracklength_tally, minus the distance sweep)
+    idx_base = (
+        tally_base["bin_offset"]
+        + i_mu * tally_base["stride_mu"]
+        + i_azi * tally_base["stride_azi"]
+        + i_energy * tally_base["stride_energy"]
+        + i_time * tally_base["stride_time"]
+    )
+    if mesh_tally:
+        idx_base += (
+            i_x * tally["mesh_stride_x"]
+            + i_y * tally["mesh_stride_y"]
+            + i_z * tally["mesh_stride_z"]
+        )
+
+    # Score the locally-deposited energy, weighted by the particle weight
+    atomic_add(data, idx_base + i_edep, E_dep * particle["w"])
 
 
 @njit

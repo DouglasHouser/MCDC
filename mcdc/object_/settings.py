@@ -65,6 +65,10 @@ class Settings(ObjectSingleton):
     neutron_transport: bool = True
     electron_transport: bool = False
     proton_transport: bool = False
+    photon_transport: bool = False
+
+    # Photon physics options
+    photon_fluorescence: bool = True
 
     def __post_init__(self):
         super().__init__()
@@ -146,6 +150,7 @@ class Settings(ObjectSingleton):
         self.neutron_transport = False
         self.electron_transport = False
         self.proton_transport = False
+        self.photon_transport = False
 
         # Set flags
         for particle in transported_particles:
@@ -155,5 +160,7 @@ class Settings(ObjectSingleton):
                 self.electron_transport = True
             elif particle == "proton":
                 self.proton_transport = True
+            elif particle == "photon":
+                self.photon_transport = True
             else:
                 print_error(r"Unsupported particle types: {particle}")

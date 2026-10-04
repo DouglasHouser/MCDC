@@ -11,6 +11,7 @@ settings = simulation.settings
 # The objects
 from mcdc.object_.cell import Cell, Universe, Lattice
 from mcdc.object_.material import Material, MaterialMG
+from mcdc.object_.photon_material import PhotonMaterial, ConstantCrossSectionMaterial
 from mcdc.object_.mesh import MeshUniform, MeshStructured
 from mcdc.object_.source import Source
 from mcdc.object_.surface import Surface

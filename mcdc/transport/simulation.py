@@ -290,7 +290,12 @@ def step_particle(particle_container, mcdc, data):
 
     # Collision
     if particle["event"] & EVENT_COLLISION:
-        physics.collision(particle_container, mcdc, data)
+        # physics.collision does not move the particle (movement happened in
+        # move_to_event), so particle["x/y/z/t"] are still the collision-site
+        # coordinates used to score the deposited energy below.
+        E_dep = physics.collision(particle_container, mcdc, data)
+        if mcdc["cycle_active"] and E_dep > 0.0:
+            _score_energy_deposition(particle_container, E_dep, mcdc, data)
 
     # Surface and domain crossing
     if particle["event"] & EVENT_SURFACE_CROSSING:
@@ -308,6 +313,35 @@ def step_particle(particle_container, mcdc, data):
     # Weight roulette
     if particle["alive"]:
         technique.weight_roulette(particle_container, mcdc)
+
+
+@njit
+def _score_energy_deposition(particle_container, E_dep, mcdc, data):
+    # Score the collision-site energy deposition into every relevant tracklength
+    # tally. Mirrors the tracklength tally loop in move_to_event; the slot check in
+    # collision_energy_tally makes it a no-op for tallies without energy-deposit.
+    particle = particle_container[0]
+
+    # Cell tallies
+    cell = mcdc["cells"][particle["cell_ID"]]
+    for i in range(cell["N_tally"]):
+        tally_ID = int(mcdc_get.cell.tally_IDs(i, cell, data))
+        tally = mcdc["tracklength_tallies"][tally_ID]
+        tally_module.score.collision_energy_tally(
+            particle_container, E_dep, tally, mcdc, data
+        )
+
+    # Other tracklength tallies (e.g. mesh tallies)
+    for i in range(mcdc["N_tracklength_tally"]):
+        tally = mcdc["tracklength_tallies"][i]
+
+        # Skip cell tallies (already handled above)
+        if tally["spatial_filter_type"] == SPATIAL_FILTER_CELL:
+            continue
+
+        tally_module.score.collision_energy_tally(
+            particle_container, E_dep, tally, mcdc, data
+        )
 
 
 @njit

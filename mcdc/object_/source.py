@@ -9,7 +9,14 @@ from typing import Annotated, Iterable
 
 import mcdc.object_.distribution as distribution
 
-from mcdc.constant import PARTICLE_NEUTRON, PARTICLE_ELECTRON, PARTICLE_PROTON, INF, PI
+from mcdc.constant import (
+    PARTICLE_NEUTRON,
+    PARTICLE_ELECTRON,
+    PARTICLE_PHOTON,
+    PARTICLE_PROTON,
+    INF,
+    PI,
+)
 from mcdc.object_.base import ObjectNonSingleton
 from mcdc.object_.distribution import DistributionTabulated, DistributionPMF
 from mcdc.object_.simulation import simulation
@@ -24,6 +31,8 @@ def decode_particle_type(type_):
         return "Electron"
     elif type_ == PARTICLE_PROTON:
         return "Proton"
+    elif type_ == PARTICLE_PHOTON:
+        return "Photon"
 
 
 # ======================================================================================
@@ -204,7 +213,7 @@ class Source(ObjectNonSingleton):
             pass
         elif direction is not None:
             self.isotropic_direction = False
-            self.direction = np.array(direction)
+            self.direction = np.array(direction, dtype=float)
             if polar_cosine is not None or azimuthal is not None:
                 self.mono_direction = False
                 if polar_cosine is not None:
@@ -216,7 +225,7 @@ class Source(ObjectNonSingleton):
         elif white_direction is not None:
             self.isotropic_direction = False
             self.white_direction = True
-            self.direction = np.array(white_direction)
+            self.direction = np.array(white_direction, dtype=float)
         # Normalize direction
         self.direction /= np.linalg.norm(self.direction)
 
@@ -250,8 +259,10 @@ class Source(ObjectNonSingleton):
             self.particle_type = PARTICLE_ELECTRON
         elif particle_type == "proton":
             self.particle_type = PARTICLE_PROTON
+        elif particle_type == "photon":
+            self.particle_type = PARTICLE_PHOTON
         else:
-            print_error(r"Unsupported particle types: {particle_typ}")
+            print_error(f"Unsupported particle type: {particle_type}")
 
         # Moving source parameters
         self.moving = False

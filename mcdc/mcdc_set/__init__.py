@@ -70,6 +70,10 @@ import mcdc.mcdc_set.neutron_inelastic_scattering_reaction as neutron_inelastic_
 
 import mcdc.mcdc_set.particle_bank as particle_bank
 
+import mcdc.mcdc_set.constant_xs_material as constant_xs_material
+
+import mcdc.mcdc_set.photon_material as photon_material
+
 import mcdc.mcdc_set.settings as settings
 
 import mcdc.mcdc_set.implicit_capture as implicit_capture

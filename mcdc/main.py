@@ -145,6 +145,15 @@ def preparation():
     # Get settings
     settings = simulation.settings
 
+    # Auto-enable photon_transport if any source emits photons; auto-disable
+    # neutron_transport if no source emits neutrons and at least one emits photons.
+    from mcdc.constant import PARTICLE_PHOTON, PARTICLE_NEUTRON
+
+    if any(src.particle_type == PARTICLE_PHOTON for src in simulation.sources):
+        settings.photon_transport = True
+        if not any(src.particle_type == PARTICLE_NEUTRON for src in simulation.sources):
+            settings.neutron_transport = False
+
     # Set nuclear and atomic data for transported particles
     if settings.neutron_transport:
         for nuclide in simulation.nuclides:

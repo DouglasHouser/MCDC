@@ -31,6 +31,7 @@ from mcdc.constant import (
     SCORE_CAPTURE,
     SCORE_FISSION,
     SCORE_NET_CURRENT,
+    SCORE_ENERGY_DEPOSIT,
     SPATIAL_FILTER_CELL,
     SPATIAL_FILTER_MESH,
     SPATIAL_FILTER_NONE,
@@ -129,6 +130,12 @@ class Tally(ObjectPolymorphic):
                 self.scores.append(SCORE_FISSION)
             elif score == "net-current":
                 self.scores.append(SCORE_NET_CURRENT)
+            elif score == "energy-deposit":
+                # Photon collision (point) estimator: only meaningful on a mesh (or
+                # cell) TallyTracklength. It ignores the direction (mu, azi) and
+                # energy phase-space filters; only the spatial mesh and (optionally)
+                # the time filter apply.
+                self.scores.append(SCORE_ENERGY_DEPOSIT)
             else:
                 print_error(f"Unknown tally score: {score}")
 
@@ -252,6 +259,8 @@ def decode_score_type(type_, lower_case=False):
         return "Fission" if not lower_case else "fission"
     elif type_ == SCORE_NET_CURRENT:
         return "Net current" if not lower_case else "net-current"
+    elif type_ == SCORE_ENERGY_DEPOSIT:
+        return "Energy deposit" if not lower_case else "energy-deposit"
 
 
 # ======================================================================================
