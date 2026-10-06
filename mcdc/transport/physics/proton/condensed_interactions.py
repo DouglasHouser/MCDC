@@ -1,13 +1,51 @@
+import math
 import numpy as np
+import numba as nb
 from numba import njit
 
 ####
 
 import mcdc.mcdc_get as mcdc_get
 import mcdc.transport.rng as rng
+import mcdc.config as config
+import mcdc.numba_types as type_
+import mcdc.transport.util as util
 
 from mcdc.constant import PROTON_CUTOFF_ENERGY, PROTON_MASS
 from mcdc.transport.distribution import sample_normal
+
+@njit
+def interp(x,xp,fp):
+    if x < xp[0]:
+        return xp[0]
+    for i in range(len(xp)-1):
+        if (x >= xp[i]) and (x<=xp[i+1]):
+            t = (x-xp[i]) / (xp[i+1]-xp[i])
+            f = fp[i] + t * (fp[i+1]-fp[i])
+            return f
+    return fp[len(xp)-1]
+
+
+@njit
+def cross(result,a,b):
+    x = a[1]*b[2]-a[2]*b[1]
+    y = a[0]*b[2]-a[2]*b[0]
+    z = a[0]*b[1]-a[1]*b[0]
+    result[0] = x
+    result[1] = y
+    result[2] = z
+
+
+@njit
+def normalize(a):
+    magnitude =  math.sqrt(
+            a[0]*a[0]
+            + a[1]*a[1]
+            + a[2]*a[2]
+        )
+    a[0] /= magnitude
+    a[1] /= magnitude
+    a[2] /= magnitude
 
 
 @njit
@@ -29,7 +67,7 @@ def max_condensed_step_distance(particle_container, simulation, data):
             dedx_energies = mcdc_get.nuclide.stopping_power_energy_grid_all(
                 nuclide, data
             )
-            dedx = np.interp(E / 1e6, dedx_energies, dedx_values)
+            dedx = interp(E / 1e6, dedx_energies, dedx_values)
             total_dedx += dedx * 1e6
 
         atomic_mass = nuclide["atomic_weight_ratio"]
@@ -40,7 +78,7 @@ def max_condensed_step_distance(particle_container, simulation, data):
     if material["stopping_power_provided"]:
         dedx_values = mcdc_get.material.stopping_power_all(material, data)
         dedx_energies = mcdc_get.material.stopping_power_energy_grid_all(material, data)
-        dedx = np.interp(E / 1e6, dedx_energies, dedx_values)
+        dedx = interp(E / 1e6, dedx_energies, dedx_values)
         total_dedx = dedx * 1e6
 
     max_fractional_energy_loss = condensed_interactions["max_fractional_energy_loss"]
@@ -75,7 +113,7 @@ def condensed_interactions(
     )
     # Convert to units of eV^2
     energy_straggling_variance *= (1e6) ** 2
-    energy_straggling_modifier = np.sqrt(energy_straggling_variance) * sample_normal(
+    energy_straggling_modifier =math.sqrt(energy_straggling_variance) * sample_normal(
         particle_container
     )
     energy_loss += energy_straggling_modifier
@@ -97,23 +135,48 @@ def condensed_interactions(
     return
 
 
+
+def negative_sigma_error(sigma):
+    raise ValueError(f"negative sigma = {sigma}")
+
+@nb.extending.overload(negative_sigma_error,target="cpu")
+def nse_cpu_overload(sigma):
+    def impl(sigma):
+        raise ValueError(f"negative sigma = {sigma}")
+    return impl
+
+@nb.extending.overload(negative_sigma_error,target="gpu")
+def nse_cuda_overload(sigma):
+    def impl(sigma):
+        pass
+    return impl
+
+if config.ROCM_AVAILABLE:
+    @nb.extending.overload(negative_sigma_error,target="hip")
+    def nse_rocm_overload(sigma):
+        def impl(sigma):
+            pass
+        return impl
+
+
+
+
 @njit
 def sample_mcs_angle(E, distance, density, X0, particle_container):
     sigma = highland_lynch_dahl_sigma(E, distance, density, X0)
 
     if sigma < 0.0:
-        raise ValueError(f"negative sigma = {sigma}")
+        negative_sigma_error(sigma)
 
     # Sample theta from the Highland distribution; phi uniformly from (0, 2pi)
-    theta = np.abs(sigma * sample_normal(particle_container))
+    theta = abs(sigma * sample_normal(particle_container))
     phi = 2.0 * np.pi * rng.lcg(particle_container)
 
     return phi, theta
 
-
 @njit
 def highland_lynch_dahl_sigma(E, distance, density, X0):
-    p = np.sqrt(E * (E + 2.0 * PROTON_MASS))
+    p = math.sqrt(E * (E + 2.0 * PROTON_MASS))
     beta = p / (E + PROTON_MASS)
     z = 1  # Incident particle is a proton, Z=1
 
@@ -123,16 +186,13 @@ def highland_lynch_dahl_sigma(E, distance, density, X0):
     sigma = (
         (13.6e6 / p * beta)
         * z
-        * np.sqrt(radiation_distance_fraction)
+        * math.sqrt(radiation_distance_fraction)
         * (1 + 0.088 * np.log10(radiation_distance_fraction))
     )
-    sigma = np.abs(sigma)
+    sigma = abs(sigma)
 
     if sigma < 0.0:
-        print(f"radiation_distance_fraction = {radiation_distance_fraction}")
-        print(f"p = {p}, beta = {beta}, z = {z}")
-        print(f"density = {density}, distance = {distance}")
-        raise ValueError(f"negative sigma = {sigma}")
+        negative_sigma_error(sigma)
 
     return sigma
 
@@ -155,14 +215,32 @@ def rotate_direction(particle, phi, theta):
     sin_phi = np.sin(phi)
 
     # Build local perpendicular axes
-    d = np.array([ux, uy, uz])
-    perp = np.array([1.0, 0.0, 0.0]) if abs(ux) < 0.9 else np.array([0.0, 1.0, 0.0])
-    u = np.cross(d, perp)
-    u /= np.linalg.norm(u)
-    v = np.cross(d, u)
+    d = util.local_array(3,type_.float64)
+    d[0] = ux
+    d[1] = uy
+    d[2] = uz
 
-    d_new = cos_theta * d + sin_theta * cos_phi * u + sin_theta * sin_phi * v
-    d_new /= np.linalg.norm(d_new)
+    perp = util.local_array(3,type_.float64)
+    if abs(ux) < 0.9:
+        perp[0] = 1.0
+        perp[1] = 0.0
+        perp[2] = 0.0
+    else:
+        perp[0] = 0.0
+        perp[1] = 1.0
+        perp[2] = 0.0
+    
+    u = util.local_array(3,type_.float64)
+    v = util.local_array(3,type_.float64)
+    
+    cross(u, d, perp)
+    normalize(u)
+    cross(v, d, u)
+
+    d_new = util.local_array(3,type_.float64)
+    for i in range(3):
+        d_new[i] = cos_theta * d[i] + sin_theta * cos_phi * u[i] + sin_theta * sin_phi * v[i]
+    normalize(d_new)
 
     particle["ux"] = d_new[0]
     particle["uy"] = d_new[1]
@@ -191,8 +269,7 @@ def calculate_total_stopping_power(particle_container, simulation, data):
                 nuclide, data
             )
 
-            # TODO: replace np.interp with a non-numpy function??
-            dedx = np.interp(E / 1e6, dedx_energies, dedx_values)
+            dedx = interp(E / 1e6, dedx_energies, dedx_values)
             total_stopping_power += dedx * 1e6
 
         # Convert atoms/barn-cm to g/cm3:
@@ -211,7 +288,7 @@ def calculate_total_stopping_power(particle_container, simulation, data):
         dedx_values = mcdc_get.material.stopping_power_all(material, data)
         dedx_energies = mcdc_get.material.stopping_power_energy_grid_all(material, data)
 
-        dedx = np.interp(E / 1e6, dedx_energies, dedx_values)
+        dedx = interp(E / 1e6, dedx_energies, dedx_values)
         total_stopping_power = dedx * 1e6
 
     return average_A, average_Z, total_stopping_power, total_rho_gcm3
