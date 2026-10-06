@@ -10,42 +10,10 @@ import mcdc.transport.rng as rng
 import mcdc.config as config
 import mcdc.numba_types as type_
 import mcdc.transport.util as util
+import mcdc.transport.linalg as linalg
 
 from mcdc.constant import PROTON_CUTOFF_ENERGY, PROTON_MASS
 from mcdc.transport.distribution import sample_normal
-
-@njit
-def interp(x,xp,fp):
-    if x < xp[0]:
-        return xp[0]
-    for i in range(len(xp)-1):
-        if (x >= xp[i]) and (x<=xp[i+1]):
-            t = (x-xp[i]) / (xp[i+1]-xp[i])
-            f = fp[i] + t * (fp[i+1]-fp[i])
-            return f
-    return fp[len(xp)-1]
-
-
-@njit
-def cross(result,a,b):
-    x = a[1]*b[2]-a[2]*b[1]
-    y = a[0]*b[2]-a[2]*b[0]
-    z = a[0]*b[1]-a[1]*b[0]
-    result[0] = x
-    result[1] = y
-    result[2] = z
-
-
-@njit
-def normalize(a):
-    magnitude =  math.sqrt(
-            a[0]*a[0]
-            + a[1]*a[1]
-            + a[2]*a[2]
-        )
-    a[0] /= magnitude
-    a[1] /= magnitude
-    a[2] /= magnitude
 
 
 @njit
@@ -67,7 +35,7 @@ def max_condensed_step_distance(particle_container, simulation, data):
             dedx_energies = mcdc_get.nuclide.stopping_power_energy_grid_all(
                 nuclide, data
             )
-            dedx = interp(E / 1e6, dedx_energies, dedx_values)
+            dedx = linalg.interp(E / 1e6, dedx_energies, dedx_values)
             total_dedx += dedx * 1e6
 
         atomic_mass = nuclide["atomic_weight_ratio"]
@@ -78,7 +46,7 @@ def max_condensed_step_distance(particle_container, simulation, data):
     if material["stopping_power_provided"]:
         dedx_values = mcdc_get.material.stopping_power_all(material, data)
         dedx_energies = mcdc_get.material.stopping_power_energy_grid_all(material, data)
-        dedx = interp(E / 1e6, dedx_energies, dedx_values)
+        dedx = linalg.interp(E / 1e6, dedx_energies, dedx_values)
         total_dedx = dedx * 1e6
 
     max_fractional_energy_loss = condensed_interactions["max_fractional_energy_loss"]
@@ -233,14 +201,14 @@ def rotate_direction(particle, phi, theta):
     u = util.local_array(3,type_.float64)
     v = util.local_array(3,type_.float64)
     
-    cross(u, d, perp)
-    normalize(u)
-    cross(v, d, u)
+    linalg.cross(u, d, perp)
+    linalg.normalize(u)
+    linalg.cross(v, d, u)
 
     d_new = util.local_array(3,type_.float64)
     for i in range(3):
         d_new[i] = cos_theta * d[i] + sin_theta * cos_phi * u[i] + sin_theta * sin_phi * v[i]
-    normalize(d_new)
+    linalg.normalize(d_new)
 
     particle["ux"] = d_new[0]
     particle["uy"] = d_new[1]
@@ -269,7 +237,7 @@ def calculate_total_stopping_power(particle_container, simulation, data):
                 nuclide, data
             )
 
-            dedx = interp(E / 1e6, dedx_energies, dedx_values)
+            dedx = linalg.interp(E / 1e6, dedx_energies, dedx_values)
             total_stopping_power += dedx * 1e6
 
         # Convert atoms/barn-cm to g/cm3:
@@ -288,7 +256,7 @@ def calculate_total_stopping_power(particle_container, simulation, data):
         dedx_values = mcdc_get.material.stopping_power_all(material, data)
         dedx_energies = mcdc_get.material.stopping_power_energy_grid_all(material, data)
 
-        dedx = interp(E / 1e6, dedx_energies, dedx_values)
+        dedx = linalg.interp(E / 1e6, dedx_energies, dedx_values)
         total_stopping_power = dedx * 1e6
 
     return average_A, average_Z, total_stopping_power, total_rho_gcm3
