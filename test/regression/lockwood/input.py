@@ -20,7 +20,7 @@ CSDA_RANGE = 0.569  # g/cm2
 ANGLE = 0.0
 
 # MCDC Simulation Parameters
-N_PARTICLES = 10
+N_PARTICLES = 5
 z0 = 0.0  # Starting source position
 
 # Material Properties
