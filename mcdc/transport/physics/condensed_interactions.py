@@ -10,37 +10,39 @@ import mcdc.config as config
 from mcdc.constant import PARTICLE_PROTON
 
 
-
-
 def condensed_interactions_support_error(particle_type):
     raise ValueError(
-        "Condensed interactions not supported for "
-        + util.particle_name(particle_type)
+        "Condensed interactions not supported for " + util.particle_name(particle_type)
     )
 
-@nb.extending.overload(condensed_interactions_support_error,target="cpu")
+
+@nb.extending.overload(condensed_interactions_support_error, target="cpu")
 def cise_cpu_overload(particle_type):
     def impl(particle_type):
         raise ValueError(
             "Condensed interactions not supported for "
             + util.particle_name(particle_type)
         )
+
     return impl
 
-@nb.extending.overload(condensed_interactions_support_error,target="gpu")
+
+@nb.extending.overload(condensed_interactions_support_error, target="gpu")
 def cise_cuda_overload(particle_type):
     def impl(particle_type):
         pass
+
     return impl
 
+
 if config.ROCM_AVAILABLE:
-    @nb.extending.overload(condensed_interactions_support_error,target="hip")
+
+    @nb.extending.overload(condensed_interactions_support_error, target="hip")
     def cise_rocm_overload(particle_type):
         def impl(particle_type):
             pass
+
         return impl
-
-
 
 
 @njit

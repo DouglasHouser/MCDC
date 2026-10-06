@@ -81,7 +81,7 @@ def condensed_interactions(
     )
     # Convert to units of eV^2
     energy_straggling_variance *= (1e6) ** 2
-    energy_straggling_modifier =math.sqrt(energy_straggling_variance) * sample_normal(
+    energy_straggling_modifier = math.sqrt(energy_straggling_variance) * sample_normal(
         particle_container
     )
     energy_loss += energy_straggling_modifier
@@ -103,30 +103,34 @@ def condensed_interactions(
     return
 
 
-
 def negative_sigma_error(sigma):
     raise ValueError(f"negative sigma = {sigma}")
 
-@nb.extending.overload(negative_sigma_error,target="cpu")
+
+@nb.extending.overload(negative_sigma_error, target="cpu")
 def nse_cpu_overload(sigma):
     def impl(sigma):
         raise ValueError(f"negative sigma = {sigma}")
+
     return impl
 
-@nb.extending.overload(negative_sigma_error,target="gpu")
+
+@nb.extending.overload(negative_sigma_error, target="gpu")
 def nse_cuda_overload(sigma):
     def impl(sigma):
         pass
+
     return impl
 
+
 if config.ROCM_AVAILABLE:
-    @nb.extending.overload(negative_sigma_error,target="hip")
+
+    @nb.extending.overload(negative_sigma_error, target="hip")
     def nse_rocm_overload(sigma):
         def impl(sigma):
             pass
+
         return impl
-
-
 
 
 @njit
@@ -141,6 +145,7 @@ def sample_mcs_angle(E, distance, density, X0, particle_container):
     phi = 2.0 * np.pi * rng.lcg(particle_container)
 
     return phi, theta
+
 
 @njit
 def highland_lynch_dahl_sigma(E, distance, density, X0):
@@ -183,12 +188,12 @@ def rotate_direction(particle, phi, theta):
     sin_phi = np.sin(phi)
 
     # Build local perpendicular axes
-    d = util.local_array(3,type_.float64)
+    d = util.local_array(3, type_.float64)
     d[0] = ux
     d[1] = uy
     d[2] = uz
 
-    perp = util.local_array(3,type_.float64)
+    perp = util.local_array(3, type_.float64)
     if abs(ux) < 0.9:
         perp[0] = 1.0
         perp[1] = 0.0
@@ -197,17 +202,19 @@ def rotate_direction(particle, phi, theta):
         perp[0] = 0.0
         perp[1] = 1.0
         perp[2] = 0.0
-    
-    u = util.local_array(3,type_.float64)
-    v = util.local_array(3,type_.float64)
-    
+
+    u = util.local_array(3, type_.float64)
+    v = util.local_array(3, type_.float64)
+
     linalg.cross(u, d, perp)
     linalg.normalize(u)
     linalg.cross(v, d, u)
 
-    d_new = util.local_array(3,type_.float64)
+    d_new = util.local_array(3, type_.float64)
     for i in range(3):
-        d_new[i] = cos_theta * d[i] + sin_theta * cos_phi * u[i] + sin_theta * sin_phi * v[i]
+        d_new[i] = (
+            cos_theta * d[i] + sin_theta * cos_phi * u[i] + sin_theta * sin_phi * v[i]
+        )
     linalg.normalize(d_new)
 
     particle["ux"] = d_new[0]

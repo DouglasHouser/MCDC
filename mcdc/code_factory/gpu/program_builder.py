@@ -146,7 +146,9 @@ def forward_declare_gpu_program(simulation_dtype):
 
     # Asynchronous versions
     dispatch_sig = f"async_mcdc_source_{config.args.gpu_strategy}"
-    step_async, find_cell_async = harmonize.RuntimeSpec.dispatch_fns(dispatch_sig,(step,find_cell))
+    step_async, find_cell_async = harmonize.RuntimeSpec.dispatch_fns(
+        dispatch_sig, (step, find_cell)
+    )
 
     # Program interfaces
     interface = harmonize.RuntimeSpec.program_interface()
