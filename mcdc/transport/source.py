@@ -23,14 +23,10 @@ def source_particle(particle_container, seed, simulation, data):
     particle["rng_seed"] = seed
 
     # Sample source
-    # TODO: use cdf and binary search instead
     xi = rng.lcg(particle_container)
-    tot = 0.0
-    source = simulation["sources"][0]
-    for source in simulation["sources"]:
-        tot += source["probability"]
-        if tot >= xi:
-            break
+    source_cdf = mcdc_get.simulation.source_cdf_all(simulation, data)
+    source_idx = find_bin_with_rules(xi, source_cdf, 0.0, False)
+    source = simulation["sources"][source_idx]
 
     # Position
     if source["point_source"]:
