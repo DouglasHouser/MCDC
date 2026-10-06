@@ -19,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Changed
 
+- Correctly interpret empty-interpolation to all-linear default in neutron transport data generator, from [@ilhamv]
 - Select among multiple particle sources using a simulation-finalized cumulative distribution and binary search instead of a per-particle linear scan, from [@ilhamv]
 - Rename collision tally/data to interaction tally/data to cover both discrete collisions and condensed interactions; describe tally types by their transport scoring triggers rather than as estimators, from [@ilhamv]
 - Use the full incident-particle state for collision tally filtering, from [@ilhamv]
