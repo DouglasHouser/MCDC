@@ -4,6 +4,35 @@ from numba import njit
 
 
 @njit
+def source_cdf(index, simulation, data, value):
+    offset = simulation["source_cdf_offset"]
+    data[offset + index] = value
+
+
+@njit
+def source_cdf_all(simulation, data, value):
+    start = simulation["source_cdf_offset"]
+    size = simulation["source_cdf_length"]
+    end = start + size
+    data[start:end] = value
+
+
+@njit
+def source_cdf_last(simulation, data, value):
+    start = simulation["source_cdf_offset"]
+    size = simulation["source_cdf_length"]
+    end = start + size
+    data[end - 1] = value
+
+
+@njit
+def source_cdf_chunk(start, length, simulation, data, value):
+    start += simulation["source_cdf_offset"]
+    end = start + length
+    data[start:end] = value
+
+
+@njit
 def k_cycle(index, simulation, data, value):
     offset = simulation["k_cycle_offset"]
     data[offset + index] = value

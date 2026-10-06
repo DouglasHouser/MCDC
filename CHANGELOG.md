@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 ### Changed
 
 - Centralize cross-species production in `physics.produce_cross_species`, respecting particle transport activation and providing a shared foundation for other incident particle types beyond protons, from [@ilhamv]
+- Update Lockwood electron transport regression test answer (also adjust to lower N_particle), from [@ilhamv]
+- Select among multiple particle sources using a simulation-finalized cumulative distribution and binary search instead of a per-particle linear scan, from [@ilhamv]
 - Rename collision tally/data to interaction tally/data to cover both discrete collisions and condensed interactions; describe tally types by their transport scoring triggers rather than as estimators, from [@ilhamv]
 - Use the full incident-particle state for collision tally filtering, from [@ilhamv]
 - Make lower-energy-first transport rule configurable per particle, from [@ilhamv]

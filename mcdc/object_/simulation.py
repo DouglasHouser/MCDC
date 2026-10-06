@@ -121,6 +121,7 @@ class Simulation(MCDCBase):
     materials: list[Material]
     neutron_multigroup_data: list[NeutronMultigroupData]
     sources: list[Source]
+    source_cdf: NDArray[float64]
     secondary_products: list[SecondaryProduct]
 
     # Geometry
@@ -216,6 +217,7 @@ class Simulation(MCDCBase):
 
         # Also empty sources and tallies
         self.sources = []
+        self.source_cdf = np.zeros(1)
         self.tallies = []
 
         # ==============================================================================
@@ -494,8 +496,13 @@ class Simulation(MCDCBase):
 
         # Normalize source-selection probabilities across the complete source set
         source_probability = sum(source.probability for source in self.sources)
-        for source in self.sources:
+        self.source_cdf = np.zeros(len(self.sources) + 1)
+        for i, source in enumerate(self.sources):
             source.probability /= source_probability
+            self.source_cdf[i + 1] = self.source_cdf[i] + source.probability
+        if self.sources:
+            # Ensure that roundoff cannot leave a gap at the upper CDF boundary.
+            self.source_cdf[-1] = 1.0
 
         # Derive particle-bank capacities from settings and the MPI decomposition
         N_work = math.ceil(settings.N_particle / self.mpi_size)

@@ -287,6 +287,7 @@ def test_simulation_compilation_finalizes_model_wide_state():
     simulation.compile()
 
     assert np.allclose([source_a.probability, source_b.probability], [0.25, 0.75])
+    np.testing.assert_allclose(simulation.source_cdf, [0.0, 0.25, 1.0])
     assert simulation.k_eff == 1.25
     assert not simulation.cycle_active
     assert simulation.k_cycle.shape == (4,)

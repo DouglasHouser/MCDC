@@ -3,7 +3,9 @@ import pytest
 
 import mcdc
 import mcdc.numba_types as type_
+import mcdc.transport.rng as rng
 from mcdc.transport.source import source_particle
+from mcdc.transport.util import find_bin_with_rules
 
 
 @pytest.mark.parametrize("coordinate", ["x", "y", "z"])
@@ -99,6 +101,37 @@ def test_transport_source_samples_piecewise_linear_coordinate(prepare_simulation
     assert np.all(np.asarray(sampled_x) >= 0.0)
     assert np.all(np.asarray(sampled_x) <= 1.0)
     assert np.ptp(sampled_x) > 0.0
+
+
+def test_transport_source_selects_from_simulation_cdf(prepare_simulation):
+    probabilities = [1.0, 2.0, 1.0]
+    sources = [
+        mcdc.Source(
+            position=[float(i), 0.0, 0.0],
+            direction=[1.0, 0.0, 0.0],
+            probability=probability,
+        )
+        for i, probability in enumerate(probabilities)
+    ]
+    simulation_container, data = prepare_simulation(sources=sources)
+    simulation = simulation_container[0]
+    expected_cdf = np.array([0.0, 0.25, 0.75, 1.0])
+
+    for seed in range(1, 17):
+        expected_particle_container = np.zeros(1, dtype=type_.particle)
+        expected_particle_container[0]["rng_seed"] = np.uint64(seed)
+        xi = rng.lcg(expected_particle_container)
+        expected_source_idx = find_bin_with_rules(xi, expected_cdf, 0.0, False)
+
+        particle_container = np.zeros(1, dtype=type_.particle)
+        source_particle(
+            particle_container,
+            np.uint64(seed),
+            simulation,
+            data,
+        )
+
+        assert particle_container[0]["x"] == float(expected_source_idx)
 
 
 @pytest.mark.parametrize(
