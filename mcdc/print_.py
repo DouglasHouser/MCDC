@@ -238,10 +238,10 @@ def print_runtime(simulation):
         return duration / total * 100.0 if total > 0.0 else 0.0
 
     print("\n Runtime report:")
-    print_time("Total      ", total, 100.0)
-    print_time("Preparation", preparation, percentage(preparation))
     print_time("Data loading", data_loading, percentage(data_loading))
-    print_time("Simulation ", transport, percentage(transport))
-    print_time("Output     ", output, percentage(output))
+    print_time("Preparation ", preparation, percentage(preparation))
+    print_time("Simulation  ", transport, percentage(transport))
+    print_time("Output      ", output, percentage(output))
+    print_time("Total       ", total, 100.0)
     print()
     sys.stdout.flush()
