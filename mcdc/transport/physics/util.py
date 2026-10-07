@@ -6,7 +6,8 @@ from numba import njit
 
 import mcdc.mcdc_get as mcdc_get
 
-from mcdc.transport.util import find_bin, make_direction_basis
+from mcdc.transport.util import find_bin
+from mcdc.transport.linalg import make_direction_basis
 
 
 @njit

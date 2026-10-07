@@ -9,7 +9,7 @@ from numpy.typing import NDArray
 
 from mcdc.constant import INTERPOLATION_LINEAR
 from mcdc.object_.base import MCDCObject
-from mcdc.object_.data import DataBase, DataPolynomial, DataTable
+from mcdc.object_.data import DataBase, DataNone, DataPolynomial, DataTable
 from mcdc.object_.distribution import DistributionBase
 from mcdc.object_.neutron_reaction import (
     NeutronReactionCapture,
@@ -90,8 +90,7 @@ class Nuclide(MCDCObject):
     neutron_fission_delayed_decay_rates: NDArray[float64]
     neutron_fission_delayed_spectra: list[DistributionBase]
     #
-    stopping_power: NDArray[float64]
-    stopping_power_energy_grid: NDArray[float64]
+    stopping_power: DataBase
 
     def __init__(self, nuclide_name, temperature):
         super().__init__()
@@ -129,8 +128,7 @@ class Nuclide(MCDCObject):
         self.neutron_fission_delayed_decay_rates = np.zeros(0)
         self.neutron_fission_delayed_spectra = []
         # Stopping Power
-        self.stopping_power = np.zeros(0)
-        self.stopping_power_energy_grid = np.zeros(0)
+        self.stopping_power = DataNone()
         self.radiation_length = 0.0
 
     def _compile_into_simulation(self, simulation) -> bool:
@@ -330,8 +328,13 @@ class Nuclide(MCDCObject):
         # ==========================================================================
 
         if "stopping_power" in file:
-            self.stopping_power = file["stopping_power"]["total_stopping_power"][()]
-            self.stopping_power_energy_grid = file["stopping_power"]["energy"][()]
+            self.stopping_power = DataTable(
+                file["stopping_power"]["energy"][()],
+                file["stopping_power"]["total_stopping_power"][()],
+                INTERPOLATION_LINEAR,
+            )
+            # Register data loaded during finalization.
+            self.stopping_power._compile_into_simulation(simulation)
         elif simulation.settings.condensed_interactions.proton:
             raise ValueError(
                 f"Proton condensed history requires stopping power for nuclide {self.name}"
