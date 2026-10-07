@@ -987,6 +987,7 @@ def make_simulation_type(N: dict):
         ('mpi_work_iter', int64, (1,)),
         ('runtime_total', float64),
         ('runtime_preparation', float64),
+        ('runtime_data_loading', float64),
         ('runtime_simulation', float64),
         ('runtime_output', float64),
         ('runtime_bank_management', float64),

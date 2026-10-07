@@ -224,12 +224,13 @@ def print_time(label, duration, percent):
 
 
 def print_runtime(simulation):
-    """Print preparation, transport, and output runtimes."""
+    """Print data-loading, preparation, transport, and output runtimes."""
     if not _IS_MASTER:
         return
 
     total = simulation["runtime_total"]
     preparation = simulation["runtime_preparation"]
+    data_loading = simulation["runtime_data_loading"]
     transport = simulation["runtime_simulation"]
     output = simulation["runtime_output"]
 
@@ -239,6 +240,7 @@ def print_runtime(simulation):
     print("\n Runtime report:")
     print_time("Total      ", total, 100.0)
     print_time("Preparation", preparation, percentage(preparation))
+    print_time("Data loading", data_loading, percentage(data_loading))
     print_time("Simulation ", transport, percentage(transport))
     print_time("Output     ", output, percentage(output))
     print()

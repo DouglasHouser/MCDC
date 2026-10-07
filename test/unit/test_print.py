@@ -65,6 +65,7 @@ def test_print_runtime_handles_zero_total(monkeypatch, capsys):
     simulation = {
         "runtime_total": 0.0,
         "runtime_preparation": 0.0,
+        "runtime_data_loading": 0.0,
         "runtime_simulation": 0.0,
         "runtime_output": 0.0,
     }
@@ -74,6 +75,7 @@ def test_print_runtime_handles_zero_total(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "Runtime report:" in output
     assert "Preparation | 0.00 seconds (0.0%)" in output
+    assert "Data loading | 0.00 seconds (0.0%)" in output
 
 
 def test_master_only_message(monkeypatch, capsys):

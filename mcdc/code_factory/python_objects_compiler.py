@@ -122,13 +122,9 @@ def register_object(object_: MCDCObject, simulation: Simulation) -> bool:
     # Assign IDs
     object_.ID = len(object_list)
     if isinstance(object_, MCDCPolymorphic):
-        object_.sub_ID = sum(
-            [
-                x.sub_type == object_.sub_type
-                for x in object_list
-                if isinstance(x, MCDCPolymorphic)
-            ]
-        )
+        counter_key = (id(object_list), object_.sub_type)
+        object_.sub_ID = simulation._next_sub_ID.get(counter_key, 0)
+        simulation._next_sub_ID[counter_key] = object_.sub_ID + 1
     object_.compile_ID = simulation.compile_ID
 
     # Assign name if needed (TODO: Resolve IDE error message)

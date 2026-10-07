@@ -96,6 +96,7 @@ class Simulation(MCDCBase):
     label = "simulation"
     non_numba = [
         "_next_compile_ID",
+        "_next_sub_ID",
         "compiled",
         "regions",
         "root_universe",
@@ -105,6 +106,7 @@ class Simulation(MCDCBase):
         "bank_future",
     ]
     _next_compile_ID: int = 1  # Non-Numba
+    _next_sub_ID: dict[tuple[int, int], int]  # Non-Numba
 
     # Basic parameters
     name: str
@@ -194,6 +196,7 @@ class Simulation(MCDCBase):
     # Runtimes
     runtime_total: float
     runtime_preparation: float
+    runtime_data_loading: float
     runtime_simulation: float
     runtime_output: float
     runtime_bank_management: float
@@ -287,6 +290,7 @@ class Simulation(MCDCBase):
         # Runtimes
         self.runtime_total = 0.0
         self.runtime_preparation = 0.0
+        self.runtime_data_loading = 0.0
         self.runtime_simulation = 0.0
         self.runtime_output = 0.0
         self.runtime_bank_management = 0.0
@@ -300,6 +304,9 @@ class Simulation(MCDCBase):
         self.source_seed = 0
 
     def _reset_model(self) -> None:
+        # Registration state
+        self._next_sub_ID = {}
+
         # Physics
         self.data = []
         self.distributions = []
@@ -470,6 +477,15 @@ class Simulation(MCDCBase):
                 set_elements_from_nuclides(material, self)
 
         # Load the physics data required by the completed material model
+        if (
+            (settings.neutron_transport.active and self.nuclides)
+            or (settings.proton_transport.active and self.nuclides)
+            or (settings.electron_transport.active and self.elements)
+        ):
+            print_msg("")
+
+        time_data_loading_start = MPI.Wtime()
+
         if settings.neutron_transport.active:
             N_nuclide = len(self.nuclides)
             for index, nuclide in enumerate(self.nuclides, start=1):
@@ -494,6 +510,8 @@ class Simulation(MCDCBase):
                 file_name = f"{element.name}.h5"
                 print_msg(f" Loading electron data [{index}/{N_element}]: {file_name}")
                 element.set_electron_data(self)
+
+        self.runtime_data_loading = MPI.Wtime() - time_data_loading_start
 
         # Resolve tally filters and shapes that require the complete model
         for tally in self.tallies:

@@ -5,7 +5,7 @@ import numpy as np
 
 import mcdc
 from mcdc.main import prepare
-from mcdc.output import generate_output
+from mcdc.output import create_runtime_dataset, generate_output
 from mcdc.constant import SCORE_FLUX
 from mcdc.output import clear_census_based_tally_files, recombine_tallies
 
@@ -17,6 +17,23 @@ def _write_census_tally(path, values):
         score = tally.require_group("flux")
         score.create_dataset("mean", data=values)
         score.create_dataset("sdev", data=np.zeros_like(values))
+
+
+def test_runtime_output_includes_data_loading(tmp_path):
+    runtimes = {
+        "runtime_total": 5.0,
+        "runtime_preparation": 2.0,
+        "runtime_data_loading": 1.5,
+        "runtime_simulation": 2.5,
+        "runtime_output": 0.5,
+        "runtime_bank_management": 0.25,
+    }
+
+    with h5py.File(tmp_path / "runtime.h5", "w") as file:
+        create_runtime_dataset(file, runtimes)
+
+    with h5py.File(tmp_path / "runtime.h5", "r") as file:
+        assert file["runtime/data_loading"][0] == 1.5
 
 
 def test_clear_census_based_tally_files(tmp_path):
