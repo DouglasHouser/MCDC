@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
+- Add an arbitrary-axis cone surface and specialized transport kernels for arbitrary-axis cylinders and all cone orientations, from [@ilhamv]
 - Add proton transport with nuclear reactions and secondary-particle production, continuous slowing down, energy-loss straggling, and multiple Coulomb scattering, from [@ethan-lame]
 - Add developer documentation on particle transport architecture, covering particle steps, event handling, interaction data, and tally scoring triggers, from [@ilhamv]
 - Add time, polar-cosine, and azimuthal dependence to weight windows; consolidate lower, target, and upper weights into one array and extend flattened-data accessors to eight dimensions, from [@nglaser3]
@@ -45,6 +46,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Prevent particles from becoming trapped at zero-distance crossings of quadratic surfaces, from [@ilhamv]
 - Fix tallies not applying their particle-type filter during scoring, from [@melekderman]
 - Fix collision tally energy filtering to use the incident energy, from [@melekderman]
 - Fix electron-ionization energy sampling, change the policy from [@melekderman]
