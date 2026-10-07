@@ -16,10 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - Add piece-wise linear spatial distribution for source definition, from [@ilhamv]
 - Add overriding option N_active, from [@ilhamv]
 - Add MC/DC-VVP project documentation with verification case narratives, published results, and VVP result-generation and publication steps in the release checklist, from [@ilhamv]
-- Add GPU-compatible functions for 1d linear interoplation, 3d cross products, and 3d vector normalization, from [@braxtoncuneo]
+- Add GPU-compatible functions for 3D cross products and vector normalization, from [@braxtoncuneo]
 
 ### Changed
 
+- Represent stopping power with `DataTable` and use the shared data evaluator with optional endpoint clamping, from [@ilhamv]
 - Rename collision tally/data to interaction tally/data to cover both discrete collisions and condensed interactions; describe tally types by their transport scoring triggers rather than as estimators, from [@ilhamv]
 - Use the full incident-particle state for collision tally filtering, from [@ilhamv]
 - Make lower-energy-first transport rule configurable per particle, from [@ilhamv]

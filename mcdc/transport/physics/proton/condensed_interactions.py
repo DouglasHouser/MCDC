@@ -14,6 +14,7 @@ import mcdc.transport.linalg as linalg
 
 from mcdc.constant import PROTON_CUTOFF_ENERGY, PROTON_MASS
 from mcdc.transport.distribution import sample_normal
+from mcdc.transport.data import evaluate_data
 
 
 @njit
@@ -31,11 +32,8 @@ def max_condensed_step_distance(particle_container, simulation, data):
         nuclide = simulation["nuclides"][nuclide_ID]
 
         if not material["stopping_power_provided"]:
-            dedx_values = mcdc_get.nuclide.stopping_power_all(nuclide, data)
-            dedx_energies = mcdc_get.nuclide.stopping_power_energy_grid_all(
-                nuclide, data
-            )
-            dedx = linalg.interp(E / 1e6, dedx_energies, dedx_values)
+            stopping_power = simulation["data"][nuclide["stopping_power_ID"]]
+            dedx = evaluate_data(E / 1e6, stopping_power, simulation, data, clamp=True)
             total_dedx += dedx * 1e6
 
         atomic_mass = nuclide["atomic_weight_ratio"]
@@ -44,9 +42,8 @@ def max_condensed_step_distance(particle_container, simulation, data):
         total_rho += density_gcm3
 
     if material["stopping_power_provided"]:
-        dedx_values = mcdc_get.material.stopping_power_all(material, data)
-        dedx_energies = mcdc_get.material.stopping_power_energy_grid_all(material, data)
-        dedx = linalg.interp(E / 1e6, dedx_energies, dedx_values)
+        stopping_power = simulation["data"][material["stopping_power_ID"]]
+        dedx = evaluate_data(E / 1e6, stopping_power, simulation, data, clamp=True)
         total_dedx = dedx * 1e6
 
     max_fractional_energy_loss = condensed_interactions["max_fractional_energy_loss"]
@@ -239,12 +236,8 @@ def calculate_total_stopping_power(particle_container, simulation, data):
 
         # If no stopping power provided, we calculate it ourselves here
         if not material["stopping_power_provided"]:
-            dedx_values = mcdc_get.nuclide.stopping_power_all(nuclide, data)
-            dedx_energies = mcdc_get.nuclide.stopping_power_energy_grid_all(
-                nuclide, data
-            )
-
-            dedx = linalg.interp(E / 1e6, dedx_energies, dedx_values)
+            stopping_power = simulation["data"][nuclide["stopping_power_ID"]]
+            dedx = evaluate_data(E / 1e6, stopping_power, simulation, data, clamp=True)
             total_stopping_power += dedx * 1e6
 
         # Convert atoms/barn-cm to g/cm3:
@@ -260,10 +253,8 @@ def calculate_total_stopping_power(particle_container, simulation, data):
     average_A = total_A / material["N_nuclide"]
 
     if material["stopping_power_provided"]:
-        dedx_values = mcdc_get.material.stopping_power_all(material, data)
-        dedx_energies = mcdc_get.material.stopping_power_energy_grid_all(material, data)
-
-        dedx = linalg.interp(E / 1e6, dedx_energies, dedx_values)
+        stopping_power = simulation["data"][material["stopping_power_ID"]]
+        dedx = evaluate_data(E / 1e6, stopping_power, simulation, data, clamp=True)
         total_stopping_power = dedx * 1e6
 
     return average_A, average_Z, total_stopping_power, total_rho_gcm3
