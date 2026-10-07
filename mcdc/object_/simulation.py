@@ -471,19 +471,28 @@ class Simulation(MCDCBase):
 
         # Load the physics data required by the completed material model
         if settings.neutron_transport.active:
-            for nuclide in self.nuclides:
+            N_nuclide = len(self.nuclides)
+            for index, nuclide in enumerate(self.nuclides, start=1):
+                file_name = f"{nuclide.name}-{nuclide.temperature}K.h5"
+                print_msg(f" Loading neutron data [{index}/{N_nuclide}]: {file_name}")
                 nuclide.set_neutron_data(self)
             for material in self.materials:
                 update_fissionable_from_nuclides(material)
 
         if settings.proton_transport.active:
-            for nuclide in self.nuclides:
+            N_nuclide = len(self.nuclides)
+            for index, nuclide in enumerate(self.nuclides, start=1):
+                file_name = f"{nuclide.name}.h5"
+                print_msg(f" Loading proton data [{index}/{N_nuclide}]: {file_name}")
                 nuclide.set_proton_data(self)
             for material in self.materials:
                 update_radiation_length_from_nuclides(material)
 
         if settings.electron_transport.active:
-            for element in self.elements:
+            N_element = len(self.elements)
+            for index, element in enumerate(self.elements, start=1):
+                file_name = f"{element.name}.h5"
+                print_msg(f" Loading electron data [{index}/{N_element}]: {file_name}")
                 element.set_electron_data(self)
 
         # Resolve tally filters and shapes that require the complete model
