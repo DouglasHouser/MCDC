@@ -66,6 +66,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - Improve tally variance accuracy with stable online statistics and parallel moment merging; require multiple batches for fixed-source time-census and GPU transport, from [@ilhamv]
 - Fix UCX transport errors in MPI runs on the unit-test and Numba-support CI workflows by restricting `UCX_TLS` to `self,sm,tcp`, from [@melekderman]
 - Fix the generation of dispatch function handles when compiling for GPU, from [@braxtoncuneo]
+- Fix use of default parameter values for `evaluate_data` and `evaluate_table`, from [@braxtoncuneo]
+- Fix use of `numba-hip`-incompatible np.log10 calls in proton condensed interactions, from [@braxtoncuneo]
 
 ### Security
 

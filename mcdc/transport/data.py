@@ -24,13 +24,23 @@ from mcdc.transport.util import (
 
 
 @njit
-def evaluate_data(x, data_, simulation, data, clamp=False):
+def evaluate_data(x, data_, simulation, data):
+    return evaluate_data_with_clamp_option(x, data_, simulation, data, False)
+
+
+@njit
+def evaluate_data_clamped(x, data_, simulation, data):
+    return evaluate_data_with_clamp_option(x, data_, simulation, data, True)
+
+
+@njit
+def evaluate_data_with_clamp_option(x, data_, simulation, data, clamp):
     """Evaluate data, optionally clamping tabulated data to its endpoint values."""
     data_type = data_["sub_type"]
     ID = data_["sub_ID"]
     if data_type == DATA_TABLE:
         table = simulation["table_data"][ID]
-        return evaluate_table(x, table, data, clamp)
+        return evaluate_table_with_clamp_option(x, table, data, clamp)
     elif data_type == DATA_POLYNOMIAL:
         polynomial = simulation["polynomial_data"][ID]
         return evaluate_polynomial(x, polynomial, data)
@@ -39,7 +49,17 @@ def evaluate_data(x, data_, simulation, data, clamp=False):
 
 
 @njit
-def evaluate_table(x, table, data, clamp=False):
+def evaluate_table(x, table, data):
+    return evaluate_table_with_clamp_option(x, table, data, False)
+
+
+@njit
+def evaluate_table_clamped(x, table, data):
+    return evaluate_table_with_clamp_option(x, table, data, True)
+
+
+@njit
+def evaluate_table_with_clamp_option(x, table, data, clamp):
     """Evaluate a table with optional constant extrapolation outside its grid."""
     grid = mcdc_get.table_data.x_all(table, data)
 

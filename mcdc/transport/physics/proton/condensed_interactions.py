@@ -14,7 +14,7 @@ import mcdc.transport.linalg as linalg
 
 from mcdc.constant import PROTON_CUTOFF_ENERGY, PROTON_MASS
 from mcdc.transport.distribution import sample_normal
-from mcdc.transport.data import evaluate_data
+from mcdc.transport.data import evaluate_data_clamped
 
 
 @njit
@@ -33,7 +33,7 @@ def max_condensed_step_distance(particle_container, simulation, data):
 
         if not material["stopping_power_provided"]:
             stopping_power = simulation["data"][nuclide["stopping_power_ID"]]
-            dedx = evaluate_data(E / 1e6, stopping_power, simulation, data, clamp=True)
+            dedx = evaluate_data_clamped(E / 1e6, stopping_power, simulation, data)
             total_dedx += dedx * 1e6
 
         atomic_mass = nuclide["atomic_weight_ratio"]
@@ -43,7 +43,7 @@ def max_condensed_step_distance(particle_container, simulation, data):
 
     if material["stopping_power_provided"]:
         stopping_power = simulation["data"][material["stopping_power_ID"]]
-        dedx = evaluate_data(E / 1e6, stopping_power, simulation, data, clamp=True)
+        dedx = evaluate_data_clamped(E / 1e6, stopping_power, simulation, data)
         total_dedx = dedx * 1e6
 
     max_fractional_energy_loss = condensed_interactions["max_fractional_energy_loss"]
@@ -157,7 +157,7 @@ def highland_lynch_dahl_sigma(E, distance, density, X0):
         (13.6e6 / p * beta)
         * z
         * math.sqrt(radiation_distance_fraction)
-        * (1 + 0.088 * np.log10(radiation_distance_fraction))
+        * (1 + 0.088 * math.log10(radiation_distance_fraction))
     )
     sigma = abs(sigma)
 
@@ -237,7 +237,7 @@ def calculate_total_stopping_power(particle_container, simulation, data):
         # If no stopping power provided, we calculate it ourselves here
         if not material["stopping_power_provided"]:
             stopping_power = simulation["data"][nuclide["stopping_power_ID"]]
-            dedx = evaluate_data(E / 1e6, stopping_power, simulation, data, clamp=True)
+            dedx = evaluate_data_clamped(E / 1e6, stopping_power, simulation, data)
             total_stopping_power += dedx * 1e6
 
         # Convert atoms/barn-cm to g/cm3:
@@ -254,7 +254,7 @@ def calculate_total_stopping_power(particle_container, simulation, data):
 
     if material["stopping_power_provided"]:
         stopping_power = simulation["data"][material["stopping_power_ID"]]
-        dedx = evaluate_data(E / 1e6, stopping_power, simulation, data, clamp=True)
+        dedx = evaluate_data_clamped(E / 1e6, stopping_power, simulation, data)
         total_stopping_power = dedx * 1e6
 
     return average_A, average_Z, total_stopping_power, total_rho_gcm3
