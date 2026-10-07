@@ -1,4 +1,3 @@
-import math
 import numpy as np
 
 from numba import njit
@@ -11,6 +10,7 @@ import mcdc.numba_types as type_
 import mcdc.transport.mesh as mesh
 import mcdc.transport.physics as physics
 import mcdc.transport.util as util
+from mcdc.transport.linalg import rotation_matrix
 
 from mcdc.constant import *
 from mcdc.transport.geometry.surface import (
@@ -329,7 +329,7 @@ def _rotate_particle(particle_container, rotation):
     uz = particle["uz"]
 
     # Rotation matrix
-    xx, xy, xz, yx, yy, yz, zx, zy, zz = _rotation_matrix(rotation)
+    xx, xy, xz, yx, yy, yz, zx, zy, zz = rotation_matrix(rotation)
 
     # Rotate
     x_rotated = x * xx + y * xy + z * xz
@@ -346,31 +346,6 @@ def _rotate_particle(particle_container, rotation):
     particle["ux"] = ux_rotated
     particle["uy"] = uy_rotated
     particle["uz"] = uz_rotated
-
-
-@njit
-def _rotation_matrix(rotation):
-    phi = rotation[0]
-    theta = rotation[1]
-    psi = rotation[2]
-
-    xx = math.cos(theta) * math.cos(psi)
-    xy = -math.cos(phi) * math.sin(psi) + math.sin(phi) * math.sin(theta) * math.cos(
-        psi
-    )
-    xz = math.sin(phi) * math.sin(psi) + math.cos(phi) * math.sin(theta) * math.cos(psi)
-
-    yx = math.cos(theta) * math.sin(psi)
-    yy = math.cos(phi) * math.cos(psi) + math.sin(phi) * math.sin(theta) * math.sin(psi)
-    yz = -math.sin(phi) * math.cos(psi) + math.cos(phi) * math.sin(theta) * math.sin(
-        psi
-    )
-
-    zx = -math.sin(theta)
-    zy = math.sin(phi) * math.cos(theta)
-    zz = math.cos(phi) * math.cos(theta)
-
-    return xx, xy, xz, yx, yy, yz, zx, zy, zz
 
 
 # ======================================================================================

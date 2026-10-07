@@ -16,10 +16,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - Add piece-wise linear spatial distribution for source definition, from [@ilhamv]
 - Add overriding option N_active, from [@ilhamv]
 - Add MC/DC-VVP project documentation with verification case narratives, published results, and VVP result-generation and publication steps in the release checklist, from [@ilhamv]
+- Add GPU-compatible functions for 3D cross products and vector normalization, from [@braxtoncuneo]
 
 ### Changed
 
 - Correctly interpret empty-interpolation to all-linear default in neutron transport data generator, from [@ilhamv]
+- Represent stopping power with `DataTable` and use the shared data evaluator with optional endpoint clamping, from [@ilhamv]
+- Centralize cross-species production in `physics.produce_cross_species`, respecting particle transport activation and providing a shared foundation for other incident particle types beyond protons, from [@ilhamv]
+- Update Lockwood electron transport regression test answer (also adjust to lower N_particle), from [@ilhamv]
 - Select among multiple particle sources using a simulation-finalized cumulative distribution and binary search instead of a per-particle linear scan, from [@ilhamv]
 - Rename collision tally/data to interaction tally/data to cover both discrete collisions and condensed interactions; describe tally types by their transport scoring triggers rather than as estimators, from [@ilhamv]
 - Use the full incident-particle state for collision tally filtering, from [@ilhamv]
@@ -32,7 +36,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - Organize the Kobayashi examples under `examples/kobayashi-dogleg/` as `steady_state`, `pulsed`, and `pulsed_with_fission`; use the fission variant in the pulsed tutorial and clarify its relation to the original PNE benchmark and the Zenodo transient adaptation, from [@ilhamv]
 - Add standard `performance/` output metrics and replace `--runtime_output` with `--no-tally_output` to omit tally results, from [@ilhamv]
 - Filter out empty numba support accessors from creation, from [@ilhamv]
-- Update GPU transport support for the current MC/DC data model and Harmonize runtime, including GPU-compatible state access, particle-bank operations, array accessors, and torus intersections, from [@braxtoncuneo].
+- Update GPU transport support for the current MC/DC data model and Harmonize runtime, including GPU-compatible state access, particle-bank operations, array accessors, and torus intersections, from [@braxtoncuneo]
 - Show previously published documentation versions in the documentation version switcher, from [@ilhamv]
 - Optimize tally moments memory allocation — only allocate to non-master rank if necessary, from [@ilhamv]
 
@@ -40,7 +44,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Removed
 
-- Caching of the `souce_loop` function is removed for GPU execution, from [@braxtoncuneo].
+- Caching of the `souce_loop` function is removed for GPU execution, from [@braxtoncuneo]
+- Caching of the `bank_active_particle` function, from [@braxtoncuneo]
 - Remove empty mcdc_get and mcdc_set members, from [@ilhamv]
 
 ### Fixed
@@ -56,6 +61,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - Correct ACEtk electron data loading units, elastic cross-section assignments, and CDF dataset names, from [@massimolarsen]
 - Improve tally variance accuracy with stable online statistics and parallel moment merging; require multiple batches for fixed-source time-census and GPU transport, from [@ilhamv]
 - Fix UCX transport errors in MPI runs on the unit-test and Numba-support CI workflows by restricting `UCX_TLS` to `self,sm,tcp`, from [@melekderman]
+- Fix the generation of dispatch function handles when compiling for GPU, from [@braxtoncuneo]
 
 ### Security
 

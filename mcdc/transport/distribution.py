@@ -21,7 +21,8 @@ from mcdc.constant import (
     PI,
 )
 from mcdc.transport.data import evaluate_data
-from mcdc.transport.util import find_bin, make_direction_basis
+from mcdc.transport.util import find_bin
+from mcdc.transport.linalg import make_direction_basis
 
 # ======================================================================================
 # General distribution samplers

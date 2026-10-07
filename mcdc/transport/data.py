@@ -24,12 +24,13 @@ from mcdc.transport.util import (
 
 
 @njit
-def evaluate_data(x, data_, simulation, data):
+def evaluate_data(x, data_, simulation, data, clamp=False):
+    """Evaluate data, optionally clamping tabulated data to its endpoint values."""
     data_type = data_["sub_type"]
     ID = data_["sub_ID"]
     if data_type == DATA_TABLE:
         table = simulation["table_data"][ID]
-        return evaluate_table(x, table, data)
+        return evaluate_table(x, table, data, clamp)
     elif data_type == DATA_POLYNOMIAL:
         polynomial = simulation["polynomial_data"][ID]
         return evaluate_polynomial(x, polynomial, data)
@@ -38,8 +39,16 @@ def evaluate_data(x, data_, simulation, data):
 
 
 @njit
-def evaluate_table(x, table, data):
+def evaluate_table(x, table, data, clamp=False):
+    """Evaluate a table with optional constant extrapolation outside its grid."""
     grid = mcdc_get.table_data.x_all(table, data)
+
+    # Clamp before bin lookup, including equality at the first grid point.
+    if clamp:
+        if x <= grid[0]:
+            return mcdc_get.table_data.y(0, table, data)
+        if x >= grid[-1]:
+            return mcdc_get.table_data.y(len(grid) - 1, table, data)
 
     idx = find_bin(x, grid)
     x1 = grid[idx]
