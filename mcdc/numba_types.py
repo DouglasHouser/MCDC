@@ -945,6 +945,8 @@ def make_simulation_type(N: dict):
         ('bank_census', make_bank_type(N['census_particle'])),
         ('bank_active', make_bank_type(N['active_particle'])),
         ('name', 'U32'),
+        ('source_cdf_offset', int64),
+        ('source_cdf_length', int64),
         ('idx_work', int64),
         ('idx_cycle', int64),
         ('idx_census', int64),
