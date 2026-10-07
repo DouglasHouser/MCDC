@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
+- Add cone surfaces with a half-angle interface in degrees, specialized transport kernels for all cone orientations, and a specialized arbitrary-axis cylinder kernel, from [@ilhamv]
 - Add proton transport with nuclear reactions and secondary-particle production, continuous slowing down, energy-loss straggling, and multiple Coulomb scattering, from [@ethan-lame]
 - Add developer documentation on particle transport architecture, covering particle steps, event handling, interaction data, and tally scoring triggers, from [@ilhamv]
 - Add time, polar-cosine, and azimuthal dependence to weight windows; consolidate lower, target, and upper weights into one array and extend flattened-data accessors to eight dimensions, from [@nglaser3]
@@ -20,6 +21,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Changed
 
+- Report per-file progress while loading native neutron, proton, and electron data, and include data-loading time in runtime reports and HDF5 output, from [@ilhamv]
+- Reduce compilation time for data-heavy models by assigning polymorphic subtype IDs with constant-time counters, from [@ilhamv]
+- Correctly interpret empty-interpolation to all-linear default in neutron transport data generator, from [@ilhamv]
 - Represent stopping power with `DataTable` and use the shared data evaluator with optional endpoint clamping, from [@ilhamv]
 - Centralize cross-species production in `physics.produce_cross_species`, respecting particle transport activation and providing a shared foundation for other incident particle types beyond protons, from [@ilhamv]
 - Update Lockwood electron transport regression test answer (also adjust to lower N_particle), from [@ilhamv]
@@ -49,6 +53,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Prevent particles from becoming trapped at zero-distance crossings of quadratic surfaces, from [@ilhamv]
 - Fix tallies not applying their particle-type filter during scoring, from [@melekderman]
 - Fix collision tally energy filtering to use the incident energy, from [@melekderman]
 - Fix electron-ionization energy sampling, change the policy from [@melekderman]

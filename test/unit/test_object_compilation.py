@@ -2,9 +2,11 @@ import numpy as np
 import pytest
 
 import mcdc
+import mcdc.object_.simulation as simulation_module
 
 from mcdc.object_.base import MCDCBase, MCDCObject
-from mcdc.object_.data import DataPolynomial
+from mcdc.object_.data import DataPolynomial, DataTable
+from mcdc.object_.element import Element
 from mcdc.object_.transport_model_data import NeutronMultigroupData
 from mcdc.object_.technique import Technique
 from mcdc.object_.nuclide import Nuclide
@@ -184,6 +186,57 @@ def test_native_only_simulation_remains_hybrid(monkeypatch):
     assert simulation.settings.neutron_multigroup.hybrid
 
 
+def test_native_nuclide_data_loading_is_reported(monkeypatch, capsys):
+    def compile_nuclide(nuclide, simulation):
+        nuclide.fissionable = False
+        nuclide.mass_number = 1
+        nuclide.radiation_length = 1.0
+        return MCDCObject._compile_into_simulation(nuclide, simulation)
+
+    monkeypatch.setattr(Nuclide, "_compile_into_simulation", compile_nuclide)
+    monkeypatch.setattr(Nuclide, "set_neutron_data", lambda self, simulation: None)
+    monkeypatch.setattr(Nuclide, "set_proton_data", lambda self, simulation: None)
+
+    material = mcdc.Material(nuclide_composition={"H1": 0.1}, temperature=293.6)
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell(fill=material)])
+    simulation.set_sources(
+        [
+            mcdc.Source(particle_type="neutron", energy=1.0),
+            mcdc.Source(particle_type="proton", energy=1.0),
+        ]
+    )
+    times = iter([10.0, 12.5])
+    monkeypatch.setattr(simulation_module.MPI, "Wtime", lambda: next(times))
+
+    simulation.compile()
+
+    output = capsys.readouterr().out
+    assert "\n Loading neutron data [1/1]" in output
+    assert "Loading neutron data [1/1]: H1-293.6K.h5" in output
+    assert "Loading proton data [1/1]: H1.h5" in output
+    assert simulation.runtime_data_loading == 2.5
+
+
+def test_native_element_data_loading_is_reported(monkeypatch, capsys):
+    def compile_element(element, simulation):
+        element.atomic_number = 1
+        element.atomic_weight_ratio = 1.0
+        return MCDCObject._compile_into_simulation(element, simulation)
+
+    monkeypatch.setattr(Element, "_compile_into_simulation", compile_element)
+    monkeypatch.setattr(Element, "set_electron_data", lambda self, simulation: None)
+
+    material = mcdc.Material(element_composition={"H": 0.1})
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell(fill=material)])
+    simulation.set_sources([mcdc.Source(particle_type="electron", energy=1.0)])
+
+    simulation.compile()
+
+    assert "Loading electron data [1/1]: H.h5" in capsys.readouterr().out
+
+
 def test_local_multigroup_grids_pack_hybrid(prepare_simulation):
     material_a = mcdc.Material.multigroup(capture=[0.1], energy_grid=[1.0, 2.0])
     material_b = mcdc.Material.multigroup(capture=[0.2], energy_grid=[2.0, 3.0])
@@ -211,6 +264,30 @@ def test_mcdc_object_compiles_object_members_and_lists():
 
     assert simulation.data[1:] == [child, *children]
     assert ignored.compile_ID == 0
+
+
+def test_polymorphic_sub_ids_are_sequential_and_reset():
+    simulation = mcdc.Simulation()
+    simulation.compile_ID = 1
+
+    first_polynomial = DataPolynomial(np.array([1.0]))
+    table = DataTable(np.array([0.0, 1.0]), np.array([1.0, 2.0]), 1)
+    second_polynomial = DataPolynomial(np.array([2.0]))
+
+    for data in [first_polynomial, table, second_polynomial]:
+        data._compile_into_simulation(simulation)
+
+    assert [data.ID for data in simulation.data] == [0, 1, 2]
+    assert first_polynomial.sub_ID == 0
+    assert table.sub_ID == 0
+    assert second_polynomial.sub_ID == 1
+
+    simulation._reset_model()
+    simulation.compile_ID = 2
+    second_polynomial._compile_into_simulation(simulation)
+
+    assert second_polynomial.ID == 0
+    assert second_polynomial.sub_ID == 0
 
 
 def test_simulation_compiles_objects_owned_by_embedded_configuration():

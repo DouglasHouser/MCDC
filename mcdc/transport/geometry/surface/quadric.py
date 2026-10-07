@@ -187,14 +187,13 @@ def get_distance(particle_container, surface):
         root_1 = (-b + sqrt) / denom
         root_2 = (-b - sqrt) / denom
 
-        # Coincident?
-        if coincident:
-            return max(root_1, root_2)
-
-        # Negative roots, moving away from the surface
-        if root_1 < 0.0:
+        # Ignore roots at or immediately behind the current position.  In
+        # particular, an indefinite quadric such as a cone can have its other
+        # root behind the particle, so selecting max(root_1, root_2) at a
+        # coincidence can return zero and trap the particle at the surface.
+        if root_1 <= COINCIDENCE_TOLERANCE:
             root_1 = INF
-        if root_2 < 0.0:
+        if root_2 <= COINCIDENCE_TOLERANCE:
             root_2 = INF
 
         # Return the smaller root
