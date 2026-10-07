@@ -53,6 +53,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Preserve very low particle energies when converting from speed by avoiding floating-point cancellation in the relativistic kinetic-energy calculation, from [@ilhamv]
 - Prevent particles from becoming trapped at zero-distance crossings of quadratic surfaces, from [@ilhamv]
 - Fix tallies not applying their particle-type filter during scoring, from [@melekderman]
 - Fix collision tally energy filtering to use the incident energy, from [@melekderman]

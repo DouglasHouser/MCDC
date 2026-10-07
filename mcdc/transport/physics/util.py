@@ -6,8 +6,18 @@ from numba import njit
 
 import mcdc.mcdc_get as mcdc_get
 
+from mcdc.constant import LIGHT_SPEED
 from mcdc.transport.util import find_bin
 from mcdc.transport.linalg import make_direction_basis
+
+
+@njit
+def relativistic_energy_from_speed(speed, mass):
+    """Return kinetic energy without cancellation in ``gamma - 1``."""
+    beta_squared = (speed / LIGHT_SPEED) ** 2
+    inverse_gamma = math.sqrt(1.0 - beta_squared)
+    gamma_minus_one = beta_squared / (inverse_gamma * (1.0 + inverse_gamma))
+    return mass * gamma_minus_one
 
 
 @njit
