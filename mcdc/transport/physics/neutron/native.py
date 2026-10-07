@@ -41,6 +41,7 @@ from mcdc.transport.distribution import (
 )
 from mcdc.transport.physics.util import (
     evaluate_neutron_xs_energy_grid,
+    relativistic_energy_from_speed,
     scatter_direction,
 )
 from mcdc.transport.util import find_bin, linear_interpolation
@@ -60,10 +61,7 @@ def particle_speed(particle_container):
 
 @njit
 def particle_energy_from_speed(speed):
-    beta = speed / LIGHT_SPEED
-    gamma = 1.0 / math.sqrt(1.0 - beta * beta)
-    mass = NEUTRON_MASS
-    return mass * (gamma - 1.0)
+    return relativistic_energy_from_speed(speed, NEUTRON_MASS)
 
 
 # ======================================================================================
