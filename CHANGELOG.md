@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Changed
 
+- Report per-file progress while loading native neutron, proton, and electron data, and include data-loading time in runtime reports and HDF5 output, from [@ilhamv]
+- Reduce compilation time for data-heavy models by assigning polymorphic subtype IDs with constant-time counters, from [@ilhamv]
+- Correctly interpret empty-interpolation to all-linear default in neutron transport data generator, from [@ilhamv]
 - Represent stopping power with `DataTable` and use the shared data evaluator with optional endpoint clamping, from [@ilhamv]
 - Centralize cross-species production in `physics.produce_cross_species`, respecting particle transport activation and providing a shared foundation for other incident particle types beyond protons, from [@ilhamv]
 - Update Lockwood electron transport regression test answer (also adjust to lower N_particle), from [@ilhamv]
