@@ -31,6 +31,9 @@ half-space (:math:`f(\mathbf{r}) > 0`) and a negative half-space
    * - Plane Z
      - :math:`z - z_0 = 0`
      - ``Surface.PlaneZ(z=z0)``
+   * - Plane
+     - :math:`A x + B y + C z + D = 0`
+     - ``Surface.Plane(A, B, C, D)``
    * - Cylinder X
      - :math:`(y-y_0)^2 + (z-z_0)^2 - R^2 = 0`
      - ``Surface.CylinderX(center, radius)``
@@ -40,9 +43,53 @@ half-space (:math:`f(\mathbf{r}) > 0`) and a negative half-space
    * - Cylinder Z
      - :math:`(x-x_0)^2 + (y-y_0)^2 - R^2 = 0`
      - ``Surface.CylinderZ(center, radius)``
+   * - Cylinder
+     - :math:`\lVert\mathbf{q}_\perp\rVert^2 - R^2 = 0`
+     - ``Surface.Cylinder(point, axis, radius)``
+   * - Cone X
+     - :math:`(y-y_0)^2 + (z-z_0)^2 - \tan^2(\theta)(x-x_0)^2 = 0`
+     - ``Surface.ConeX(apex, half_angle)``
+   * - Cone Y
+     - :math:`(x-x_0)^2 + (z-z_0)^2 - \tan^2(\theta)(y-y_0)^2 = 0`
+     - ``Surface.ConeY(apex, half_angle)``
+   * - Cone Z
+     - :math:`(x-x_0)^2 + (y-y_0)^2 - \tan^2(\theta)(z-z_0)^2 = 0`
+     - ``Surface.ConeZ(apex, half_angle)``
+   * - Cone
+     - :math:`\lVert\mathbf{q}_\perp\rVert^2 - \tan^2(\theta)q_\parallel^2 = 0`
+     - ``Surface.Cone(apex, axis, half_angle)``
    * - Sphere
      - :math:`|\mathbf{r} - \mathbf{r}_0|^2 - R^2 = 0`
      - ``Surface.Sphere(center, radius)``
+
+For the arbitrary-axis cylinder, :math:`\mathbf{q}=\mathbf{r}-\mathbf{p}`,
+where :math:`\mathbf{p}` is ``point`` and :math:`\mathbf{d}` is the normalized
+``axis``.  The perpendicular displacement is
+:math:`\mathbf{q}_\perp=\mathbf{q}-(\mathbf{q}\cdot\mathbf{d})\mathbf{d}`.
+The magnitude of the user-provided axis vector does not affect the surface.
+
+For the arbitrary-axis cone, :math:`\mathbf{q}=\mathbf{r}-\mathbf{a}`, where
+:math:`\mathbf{a}` is ``apex``,
+:math:`q_\parallel=\mathbf{q}\cdot\mathbf{d}`, and
+:math:`\mathbf{q}_\perp=\mathbf{q}-q_\parallel\mathbf{d}`. ``half_angle`` is
+:math:`\theta`, the angle between the cone axis and its surface, in degrees.
+It must satisfy :math:`0 < \theta < 90` degrees. The default is 45 degrees.
+
+All cone constructors define a double cone whose two nappes share the apex.
+The sign of an arbitrary cone's axis therefore does not change the surface.
+Combine the cone with planes to select one nappe and construct a finite
+frustum:
+
+.. code-block:: python3
+
+   cone = mcdc.Surface.Cone(
+       apex=[0.0, 0.0, 10.0],
+       axis=[0.0, 0.0, 1.0],
+       half_angle=30.0,
+   )
+   lower = mcdc.Surface.PlaneZ(z=0.0)
+   upper = mcdc.Surface.PlaneZ(z=5.0)
+   frustum = -cone & +lower & -upper
 
 **Boundary conditions** are set on outermost surfaces:
 

@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
-- Add an arbitrary-axis cone surface and specialized transport kernels for arbitrary-axis cylinders and all cone orientations, from [@ilhamv]
+- Add cone surfaces with a half-angle interface in degrees, specialized transport kernels for all cone orientations, and a specialized arbitrary-axis cylinder kernel, from [@ilhamv]
 - Add proton transport with nuclear reactions and secondary-particle production, continuous slowing down, energy-loss straggling, and multiple Coulomb scattering, from [@ethan-lame]
 - Add developer documentation on particle transport architecture, covering particle steps, event handling, interaction data, and tally scoring triggers, from [@ilhamv]
 - Add time, polar-cosine, and azimuthal dependence to weight windows; consolidate lower, target, and upper weights into one array and extend flattened-data accessors to eight dimensions, from [@nglaser3]
