@@ -35,9 +35,9 @@ from the live tree, not by judgement:
 - **§4 generator file-mode collision — closed, and needs no maintainer negotiation.** Each
   non-neutron generator writes to **its own output directory** (`MCDC_LIB_ELECTRON`,
   `MCDC_LIB_PROTON`) with mode `"w"`. Photon follows with `MCDC_LIB_PHOTON`. Mode `"a"` is
-  dropped from the plan. What remains genuinely open is that **upstream ships no tool to merge
-  per-particle libraries into the single `$MCDC_LIB/<symbol>.h5` that `Element` reads** — see
-  §6.2.
+  dropped from the plan. **Nor is any merge needed** — §2.10 scopes this PR to photon-only
+  transport, so a photon-only library is complete; see §6.2 for the `generate.py` + `util.py`
+  plan that replaces the merge tool an earlier draft proposed.
 
 **[NEW 2026-10-08] §14 Environment prerequisites** is new and is a hard gate on Phase 1.
 `mcdc-env` (Python 3.10, numba 0.55.1, numpy 1.21.5) **cannot import the upstream tree**, which
@@ -69,7 +69,11 @@ all still on disk: **every MCNP input deck** (the five `*_MCNP.txt` files plus
 not match the glob but are MCNP decks by their own headers) — this reverses the §12 row that
 called them irreplaceable ground truth; **nine named decks and analysis scripts** under
 `Complex_M&G/`; and the whole **`Complex_M&G/1e7_results/comparisons/`** folder. The snapshot is
-now 199 files. The §7 deck set is intact, but its MCNP comparison targets are not in git.
+199 files. The §7 deck set is intact, but its MCNP comparison targets are not in git.
+
+**[REVISED 2026-10-08]** One of those nine was reversed: `lead_finite_cylinder_energy_deposition.py`
+is now §7 **deck 8**, its `.gitignore` rule is removed and the file is committed (in a commit
+after the snapshot, not retroactively). **Eight** named `Complex_M&G/` exclusions remain.
 
 ---
 
@@ -80,10 +84,10 @@ now 199 files. The §7 deck set is intact, but its MCNP comparison targets are n
 | `origin` | `DouglasHouser/MCDC` (fork) — **the only remote we can push to** |
 | **Port base** | **`mcdc-project/mcdc`** — canonical; all contributions go here **[CORRECTED 2026-10-08]** |
 | `upstream` | `CEMeNT-PSAAP/MCDC` — **retired, not used for anything.** Keep or delete the remote; do not branch from it **[CORRECTED 2026-10-08]** |
-| Local branch | `wip/photon-snapshot-pre-refactor` @ `c4f0cb49` — the Phase 0 snapshot, **pushed** |
+| Local branch | `wip/photon-snapshot-pre-refactor` — **pushed**. The Phase 0 snapshot ends at `c4f0cb49`; the branch has since taken planning commits (see below) |
 | `dev` | `86ee515a` == `origin/dev`, 2 docs commits ahead of the old merge base |
-| Divergence | **17 ours / 1,060 theirs** vs `mcdc-project/dev` (`295cd909`) **[CORRECTED 2026-10-08]** |
-| Photon code | **committed** in the Phase 0 snapshot — 12 topical commits, 199 files |
+| Divergence | **19 ours / 1,060 theirs** vs `mcdc-project/dev` (`295cd909`). "Ours" grows as this document is revised; only the 1,060 matters for the port |
+| Photon code | **committed** in the Phase 0 snapshot — 12 topical commits, 199 files added |
 
 **Remote hygiene.** Both `upstream` and `mcdc-project` were added with the same URL for fetch
 and push, so a bare `git push mcdc-project …` would attempt to write to a repository we do not
@@ -118,6 +122,18 @@ The previous revision's header said "no code has been changed yet". That is no l
 | `9db13a7d` | The 362-test photon suite |
 | `ca6f2e9c` | Remaining verification decks and reference data |
 | `c4f0cb49` | This document's §6.3 rewrite |
+
+**Commits made after the snapshot** (planning only — no photon source), so the branch tip is
+not `c4f0cb49`:
+
+| Commit | Content |
+|---|---|
+| `6965d2a9` | Retarget the plan at `mcdc-project` and the proton template |
+| `84154afb` | Close the last two §6 items; un-ignore and commit §7 deck 8 |
+
+`84154afb` is the only one that touches anything outside this document: it removes a
+`.gitignore` rule and adds `lead_finite_cylinder_energy_deposition.py`. **The 199-file snapshot
+figure above still refers to `c4f0cb49`**; deck 8 makes 200 files tracked from this branch.
 
 **Six files have drifted since the snapshot** and are still uncommitted. Decide their
 disposition before Phase 1 branches away from this tree:
@@ -164,9 +180,10 @@ recur.
 - **`transport/physics/cross_species_production.py` is new and matters a great deal for
   photon.** It banks secondary products of a *different* species from a reaction's
   `secondary_products` list, gated on that species' `…_transport["active"]` flag, and
-  **subtracts each transported product's energy from the deposition balance**. This is the
-  mechanism photon needs for photoelectrons, pair-production electrons and positrons.
-  **[NEW 2026-10-08]**
+  **subtracts each transported product's energy from the deposition balance**. It is the
+  mechanism photon would need for photoelectrons, pair-production electrons and positrons —
+  **but §2.10 defers all of that: this PR does not touch this file.** Read it to understand
+  the deposition balance §2.3 adopts, not as work to do. **[NEW 2026-10-08]**
 - **`read_energy` (`object_/electron_reaction.py:29`) is the unit gate.** It converts MeV→eV
   based on a `unit` attribute written by the generator. Settles §6.1. **[NEW 2026-10-08]**
 - **Energy deposition already exists** and is richer than the previous revision recorded:
@@ -208,7 +225,7 @@ recur.
    **discarded** rather than reconciled. Use a **side-by-side git worktree** so the old tree
    stays visible.
 2. **Keep the constant-XS capability, photon-only.** `ConstantCrossSectionMaterial` becomes
-   `PhotonConstantXSData` in `object_/transport_model_data.py` (mirroring
+   `PhotonConstantXSData` in `object_/transport_model_data.py:29` (mirroring
    `NeutronMultigroupData`) + a `transport/physics/photon/constant_xs.py` treatment module.
    **[CORRECTED 2026-10-08]** The precedent is `transport/physics/neutron/multigroup.py:38`
    (was `:36`), whose `applicable()` reads two fields the generator derives from `Material`:
@@ -231,7 +248,7 @@ recur.
    `SCORE_ENERGY_DEPOSITION = 200` and write into `interaction_data["energy_deposition"]`
    (**eV, weight-included**) inside `native.collision(...)`.
 
-   Upstream's model, visible in `cross_species_production.py:131`, is:
+   Upstream's model, visible in `cross_species_production.py:142`, is:
 
    > deposit the full available energy, then **subtract the energy of every product that is
    > actually transported** — `interaction_data["energy_deposition"] -= E_new * w`.
@@ -247,14 +264,21 @@ recur.
    | Coherent | 0 — no energy transfer | unchanged |
    | Incoherent (Compton) | `E − E_scattered` (the electron's energy, deposited locally) | subtract the Compton electron |
    | Photoelectric | `E − Σ E_fluorescence` | additionally subtract the photoelectron |
-   | Pair production | `E` minus any escaping annihilation photons | subtract e⁺/e⁻ |
+   | Pair production | `E − 2 m_e c²` — the pair's kinetic energy, deposited locally | subtract e⁺/e⁻ kinetic energy |
 
-   **Fluorescence photons are the one product still transported**, because they are
-   same-species: `cross_species_production.py:68` explicitly `continue`s on same-species
-   products, so they are banked inside `photon/native.py` and never touch
-   `produce_cross_species`. The same applies to annihilation photons from pair production.
-   So the only deposition subtraction photon performs in this PR is for the photons it banks
-   itself — which is what our current code already does.
+   **Fluorescence and annihilation photons are the only products still transported**, because
+   they are same-species: `cross_species_production.py:68` explicitly `continue`s on
+   same-species products, so they are banked inside `photon/native.py` and never touch
+   `produce_cross_species`. So the only deposition subtraction photon performs in this PR is
+   for the photons it banks itself.
+
+   **Our code already works this way — verified, not assumed.**
+   `mcdc/transport/physics/photon/interface.py:268–290` deposits the pair's kinetic energy
+   locally (its own comment: *"electrons are not transported and bremsstrahlung is
+   neglected"*), then emits the two 0.511 MeV annihilation photons — reviving the current
+   history in place for the first and banking the second as a new active particle. That is
+   exactly the §2.10 model, already implemented. The port moves where the number is written,
+   not how it is computed.
 
    **What this buys:** no `secondary_products` on photon reactions, no
    `produce_cross_species` call, and no photon arm in `cross_species_production.py` for this
@@ -343,8 +367,8 @@ recur.
    ```
 
    identical to `proton_transport` at `settings.py:183`, with no `default_factory` lambda.
-   Note that `simulation.py:350` currently `print_error`s if `prioritize_low_energy` is set
-   on neutron or proton — **photon must be added to that guard**, or the setting will be
+   Note that `simulation.py:351–355` currently `print_error`s if `prioritize_low_energy` is
+   set on neutron or proton — **photon must be added to that guard**, or the setting will be
    silently accepted and silently ignored.
 
 ---
@@ -370,13 +394,15 @@ mcdc/object_/element.py                 + photon_xs_energy_grid, photon_total_xs
                                           + photon_*_reactions lists
                                           + photon_photoelectric_subshell_binding_energy
                                           + set_photon_data(self, simulation)
-                                          Template: the electron half of element.py (197 ln)
+                                          Template: the electron half of element.py --
+                                          fields :44, set_electron_data :83,
+                                          binding energies :179  (197 ln total)
 mcdc/object_/simulation.py              + photon_reactions: list[PhotonReactionBase]  (:120)
                                           + self.photon_reactions = []                (:315)
                                           + photon_constant_xs_data list
                                           + 4 edits in _finalize_compilation — see §13
 mcdc/object_/transport_model_data.py    + PhotonConstantXSData(MCDCObject)
-                                          Template: NeutronMultigroupData (same file)
+                                          Template: NeutronMultigroupData (same file, :29)
 mcdc/object_/material.py                + photon_constant_xs kwarg
                                           + has_photon_constant_xs: bool
                                           + optional Material.photon_constant_xs(...) ctor
@@ -403,12 +429,15 @@ mcdc/transport/physics/interface.py     + PARTICLE_PHOTON arms in FOUR functions
                                           particle_speed, macro_xs, collision_distance
                                           (the SigmaT block), collision
 mcdc/transport/physics/cross_species_production.py
-                                        + PARTICLE_PHOTON arm in the transport-active gate
-                                          (:69) so photon products can be banked
+                                        NO EDIT THIS PR -- deferred, see 2.10. (Would be a
+                                          PARTICLE_PHOTON arm at :69 once electrons couple.)
 mcdc/code_factory/python_objects_compiler.py
                                         + PhotonReactionBase -> simulation.photon_reactions
-                                          + PhotonConstantXSData branch   (:91 pattern)
-tools/data_library_generator/photon/    generate.py + README.md, writing $MCDC_LIB_PHOTON
+                                          + PhotonConstantXSData branch   (:92 pattern)
+mcdc/object_/simulation.py (again)      + photon_transport in the prioritize_low_energy
+                                          guard at :351-355, else silently ignored
+tools/data_library_generator/photon/    generate.py + util.py + README.md, writing
+                                          $MCDC_LIB_PHOTON  (see 6.2 -- NOT a merge tool)
 test/unit/photon/                       relocated + renamed unit tests  (§10)
 test/regression/<case>/input.py         + answer.h5, one directory per deck  (§7)
 ```
@@ -417,11 +446,13 @@ test/regression/<case>/input.py         + answer.h5, one directory per deck  (§
 `proton/condensed_interactions.py`. Condensed interactions model continuous slowing-down for
 charged particles; photons have no analogue. Do not add a photon arm there.
 
-**`xs_offset_` — the trailing underscore is mandatory.** `proton_reaction.py:52` and
-`electron_reaction.py:52` both carry the comment *"`xs_offset` is reserved for `xs`"*. The
+**`xs_offset_` — the trailing underscore is mandatory.** `proton_reaction.py:54` and
+`electron_reaction.py:52` both carry the comment *"`xs_offset` is reserved for `xs`"* (proton's
+spells it "ir reserved" — same comment, a typo upstream). The
 layer generator emits `<field>_offset` and `<field>_length` for every array field, so a field
 literally named `xs_offset` collides with the generated accessor for `xs`. The dtype at
-`numba_types.py:584` shows all three side by side: `xs_offset`, `xs_length`, `xs_offset_`.
+`numba_types.py:586–593` (the `proton_reaction` block) shows all three side by side:
+`xs_offset`, `xs_length`, `xs_offset_`.
 
 `mcdc_get/`, `mcdc_set/` and `numba_types.py` are **generated** — never hand-written. Run
 `python mcdc/code_factory/rebuild_numba_support.py` (it inserts its own repo root on `sys.path`,
@@ -502,6 +533,7 @@ so it runs from any working directory).
 | Atom density | — | **10²⁴ atoms/cm³** | nothing |
 | Speed | — | **cm/s** | — |
 | `energy_deposition` | — | **eV**, weight-included | — |
+| Relaxation transition + binding energies | **eV in OUR EADL files already** | eV | **nothing — do NOT multiply by 1e6** (§6.2) |
 
 `read_energy` is the whole mechanism: it reads the dataset's own `unit` attribute and
 multiplies by `1e6` only when it says `"MeV"`, defaulting to eV. So a generator that writes
@@ -553,7 +585,7 @@ not in separate commits.
 | per-element densities | already `Material.element_densities` — delete ours |
 | coherent form factor | `PhotonReactionCoherent.form_factor: DataBase` → `DataTable(q, F, INTERPOLATION_LOG)` |
 | shell-resolved PE XS | `PhotonReactionPhotoelectric.N_subshell` + `subshell_xs: list[DataBase]` (mirrors `ElectronReactionIonization`) |
-| shell binding energies | `Element.photon_photoelectric_subshell_binding_energy` — **[CORRECTED 2026-10-08]** name the reaction in the field, mirroring upstream's `electron_ionization_subshell_binding_energy`, and read each through `read_energy` as `element.py:171` does |
+| shell binding energies | `Element.photon_photoelectric_subshell_binding_energy` — **[CORRECTED 2026-10-08]** name the reaction in the field, mirroring upstream's `electron_ionization_subshell_binding_energy`, and read each through `read_energy` as `element.py:179` does |
 | fluorescence lines | Our EADL data, written at upstream's top-level `atomic_relaxation/` path |
 
 ### Data library — generated, not merged  **[RETITLED 2026-10-08]**
@@ -618,7 +650,7 @@ patched** — see §6.2):
   argument and `_compile_into_simulation` reads only `atomic_weight_ratio` and
   `atomic_number`. So do **not** write a script to rename it in the existing 330 files. The
   new generator emits `element_symbol` because the electron generator does
-  (`electron/generate.py:82`), and the old files are replaced wholesale rather than patched —
+  (`electron/generate.py:84`), and the old files are replaced wholesale rather than patched —
   see §6.2.
 - Group names: `elastic` → **`coherent`**, `incoherent_scattering` → `incoherent`,
   `photoelectric_absorption` → `photoelectric`, to match the `PHOTON_REACTION_*` names and
@@ -627,7 +659,11 @@ patched** — see §6.2):
   (515 electron-field, 517 nuclear-field), subshells 534+. Our current 401/501/503 assignments
   are non-standard and one of them collides with the standard total. Full table and rationale
   in §6.2. **[NEW 2026-10-08]**
-- Convert **eV → MeV** and **cm² → barns** on disk.
+- Convert **eV → MeV** and **cm² → barns** on disk — **for the cross-section energy grid and
+  the XS arrays only.** The `atomic_relaxation/` transition and binding energies are **already
+  in eV** in our files (Pb K = `88011.0`) and upstream's schema stores them in eV too, so they
+  pass through unconverted. Blanket-converting everything to MeV is a 10⁶ error in the
+  fluorescence line energies. See the translation table in §6.2.
 - Drop `excitation_level` / `fissionable` (nuclide fields, not element fields).
 - Move relaxation from `photon_reactions/atomic_relaxation/subshells/<shell>/` to top-level
   `atomic_relaxation/MT-NNN/` with upstream's dataset names.
@@ -727,11 +763,11 @@ and the regeneration step in the middle is load-bearing.
 |---|---|---|
 | 1 | Photon constants in the **300** block, `PARTICLE_PHOTON = 3` | `constant.py:60` proton block |
 | 2 | `object_/photon_reaction.py` on `MCDCPolymorphic`, 4 subtypes, `xs_offset_` | `object_/proton_reaction.py` (484 ln) |
-| 3 | `PhotonConstantXSData` | `NeutronMultigroupData`, `transport_model_data.py:30` |
+| 3 | `PhotonConstantXSData` | `NeutronMultigroupData`, `transport_model_data.py:29` |
 | 4 | `Material`: `photon_constant_xs` kwarg + `has_photon_constant_xs` | `material.py:97` `has_neutron_multigroup` |
-| 5 | Photon XS fields + `set_photon_data()` on `Element` | the electron half of `element.py` (`:82`, `:171`) |
+| 5 | Photon XS fields + `set_photon_data()` on `Element` | the electron half of `element.py` — fields `:44`, `set_electron_data` `:83`, binding energies `:179` |
 | 6 | `photon_reactions` list on `Simulation` | `simulation.py:120`, `:315` |
-| 7 | Register both new types in `python_objects_compiler.py` | its `ProtonReactionBase` (`:104`) / `NeutronMultigroupData` (`:91`) branches |
+| 7 | Register both new types in `python_objects_compiler.py` | its `ProtonReactionBase` (`:104`) / `NeutronMultigroupData` (`:92`) branches |
 | 8 | **Regenerate** `mcdc_get/`, `mcdc_set/`, `numba_types.py` | `python mcdc/code_factory/rebuild_numba_support.py` |
 | 9 | `evaluate_photon_xs_energy_grid` | `physics/util.py:34` (electron — same `mcdc_get.element` form) |
 | 10 | `physics/photon/native.py` | `physics/proton/native.py` (664 ln) |
@@ -742,9 +778,9 @@ and the regeneration step in the middle is load-bearing.
 | 15 | Activation + loader call in `simulation.py` `_finalize_compilation` | `:365`, `:482`, `:498` |
 | 16 | `"photon"` source type | `object_/source.py:431` |
 | 17 | `"photon"` tally filter + output label | `object_/tally.py:323`, `transport/util.py:25` |
-| ~~18~~ | ~~Photon arm in `cross_species_production.py`~~ | **DEFERRED — §2.10** |
-| 18 | `photon_transport` in the `prioritize_low_energy` guard at `simulation.py:350` | its neutron/proton arms (§2.11) |
+| 18 | `photon_transport` in the `prioritize_low_energy` guard at `simulation.py:351–355` | its neutron/proton arms (§2.11) |
 | 19 | `tools/data_library_generator/photon/{generate.py,util.py,README.md}` (mode `"w"`, `$MCDC_LIB_PHOTON`) | `tools/data_library_generator/electron/` — see §6.2 |
+| — | ~~Photon arm in `cross_species_production.py`~~ | **DEFERRED, not a step — §2.10** |
 
 **Step 8 is not optional and not last.** Steps 2–7 define annotated fields; the accessors in
 `mcdc_get.element.photon_*` and `mcdc_get.photon_reaction.*` that step 10 calls **do not exist
@@ -814,8 +850,9 @@ Inside `@njit` functions, recover the simulation with
 Push `feature/photon-transport` to **`origin`** (the only remote we can write to) and open the
 PR against **`mcdc-project/mcdc`**. **[CORRECTED 2026-10-08]** — not CEMeNT-PSAAP, which is
 retired. Split by layer (data/objects → physics → tooling → tests) rather than one 2,300-line
-drop; the Phase 2 table above is already in that order and steps 1–8, 9–13, 19 and the tests
-are natural PR boundaries.
+drop; the Phase 2 table above is already in that order and steps 1–8 (objects + the Numba
+layer), 9–13 (physics), 14–18 (wiring), 19 (the generator) and the tests are natural PR
+boundaries.
 
 `photon-transport-docs/` and `photon-transport-directions/` (9,500 lines at repo root)
 should not go up as-is — upstream's root carries no loose directories. Fold the durable
@@ -955,7 +992,7 @@ parts into `docs/` or keep them fork-only. The same applies to the `data/` gitig
    | `radiative/probability` | `probability` | |
    | `len(radiative/probability)` | `number_of_transitions` | |
    | `fluorescence_yield` | — | **derived, drop it.** Verified on Pb K: `sum(probability) = 0.9613108603` equals `fluorescence_yield` exactly, so the probabilities are **absolute**, not normalised within the radiative set |
-   | `binding_energy` | — | does not belong here; it feeds `Element.photon_photoelectric_subshell_binding_energy` from the photoelectric MT-534+ groups, mirroring `element.py:171` |
+   | `binding_energy` | — | does not belong here; it feeds `Element.photon_photoelectric_subshell_binding_energy` from the photoelectric MT-534+ groups, mirroring `element.py:179` |
 
    **The one substantive difference, recorded because it is a real limitation:** our EADL
    extraction carries **radiative transitions only — no Auger.** Upstream's
@@ -980,6 +1017,14 @@ parts into `docs/` or keep them fork-only. The same applies to the `data/` gitig
    262 MB, `data/mcdc_reformatted` 196 MB, `data/endf` 116 MB, `data/raw` 81 MB.
    `data/mcplib84` is **gone** — the previous revision listed it at 16 MB; it no longer
    exists on disk, so drop it from any cleanup script.
+
+   **[CAUTION 2026-10-08] Do not delete `data/mcdc/` itself, and do not regard it as
+   disposable just because §6.2 says the new generator replaces it.** Those 204 MB are the
+   only copy of the numbers the 117 cross-section tests and the fluorescence validation were
+   run against. The new single-pass generator must be **diffed against them** before they go
+   anywhere — that comparison is the only thing standing between a schema fix and a silent
+   physics regression. Deleting the two stale duplicates (458 MB) is safe now; retiring
+   `data/mcdc/` waits until the generator reproduces it.
 4. **[REWRITTEN 2026-10-08] Raise with maintainers.** Two of the previous revision's four
    topics are closed; the list is now:
    - **The 300 reaction block and `PARTICLE_PHOTON = 3`.** The ask has changed shape: it is
@@ -1569,6 +1614,20 @@ anyone picking up the code has a reference without a cluster run.
 **Timing:** last, after all restructuring. A reference generated against a half-ported API is
 worthless. Gate it on Phase 3 being green.
 
+**[NEW 2026-10-08] How this relates to §7's `answer.h5`.** The two do not overlap and must not
+be confused:
+
+- The **8 decks in §7** become `test/regression/<case>/{input.py, answer.h5}`. Their
+  `answer.h5` *is* their committed reference, compared at `rtol = 1e-6` by the harness. They
+  do **not** also get a `smoke_1e4.h5`.
+- The **other 22 decks** stay in `photon_transport_code/` and get the §11 smoke pair beside
+  them. Nothing runs them automatically; the files exist so a reader has a reference.
+
+So §11's scope is really **22 decks**, not 30, once §7 is migrated. The 30-deck figure below
+is the pre-migration inventory. Also note `smoke_1e4.h5` survives upstream's narrow HDF5 rules
+(`*output.h5`, `output*.h5`, `dummy_nuclide.h5`, `source_particles.h5`) — which is exactly why
+§6.3.4 drops the blanket `*.h5` in Phase 1.
+
 **Spec:**
 
 1. **`N_particle = 10_000`** as the default. Drop to `1_000` only where runtime demands it —
@@ -1669,7 +1728,7 @@ And two that are neither, but are required:
 
 | File | Photon action |
 |---|---|
-| `mcdc/object_/transport_model_data.py` | `PhotonConstantXSData`, mirroring `NeutronMultigroupData` `:30` |
+| `mcdc/object_/transport_model_data.py` | `PhotonConstantXSData`, mirroring `NeutronMultigroupData` `:29` |
 | `mcdc/code_factory/python_objects_compiler.py` | two `isinstance` branches in the dispatch at `:80`–`:118` |
 
 ### Object-model conventions every new class must satisfy
