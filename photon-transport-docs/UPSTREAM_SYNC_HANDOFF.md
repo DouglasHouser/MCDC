@@ -301,11 +301,15 @@ recur.
    into upstream's file layout and units. Rationale: preserves the 117-test suite, keeps the
    1 eV floor and shell-resolved PE + coherent form factors, and needs no ACEtk build.
    EPRDATA14 extraction stays available as a later cross-validation PR.
-9. **[NEW] Keep our EADL relaxation data, at upstream's path.** Upstream's root-level
-   `atomic_relaxation/` is richer in form (full transition tables with primary/secondary
-   designators and probabilities) but is EPRDATA14-derived. Our validated fluorescence
-   results depend on the EADL numbers, so write **our** data into **upstream's** schema and
-   path rather than consuming theirs. See open item §6.2.
+9. **Keep our EADL relaxation data, at upstream's path.** Upstream's root-level
+   `atomic_relaxation/` is richer in form (full transition tables with primary and secondary
+   designators, so it carries Auger as well as radiative) but is EPRDATA14-derived. Our
+   validated fluorescence results depend on the EADL numbers, so write **our** data into
+   **upstream's** schema and path rather than consuming theirs.
+   **[SETTLED 2026-10-08]** The field-by-field translation is specified in §6.2, and the
+   proposed EADL-vs-EPRDATA14 comparison is **withdrawn** — it would have required building
+   ACEtk from source, the one dependency §2.8 exists to avoid. Our data is radiative-only,
+   which is numerically equivalent to upstream's under §2.10's local-deposition scope.
 10. **[NEW 2026-10-08 — OWNER DECISION] Scope: photon-only. No electron coupling in this PR,
    and no change to the photon physics.** This is the single most load-bearing scoping
    decision in the document, and several earlier sections were written without it.
@@ -706,9 +710,9 @@ git checkout -b feature/photon-transport mcdc-project/dev
 pristine upstream using the Phase 0 snapshot as reference. Also in this phase:
 
 1. Resolve `.gitignore` per §6.3.7 — take upstream's wholesale, re-add only what §6.3.5
-   justifies, and drop the blanket `*.h5` (§6.3.4). **Do not carry over the
-   `lead_finite_cylinder_energy_deposition.py` rule** — that deck is now §7 deck 8 and must
-   be committed, not ignored.
+   justifies, and drop the blanket `*.h5` (§6.3.4). **Do not re-add the
+   `lead_finite_cylinder_energy_deposition.py` rule** — it was deliberately removed on
+   2026-10-08 and that deck is now §7 deck 8, already tracked.
 2. Delete the two local `backup/phase0-*` branches.
 3. Disarm the push URLs on `mcdc-project` and `upstream` (§1).
 
@@ -901,16 +905,69 @@ parts into `docs/` or keep them fork-only. The same applies to the `data/` gitig
    Group names also move to match the `PHOTON_REACTION_*` names (§4): `elastic` → `coherent`,
    `incoherent_scattering` → `incoherent`, `photoelectric_absorption` → `photoelectric`.
 
-   **Relaxation source — still open, and now narrower.** Upstream ships `atomic_relaxation/`
-   from EPRDATA14; ours is EADL, currently nested under
-   `photon_reactions/atomic_relaxation/subshells/<shell>/` with `binding_energy`,
-   `designator`, `fluorescence_yield` and a `radiative/` triple of
-   `{final_subshell, probability, transition_energy}`. Decision §2.9 keeps ours and moves it
-   to the top-level `atomic_relaxation/` path. Compare the two before writing that part of the
-   generator: if they agree, consuming upstream's drops a generator stage; if they disagree,
-   our validated fluorescence numbers say which to trust. **§2.10 raises the stakes slightly**
-   — fluorescence is the only photoelectric product still transported, so this data is
-   load-bearing rather than incidental.
+   **Relaxation source — CLOSED 2026-10-08. Keep EADL; do not run the comparison.**
+
+   A previous draft of this section said to compare our EADL relaxation data against
+   upstream's EPRDATA14 data before writing the generator. **That was the wrong call and is
+   withdrawn.** Performing it would require downloading the EPRDATA14 ACE tarball **and
+   building ACEtk from source** — which is precisely the dependency §2.8 chose the EPDL route
+   to avoid. Re-introducing a from-source C++ build in order to second-guess data that our
+   117 cross-section tests and the fluorescence validation already exercise is a bad trade.
+   Neither EPRDATA14 nor ACEtk is present on this machine; `data/endf/` holds `epdl`, `eadl`
+   and `eedl`, which is what our generator reads.
+
+   What *can* be determined without EPRDATA14 — by reading upstream's schema and our files —
+   is the field-by-field translation, and that is the actionable part. It replaces the vague
+   "write our data into upstream's schema" instruction in §2.9.
+
+   **Upstream's schema** (`electron/generate.py:246`, README lines 94–100), one group per
+   ionization subshell, keyed by MT:
+
+   ```
+   atomic_relaxation/MT-NNN/        NNN = 534+   attrs: MT, subshell_designator, subshell
+     number_of_transitions          int
+     primary_designator             1-D int     [only if number_of_transitions > 0]
+     secondary_designator           1-D int     [only if number_of_transitions > 0]
+     energy                         1-D, attrs: unit="eV"
+     probability                    1-D
+   ```
+
+   **Ours**, measured from `data/mcdc/Pb.h5`:
+
+   ```
+   photon_reactions/atomic_relaxation/subshells/<K,L1,L2,L3,M1…S28>/
+     binding_energy      scalar, eV   (Pb K = 88011.0 — the 88 keV K-edge, so already eV)
+     designator          scalar       (1 = K, 2 = L1, 3 = L2, … — the EADL/ENDF scheme)
+     fluorescence_yield  scalar
+     radiative/{final_subshell, transition_energy, probability}   1-D each
+   ```
+
+   **The translation the generator must perform:**
+
+   | Ours (EADL) | Upstream's field | Note |
+   |---|---|---|
+   | `subshells/<label>/` | `atomic_relaxation/MT-NNN/` | NNN from the same designator→MT map electron uses for ionization subshells |
+   | `designator` | `attrs["subshell_designator"]` | identical convention, no remapping |
+   | shell label | `attrs["subshell"]` | `util.get_electron_subshell_name(designator)` already does this |
+   | `radiative/final_subshell` | `primary_designator` | |
+   | — | `secondary_designator` | **write 0** — see the gap below |
+   | `radiative/transition_energy` | `energy` + `attrs["unit"] = "eV"` | **already eV; no `* 1e6`.** Upstream's electron path converts from MeV; ours must not |
+   | `radiative/probability` | `probability` | |
+   | `len(radiative/probability)` | `number_of_transitions` | |
+   | `fluorescence_yield` | — | **derived, drop it.** Verified on Pb K: `sum(probability) = 0.9613108603` equals `fluorescence_yield` exactly, so the probabilities are **absolute**, not normalised within the radiative set |
+   | `binding_energy` | — | does not belong here; it feeds `Element.photon_photoelectric_subshell_binding_energy` from the photoelectric MT-534+ groups, mirroring `element.py:171` |
+
+   **The one substantive difference, recorded because it is a real limitation:** our EADL
+   extraction carries **radiative transitions only — no Auger.** Upstream's
+   `secondary_designator` distinguishes radiative (0) from non-radiative; ours has no
+   non-radiative entries at all, which is why `sum(probability)` equals the fluorescence yield
+   rather than 1.0. The remaining `1 − ω` probability is implicitly local deposition.
+
+   **Under §2.10 this is correct, not merely tolerable.** Auger products are electrons, and
+   §2.10 deposits all photon-produced electrons locally, so an Auger channel would deposit
+   exactly the energy that the missing probability already deposits. The two are numerically
+   identical for this PR. It becomes a real gap only when electrons are coupled, and it should
+   be recorded in that PR's scope rather than this one.
 
    **Still worth raising with maintainers, but no longer blocking:** that `Element` has no
    story for two particles in one file. We are not solving it (§2.10), but we are the first
@@ -933,19 +990,32 @@ parts into `docs/` or keep them fork-only. The same applies to the `data/` gitig
      (§2.10 scopes this PR to photon-only), but photon is the first case that will need it,
      so they should know it is coming. **Not** a request for a merge tool — §6.2.
    - **EPRDATA14 vs our EPDL route** (shell-resolved PE + coherent form factors, finer grid,
-     1 eV floor) — do they intend their own photon path?
+     1 eV floor) — do they intend their own photon path? Worth asking as a **design**
+     question; it is no longer a data-comparison question, since §6.2 withdrew that
+     comparison. If they say yes, mention that our relaxation data is radiative-only.
    - ~~the generator file-mode collision~~ — **closed**, see the header and §4.
    - ~~energy units / possible upstream bug~~ — **closed**, see §6.1. Do not raise it; there
      is no bug, and `read_energy` is the answer.
-5. **Coverage gaps** in the chosen decks. **[PARTLY RESOLVED 2026-10-08]**
+5. **Coverage gaps** in the chosen decks. **[RESOLVED 2026-10-08 — both items closed]**
    - ~~No energy-deposition deck~~ — **closed.** `lead_finite_cylinder_energy_deposition.py`
      is now §7 deck 8 by owner decision, reversing its §6.3.2 exclusion. Use
      `test/regression/pincell-energy_deposition/` as the structural pattern.
-   - **Fluorescence remains effectively untested at the deck level** — both Pb decks run at
-     10 MeV and the Pb K-edge is 88 keV, so no deck puts meaningful flux near it. Unit tests
-     cover it. Still open, and lower priority now that §2.10 scopes photoelectrons to local
-     deposition: fluorescence photons are the one PE product still transported, so the unit
-     tests are carrying real weight. Consider a low-energy Pb deck in a later PR.
+   - ~~Fluorescence untested at the deck level~~ — **CLOSED 2026-10-08 by owner decision:
+     the unit tests are accepted as sufficient coverage.** Both Pb decks run at 10 MeV and the
+     Pb K-edge is 88 keV, so no deck puts meaningful flux near it, and none will in this PR.
+     Coverage rests on `test/unit/photon/` — principally the fluorescence tests in §10 Tier A
+     (`fluorescence.py`, 9 tests) plus the EADL relaxation path.
+
+     **Two consequences follow from that, and both are load-bearing:**
+
+     1. **Those 9 tests must not stay unrunnable.** `fluorescence.py` is one of the three
+        files §5 Phase 3 item 2 identifies as never collected by default, because it lacks the
+        `test_` prefix. Accepting unit tests as the coverage for fluorescence means the
+        rename in Phase 3 item 2 is **the** thing standing between us and having no
+        fluorescence coverage at all. Treat it as required, not cosmetic.
+     2. Fluorescence photons are the only photoelectric product still transported under
+        §2.10 — everything else deposits locally — so these tests are the only check on the
+        one PE branch that still creates particles.
 
 ### 6.3 `.gitignore` — full specification  **[REWRITTEN 2026-10-03]**
 
@@ -1234,17 +1304,27 @@ reversal costs only a `git add`.
 
 Consequences to carry out:
 
-1. **The working tree's `.gitignore` has NOT been changed yet.** This revision edits the
-   §6.3.5 *specification* block only. The live file still carries the rule at
-   `.gitignore:147`, verified with:
+1. **DONE 2026-10-08 — the rule is removed and the deck is committed.** Both the §6.3.5
+   specification block and the live `.gitignore` have been updated, and the deck is tracked.
+   Verify with:
 
    ```bash
    git check-ignore -v photon_transport_code/MCNP_Verification_Tests/Complex_M&G/lead_finite_cylinder_energy_deposition.py
+   #   -> exit 1, no output: NOT ignored
+   git ls-files --error-unmatch "photon_transport_code/MCNP_Verification_Tests/Complex_M&G/lead_finite_cylinder_energy_deposition.py"
    ```
 
-   So the deck is still invisible to `git status`. **Deleting that line is the first action of
-   Phase 1**, after which the file is committed normally. It is not in the Phase 0 snapshot
-   and does not need to be — it joins the tree in Phase 1 rather than retroactively.
+   The named-deck exclusion list in `.gitignore` is now **8 paths**, down from 9, and carries
+   a dated comment recording the reversal so the next reader does not re-add the rule.
+
+   **Migration note for deck 8.** Its own docstring says *"verify whether your local photon
+   branch reports energy_deposition in eV or MeV"* — an open question when it was written.
+   §4 now answers it: **eV, weight-included**. Resolve that comment during the migration
+   rather than carrying the ambiguity into `test/regression/`. The deck also runs
+   `N_particle = 200_000` and uses the old module-level `mcdc.settings` / `mcdc.Tally(cell=…)`
+   API, so it needs the same `Simulation`-API migration as the other seven, plus the
+   `sys.path` preamble stripped — it currently inserts its own parent directories to find the
+   local `mcdc` package, which is wrong once it lives in `test/regression/`.
 2. §6.3.6 gate item 6c now expects **5**, not 4 — updated.
 3. Its MCNP comparison target is **not in git** (owner decision on MCNP decks stands), so its
    `answer.h5` is a self-consistency reference like every other case. See §7's migration note:
@@ -1284,8 +1364,12 @@ add nothing to `examples/`.
 **[REWRITTEN 2026-10-08]**
 
 **Blocked on: §14, the environment.** That is now the only hard blocker, and it is a real one —
-`mcdc-env` cannot import the upstream tree. §6.1 is closed. §6.2 (data generation) can be settled
-during Phase 2. §6.3 is resolved.
+`mcdc-env` cannot import the upstream tree.
+
+**Every other open item in §6 is now closed.** §6.1 (energy units) and §6.2 (data generation,
+including the relaxation translation) are settled by evidence; §6.3 (`.gitignore`) is resolved
+bar the Phase 1 handover; §6.4 is a list of things to tell the maintainers, not a blocker; and
+§6.5's two coverage gaps are both closed by owner decision. The plan is executable as written.
 
 **Phase 0 is already done — the previous revision's step 0 is deleted from this block.** Do not
 re-create `wip/photon-snapshot-pre-refactor`; it exists at `c4f0cb49` and is pushed.

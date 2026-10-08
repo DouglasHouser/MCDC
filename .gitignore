@@ -143,8 +143,13 @@ photon_transport_code/MCNP_Verification_Tests/benchmark_5/Benchmark5_MCNP_Deck_M
 # Exact paths, so the kept siblings (lead_finite_cylinder_off_center.py,
 # multi_material_slabs_collimated_beam.py, multi_material_slabs_mesh_tally.py,
 # multi_material_spheres_1to10mev_spectrum.py) are unaffected.
+#
+# 2026-10-08: lead_finite_cylinder_energy_deposition.py was REMOVED from this
+# list by owner decision. It is the only energy-deposition deck, and the
+# upstream sync rewrites that tally onto interaction_data["energy_deposition"],
+# so it is now section 7 deck 8 and must be committed rather than ignored.
+# See UPSTREAM_SYNC_HANDOFF.md section 7 "Why deck 8 was added". 8 paths remain.
 photon_transport_code/MCNP_Verification_Tests/Complex_M&G/lead_finite_cylinder.py
-photon_transport_code/MCNP_Verification_Tests/Complex_M&G/lead_finite_cylinder_energy_deposition.py
 photon_transport_code/MCNP_Verification_Tests/Complex_M&G/multi_material_slabs.py
 photon_transport_code/MCNP_Verification_Tests/Complex_M&G/multi_material_spheres.py
 photon_transport_code/MCNP_Verification_Tests/Complex_M&G/multi_material_spheres_energy_spectrum.py
