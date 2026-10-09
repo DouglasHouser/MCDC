@@ -395,10 +395,14 @@ element = into_dtype([
     ('photon_relaxation_transition_probability_length', int64),
     ('photon_relaxation_transition_radiative_offset', int64),
     ('photon_relaxation_transition_radiative_length', int64),
+    ('photon_relaxation_transition_origin_offset', int64),
+    ('photon_relaxation_transition_origin_length', int64),
     ('photon_relaxation_subshell_start_offset', int64),
     ('photon_relaxation_subshell_start_length', int64),
     ('photon_relaxation_subshell_count_offset', int64),
     ('photon_relaxation_subshell_count_length', int64),
+    ('photon_relaxation_subshell_designator_offset', int64),
+    ('photon_relaxation_subshell_designator_length', int64),
     ('ID', int64),
 ])
 

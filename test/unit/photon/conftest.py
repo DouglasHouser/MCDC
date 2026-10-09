@@ -34,9 +34,17 @@ ENERGY_GRID = [
 K_BINDING_ENERGY = 8.8e4
 L_BINDING_ENERGY = 1.5e4
 
+#: A third binding energy, so the L shell has somewhere to be filled from and
+#: the de-excitation cascade has a second step to take.
+M_BINDING_ENERGY = 2.0e3
+
 #: The K-alpha line energy: the difference of two binding energies, which is
 #: always strictly below the binding energy of the shell that emitted it.
 K_ALPHA_ENERGY = K_BINDING_ENERGY - L_BINDING_ENERGY
+
+#: The L line emitted when the K-alpha vacancy in the L shell is itself filled.
+#: This is the cascade photon.
+L_LINE_ENERGY = L_BINDING_ENERGY - M_BINDING_ENERGY
 
 
 def _grid_length():
@@ -54,6 +62,7 @@ def write_photon_library(
     pair=8.0,
     fluorescence_yield=1.0,
     include_relaxation=True,
+    cascade=False,
 ):
     """Write a minimal but schema-complete photon element library.
 
@@ -132,6 +141,11 @@ def write_photon_library(
         # Atomic relaxation. The K shell has one radiative transition with the
         # given yield and, when the yield is below one, the remaining
         # probability is a non-radiative channel that deposits locally.
+        #
+        # origin_designator is the shell the filling electron comes from, so it
+        # is where the vacancy moves next: the K line is filled from L, which
+        # leaves an L vacancy. Whether that second vacancy can itself relax
+        # radiatively is what ``cascade`` controls.
         relaxation = file.create_group("atomic_relaxation")
         relaxation["n_subshells"] = np.int64(2)
         subshell_group = relaxation.create_group("subshells")
@@ -162,8 +176,11 @@ def write_photon_library(
             "secondary_designator", data=np.array(secondary, dtype=np.int64)
         )
 
-        # The L shell has nothing above it to fill the vacancy, so no
-        # transitions at all -- which is how real libraries write outer shells.
+        # By default the L shell has nothing above it to fill the vacancy, so
+        # no transitions at all -- which is how real libraries write outer
+        # shells, and which terminates the cascade after one photon. With
+        # ``cascade=True`` it gets one radiative transition filled from M, so a
+        # K event emits the primary line plus one cascade line.
         l_shell = subshell_group.create_group("MT-535")
         l_shell["designator"] = np.int64(2)
         l_shell["n_electrons"] = np.float64(8.0)
@@ -171,6 +188,20 @@ def write_photon_library(
             "binding_energy", data=np.float64(L_BINDING_ENERGY)
         )
         binding.attrs["unit"] = "eV"
+
+        if cascade:
+            l_transitions = l_shell.create_group("transitions")
+            energy = l_transitions.create_dataset(
+                "energy", data=np.array([L_LINE_ENERGY])
+            )
+            energy.attrs["unit"] = "eV"
+            l_transitions.create_dataset("probability", data=np.array([1.0]))
+            l_transitions.create_dataset(
+                "origin_designator", data=np.array([3], dtype=np.int64)
+            )
+            l_transitions.create_dataset(
+                "secondary_designator", data=np.array([0], dtype=np.int64)
+            )
 
 
 @pytest.fixture

@@ -729,6 +729,35 @@ def photon_relaxation_transition_radiative_chunk(start, length, element, data, v
 
 
 @njit
+def photon_relaxation_transition_origin(index, element, data, value):
+    offset = element["photon_relaxation_transition_origin_offset"]
+    data[offset + index] = value
+
+
+@njit
+def photon_relaxation_transition_origin_all(element, data, value):
+    start = element["photon_relaxation_transition_origin_offset"]
+    size = element["photon_relaxation_transition_origin_length"]
+    end = start + size
+    data[start:end] = value
+
+
+@njit
+def photon_relaxation_transition_origin_last(element, data, value):
+    start = element["photon_relaxation_transition_origin_offset"]
+    size = element["photon_relaxation_transition_origin_length"]
+    end = start + size
+    data[end - 1] = value
+
+
+@njit
+def photon_relaxation_transition_origin_chunk(start, length, element, data, value):
+    start += element["photon_relaxation_transition_origin_offset"]
+    end = start + length
+    data[start:end] = value
+
+
+@njit
 def photon_relaxation_subshell_start(index, element, data, value):
     offset = element["photon_relaxation_subshell_start_offset"]
     data[offset + index] = value
@@ -782,5 +811,34 @@ def photon_relaxation_subshell_count_last(element, data, value):
 @njit
 def photon_relaxation_subshell_count_chunk(start, length, element, data, value):
     start += element["photon_relaxation_subshell_count_offset"]
+    end = start + length
+    data[start:end] = value
+
+
+@njit
+def photon_relaxation_subshell_designator(index, element, data, value):
+    offset = element["photon_relaxation_subshell_designator_offset"]
+    data[offset + index] = value
+
+
+@njit
+def photon_relaxation_subshell_designator_all(element, data, value):
+    start = element["photon_relaxation_subshell_designator_offset"]
+    size = element["photon_relaxation_subshell_designator_length"]
+    end = start + size
+    data[start:end] = value
+
+
+@njit
+def photon_relaxation_subshell_designator_last(element, data, value):
+    start = element["photon_relaxation_subshell_designator_offset"]
+    size = element["photon_relaxation_subshell_designator_length"]
+    end = start + size
+    data[end - 1] = value
+
+
+@njit
+def photon_relaxation_subshell_designator_chunk(start, length, element, data, value):
+    start += element["photon_relaxation_subshell_designator_offset"]
     end = start + length
     data[start:end] = value

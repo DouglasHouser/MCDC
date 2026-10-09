@@ -15,6 +15,7 @@ from conftest import (
     K_ALPHA_ENERGY,
     K_BINDING_ENERGY,
     L_BINDING_ENERGY,
+    L_LINE_ENERGY,
     make_interaction_data,
     make_photon,
 )
@@ -31,9 +32,32 @@ def _element(simulation):
 
 
 def _sample(simulation, data, E, seed):
-    return native.sample_fluorescence_energy(
-        make_photon(E, seed=seed), _element(simulation), simulation, data
+    """The primary line energy, as the single-photon sampler used to return."""
+    container = make_photon(E, seed=seed)
+    element = _element(simulation)
+    subshell = native.sample_photoelectric_subshell(
+        container, element, simulation, data
     )
+    E_line, _ = native.relax_subshell(container, subshell, E, element, data)
+    return E_line
+
+
+def _sample_with_origin(simulation, data, E, seed):
+    """``(line energy, origin designator)`` for one relaxation step."""
+    container = make_photon(E, seed=seed)
+    element = _element(simulation)
+    subshell = native.sample_photoelectric_subshell(
+        container, element, simulation, data
+    )
+    return native.relax_subshell(container, subshell, E, element, data)
+
+
+def _bank_size(simulation):
+    return int(simulation["bank_active"]["size"][0])
+
+
+def _drain(simulation):
+    simulation["bank_active"]["size"][0] = 0
 
 
 # ======================================================================================
@@ -197,3 +221,143 @@ def test_photoelectric_conserves_energy_with_weight(photon_model):
     deposited = interaction[0]["energy_deposition"]
     carried = container[0]["E"] * weight
     assert deposited + carried == pytest.approx(E_ABOVE_K_EDGE * weight)
+
+
+# ======================================================================================
+# The de-excitation cascade
+#
+# A radiative transition leaves a vacancy in the shell the filling electron came
+# from, and that vacancy relaxes in turn. One further step is followed, so a
+# photoelectric event emits up to two photons. The pre-refactor code did this and
+# MCNP does it too (1.82 first-fluorescence and 0.38 second-fluorescence photons
+# per source particle for 10 MeV photons in lead), so the port must as well.
+# ======================================================================================
+
+
+def test_the_vacancy_moves_to_the_shell_that_filled_it(photon_model):
+    """The primary transition reports where the vacancy went."""
+    simulation, data = photon_model()
+    for seed in range(1, 40):
+        E_line, origin = _sample_with_origin(simulation, data, E_ABOVE_K_EDGE, seed)
+        if E_line > 0.0:
+            # The conftest K line is filled from L, whose designator is 2.
+            assert origin == 2
+            return
+    pytest.fail("no radiative transition sampled in 39 seeds")
+
+
+def test_an_unfillable_vacancy_ends_the_cascade(photon_model):
+    """Default fixture: the L shell has no transitions, so no second photon."""
+    simulation, data = photon_model()
+    _drain(simulation)
+    container = make_photon(E_ABOVE_K_EDGE, seed=5)
+    interaction = make_interaction_data()
+
+    native.photoelectric(container, interaction, _element(simulation), simulation, data)
+
+    assert container[0]["alive"]
+    assert container[0]["E"] == pytest.approx(K_ALPHA_ENERGY)
+    assert _bank_size(simulation) == 0
+    assert interaction[0]["energy_deposition"] == pytest.approx(
+        E_ABOVE_K_EDGE - K_ALPHA_ENERGY
+    )
+
+
+def test_the_cascade_emits_a_second_photon(photon_model):
+    """With the L shell fillable, one event yields the primary and the cascade."""
+    simulation, data = photon_model(cascade=True)
+    _drain(simulation)
+    container = make_photon(E_ABOVE_K_EDGE, seed=5)
+    interaction = make_interaction_data()
+
+    native.photoelectric(container, interaction, _element(simulation), simulation, data)
+
+    assert container[0]["alive"]
+    assert container[0]["E"] == pytest.approx(K_ALPHA_ENERGY)
+
+    assert _bank_size(simulation) == 1
+    banked = simulation["bank_active"]["particle_data"][0]
+    assert banked["E"] == pytest.approx(L_LINE_ENERGY)
+    _drain(simulation)
+
+
+def test_the_cascade_photon_starts_at_the_collision_site(photon_model):
+    simulation, data = photon_model(cascade=True)
+    _drain(simulation)
+    container = make_photon(E_ABOVE_K_EDGE, seed=5)
+    interaction = make_interaction_data()
+
+    native.photoelectric(container, interaction, _element(simulation), simulation, data)
+
+    banked = simulation["bank_active"]["particle_data"][0]
+    for axis in ("x", "y", "z"):
+        assert banked[axis] == pytest.approx(container[0][axis])
+    direction = np.array([banked["ux"], banked["uy"], banked["uz"]])
+    assert np.linalg.norm(direction) == pytest.approx(1.0)
+    _drain(simulation)
+
+
+def test_the_cascade_photon_inherits_the_weight(photon_model):
+    simulation, data = photon_model(cascade=True)
+    _drain(simulation)
+    weight = 0.375
+    container = make_photon(E_ABOVE_K_EDGE, seed=5, weight=weight)
+    interaction = make_interaction_data()
+
+    native.photoelectric(container, interaction, _element(simulation), simulation, data)
+
+    banked = simulation["bank_active"]["particle_data"][0]
+    assert banked["w"] == pytest.approx(weight)
+    _drain(simulation)
+
+
+def test_the_cascade_is_energy_conserving(photon_model):
+    """Deposited + both lines = the incident energy, weight included."""
+    simulation, data = photon_model(cascade=True)
+    _drain(simulation)
+    weight = 0.25
+    container = make_photon(E_ABOVE_K_EDGE, seed=5, weight=weight)
+    interaction = make_interaction_data()
+
+    native.photoelectric(container, interaction, _element(simulation), simulation, data)
+
+    banked = simulation["bank_active"]["particle_data"][0]
+    carried = (container[0]["E"] + banked["E"]) * weight
+    deposited = interaction[0]["energy_deposition"]
+    assert deposited + carried == pytest.approx(E_ABOVE_K_EDGE * weight)
+    _drain(simulation)
+
+
+def test_the_cascade_lowers_deposition_below_the_single_photon_case(photon_model):
+    """The second line carries energy away that would otherwise deposit."""
+    with_cascade, data_c = photon_model(cascade=True)
+    without_cascade, data_n = photon_model(cascade=False)
+
+    def deposition(sim, dat):
+        sim["bank_active"]["size"][0] = 0
+        container = make_photon(E_ABOVE_K_EDGE, seed=5)
+        interaction = make_interaction_data()
+        native.photoelectric(container, interaction, sim["elements"][0], sim, dat)
+        sim["bank_active"]["size"][0] = 0
+        return interaction[0]["energy_deposition"]
+
+    assert deposition(with_cascade, data_c) == pytest.approx(
+        deposition(without_cascade, data_n) - L_LINE_ENERGY
+    )
+
+
+def test_no_cascade_photon_exceeds_what_the_primary_left(photon_model):
+    """The cascade line is bounded by ``E - E_primary``, never by ``E``."""
+    simulation, data = photon_model(cascade=True)
+    for seed in range(1, 30):
+        _drain(simulation)
+        container = make_photon(E_ABOVE_K_EDGE, seed=seed)
+        interaction = make_interaction_data()
+        native.photoelectric(
+            container, interaction, _element(simulation), simulation, data
+        )
+        E_primary = container[0]["E"] if container[0]["alive"] else 0.0
+        for index in range(_bank_size(simulation)):
+            banked = simulation["bank_active"]["particle_data"][index]
+            assert banked["E"] <= E_ABOVE_K_EDGE - E_primary + 1e-9
+    _drain(simulation)

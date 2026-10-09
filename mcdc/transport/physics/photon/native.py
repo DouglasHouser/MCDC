@@ -428,6 +428,14 @@ def photoelectric(
     the shell's fluorescence yield, emitting a characteristic X-ray that *is*
     transported because it is the same species; a non-radiative (Auger) outcome
     deposits locally for the same reason the photoelectron does.
+
+    A radiative transition leaves a new vacancy in the subshell the filling
+    electron came from, and that vacancy relaxes in turn. One further step is
+    followed, so a photoelectric event emits up to **two** photons: the primary
+    line and one cascade line. In a high-Z medium the second is the L cascade
+    following a K capture, and it is not negligible -- MCNP's own accounting for
+    10 MeV photons in lead logs 1.82 first-fluorescence and 0.38
+    second-fluorescence photons per source particle.
     """
     simulation = util.access_simulation(program)
     particle = particle_container[0]
@@ -435,56 +443,98 @@ def photoelectric(
 
     E = particle["E"]
 
-    E_fluorescence = sample_fluorescence_energy(
+    subshell = sample_photoelectric_subshell(
         particle_container, element, simulation, data
     )
 
-    # Everything except the fluorescence photon deposits locally.
-    interaction_data["energy_deposition"] += (E - E_fluorescence) * particle["w"]
+    E_primary = 0.0
+    E_cascade = 0.0
+    if subshell >= 0:
+        E_primary, origin = relax_subshell(
+            particle_container, subshell, E, element, data
+        )
+        if E_primary > 0.0 and origin > 0:
+            # The vacancy has moved to the subshell the filling electron left.
+            next_subshell = find_subshell_by_designator(origin, element, data)
+            if next_subshell >= 0:
+                E_cascade, _ = relax_subshell(
+                    particle_container,
+                    next_subshell,
+                    E - E_primary,
+                    element,
+                    data,
+                )
 
-    if E_fluorescence <= 0.0:
+    # Everything the fluorescence photons do not carry away deposits locally.
+    interaction_data["energy_deposition"] += (E - E_primary - E_cascade) * particle["w"]
+
+    if E_primary <= 0.0:
         particle["alive"] = False
         particle["E"] = 0.0
         return
 
-    # Revive the current history in place as the fluorescence photon, emitted
+    # Revive the current history in place as the primary line, emitted
     # isotropically from the absorption site. Cheaper than killing this history
     # and banking a fresh one.
     ux, uy, uz = sample_isotropic_direction(particle_container)
-    particle["E"] = E_fluorescence
+    particle["E"] = E_primary
     particle["ux"] = ux
     particle["uy"] = uy
     particle["uz"] = uz
 
+    if E_cascade <= 0.0:
+        return
+
+    # Bank the cascade line as a new active particle from the same site,
+    # inheriting the current weight and emitted in its own direction.
+    ux, uy, uz = sample_isotropic_direction(particle_container)
+    particle_container_new = np.zeros(1, type_.particle_data)
+    particle_module.copy_as_child(particle_container_new, particle_container)
+    particle_new = particle_container_new[0]
+    particle_new["E"] = E_cascade
+    particle_new["ux"] = ux
+    particle_new["uy"] = uy
+    particle_new["uz"] = uz
+    particle_bank_module.bank_active_particle(particle_container_new, program)
+
 
 @njit
-def sample_fluorescence_energy(particle_container, element, simulation, data):
-    """Sample the characteristic X-ray energy following a photoelectric event.
+def find_subshell_by_designator(designator, element, data):
+    """Map an EADL subshell designator to this element's subshell index.
 
-    The vacancy subshell is chosen in proportion to its shell-resolved
-    photoelectric cross section, then one de-excitation transition is drawn from
-    that subshell's tabulated table. A radiative transition emits a
-    characteristic X-ray at the tabulated line energy; a non-radiative (Auger)
-    transition emits nothing, because its electron is not transported and so
-    deposits locally.
+    Returns ``-1`` when the element carries no relaxation table for that
+    subshell, which is how outer shells are written: their vacancy relaxes
+    through unmodeled channels and so deposits locally.
+    """
+    N_subshell = int(element["photon_relaxation_subshell_designator_length"])
+    for index in range(N_subshell):
+        tabulated = int(
+            mcdc_get.element.photon_relaxation_subshell_designator(index, element, data)
+        )
+        if tabulated == designator:
+            return index
+    return -1
 
-    A line energy is always the difference between two binding energies and is
-    therefore strictly below the binding energy of the shell that produced it,
-    so an emitted photon can never re-ionize that shell. The cascade terminates
-    by construction.
+
+@njit
+def sample_photoelectric_subshell(particle_container, element, simulation, data):
+    """Choose which subshell the photoelectric event ionizes.
+
+    The vacancy subshell is drawn in proportion to its shell-resolved
+    photoelectric cross section at the incident energy.
 
     Returns
     -------
-    float
-        Fluorescence photon energy in eV, or ``0.0`` when the outcome is
-        non-radiative or no subshell is accessible at this energy.
+    int
+        Subshell index, or ``-1`` when no subshell is accessible at this energy
+        or the element carries no shell-resolved data.
     """
     particle = particle_container[0]
     E = particle["E"]
 
     N_reaction = element["N_photon_photoelectric_reaction"]
     if N_reaction == 0:
-        return 0.0
+        return -1
 
     # The ID list holds base-array indices; the base record carries sub_ID into
     # the concrete subtype array.
@@ -496,9 +546,9 @@ def sample_fluorescence_energy(particle_container, element, simulation, data):
 
     N_subshell = reaction["N_subshell"]
     if N_subshell == 0:
-        return 0.0
+        return -1
     if element["photon_relaxation_subshell_count_length"] == 0:
-        return 0.0
+        return -1
 
     # Total shell-resolved cross section at this energy.
     sigma_total = 0.0
@@ -510,7 +560,7 @@ def sample_fluorescence_energy(particle_container, element, simulation, data):
         sigma_total += evaluate_data(E, subshell_xs, simulation, data)
 
     if sigma_total <= 0.0:
-        return 0.0
+        return -1
 
     # Select the vacancy subshell.
     xi = rng.lcg(particle_container) * sigma_total
@@ -527,21 +577,47 @@ def sample_fluorescence_energy(particle_container, element, simulation, data):
             break
 
     if subshell >= element["photon_relaxation_subshell_count_length"]:
-        return 0.0
+        return -1
+    return subshell
 
-    # Draw one de-excitation transition from that subshell's table. The
-    # probabilities are absolute, so they need not sum to one: whatever is left
-    # over is an unmodeled channel, which deposits locally like Auger does.
+
+@njit
+def relax_subshell(particle_container, subshell, E_available, element, data):
+    """Draw one de-excitation transition for a vacancy in ``subshell``.
+
+    A radiative transition emits a characteristic X-ray at the tabulated line
+    energy; a non-radiative (Auger) transition emits nothing, because its
+    electron is not transported and so deposits locally.
+
+    A line energy is always the difference between two binding energies and is
+    therefore strictly below the binding energy of the shell that produced it,
+    so an emitted photon can never re-ionize that shell. The cascade terminates
+    by construction.
+
+    Returns
+    -------
+    (float, int)
+        Line energy in eV -- ``0.0`` when the outcome is non-radiative or no
+        transition is accessible -- and the EADL designator of the subshell the
+        vacancy moves to, or ``-1`` when there is none to follow.
+    """
+    if subshell < 0:
+        return 0.0, -1
+    if subshell >= int(element["photon_relaxation_subshell_count_length"]):
+        return 0.0, -1
+
     N_transition = int(
         mcdc_get.element.photon_relaxation_subshell_count(subshell, element, data)
     )
     if N_transition == 0:
-        return 0.0
+        return 0.0, -1
 
     start = int(
         mcdc_get.element.photon_relaxation_subshell_start(subshell, element, data)
     )
 
+    # The probabilities are absolute, so they need not sum to one: whatever is
+    # left over is an unmodeled channel, which deposits locally like Auger does.
     xi = rng.lcg(particle_container)
     total = 0.0
     for i in range(N_transition):
@@ -554,17 +630,22 @@ def sample_fluorescence_energy(particle_container, element, simulation, data):
             )
             if radiative == 0.0:
                 # Non-radiative (Auger): the electron is not transported.
-                return 0.0
+                return 0.0, -1
 
             E_line = mcdc_get.element.photon_relaxation_transition_energy(
                 start + i, element, data
             )
-            if E_line <= 0.0 or E_line > E:
-                return 0.0
-            return E_line
+            if E_line <= 0.0 or E_line > E_available:
+                return 0.0, -1
+            origin = int(
+                mcdc_get.element.photon_relaxation_transition_origin(
+                    start + i, element, data
+                )
+            )
+            return E_line, origin
 
     # Beyond the tabulated probability: unmodeled channel, deposit locally.
-    return 0.0
+    return 0.0, -1
 
 
 # ======================================================================================

@@ -79,8 +79,10 @@ class Element(MCDCObject):
     photon_relaxation_transition_energy: NDArray[float64]
     photon_relaxation_transition_probability: NDArray[float64]
     photon_relaxation_transition_radiative: NDArray[float64]
+    photon_relaxation_transition_origin: NDArray[float64]
     photon_relaxation_subshell_start: NDArray[float64]
     photon_relaxation_subshell_count: NDArray[float64]
+    photon_relaxation_subshell_designator: NDArray[float64]
 
     def __init__(self, element_name: str):
         super().__init__()
@@ -130,8 +132,10 @@ class Element(MCDCObject):
         self.photon_relaxation_transition_energy = np.zeros(0)
         self.photon_relaxation_transition_probability = np.zeros(0)
         self.photon_relaxation_transition_radiative = np.zeros(0)
+        self.photon_relaxation_transition_origin = np.zeros(0)
         self.photon_relaxation_subshell_start = np.zeros(0)
         self.photon_relaxation_subshell_count = np.zeros(0)
+        self.photon_relaxation_subshell_designator = np.zeros(0)
 
     def _compile_into_simulation(self, simulation) -> bool:
         """Load basic properties and register with the owning simulation."""
@@ -386,12 +390,19 @@ class Element(MCDCObject):
         # is radiative, so a characteristic X-ray is emitted and transported;
         # non-zero is non-radiative (Auger), whose electron is not transported and
         # therefore deposits locally.
+        #
+        # origin_designator names the subshell the filling electron came from, so
+        # it is where the vacancy moves next. Paired with each subshell's own
+        # designator it lets the de-excitation cascade be followed one further
+        # step, which is what emits the second (L) fluorescence photon.
 
         transition_energy = []
         transition_probability = []
         transition_radiative = []
+        transition_origin = []
         subshell_start = []
         subshell_count = []
+        subshell_designator = []
 
         relaxation = (
             file["atomic_relaxation/subshells"]
@@ -406,9 +417,13 @@ class Element(MCDCObject):
 
             if relaxation is None or name not in relaxation:
                 subshell_count.append(0)
+                subshell_designator.append(0)
                 continue
 
             subshell = relaxation[name]
+            subshell_designator.append(
+                int(subshell["designator"][()]) if "designator" in subshell else 0
+            )
             if "transitions" not in subshell:
                 subshell_count.append(0)
                 continue
@@ -417,12 +432,18 @@ class Element(MCDCObject):
             energies = read_energy(transitions["energy"])
             probabilities = transitions["probability"][()]
             secondary = transitions["secondary_designator"][()]
+            origin = (
+                transitions["origin_designator"][()]
+                if "origin_designator" in transitions
+                else np.zeros(len(energies), dtype=np.int64)
+            )
 
             subshell_count.append(len(energies))
             for index in range(len(energies)):
                 transition_energy.append(float(energies[index]))
                 transition_probability.append(float(probabilities[index]))
                 transition_radiative.append(1.0 if int(secondary[index]) == 0 else 0.0)
+                transition_origin.append(float(int(origin[index])))
 
         self.photon_relaxation_transition_energy = np.asarray(
             transition_energy, dtype=float64
@@ -433,11 +454,17 @@ class Element(MCDCObject):
         self.photon_relaxation_transition_radiative = np.asarray(
             transition_radiative, dtype=float64
         )
+        self.photon_relaxation_transition_origin = np.asarray(
+            transition_origin, dtype=float64
+        )
         self.photon_relaxation_subshell_start = np.asarray(
             subshell_start, dtype=float64
         )
         self.photon_relaxation_subshell_count = np.asarray(
             subshell_count, dtype=float64
+        )
+        self.photon_relaxation_subshell_designator = np.asarray(
+            subshell_designator, dtype=float64
         )
 
         file.close()
