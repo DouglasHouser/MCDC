@@ -1,8 +1,8 @@
 # Photon Transport — Upstream Sync Handoff
 
-Planning state as of **2026-10-08**. **Phase 0 is complete and pushed. Phase 1 is COMPLETE —
-see §15. Phase 2 is cleared to start and has not begun.** Phases 3–4 are unstarted.
-Pick up at §15's handover, then §5 Phase 2.
+Planning state as of **2026-10-08**. **Phases 0, 1 and 2 are COMPLETE — see §15 and §16.
+Phase 3 is cleared to start.** Phase 4 is the owner's.
+Pick up at §16's handover.
 
 **§15 records three discoveries made while executing Phase 1.** None of them blocks Phase 2.
 The largest is that a **populated photon HDF5 schema already exists** in
@@ -913,7 +913,13 @@ pristine upstream using the Phase 0 snapshot as reference. Also in this phase:
 2. Delete the two local `backup/phase0-*` branches.
 3. Disarm the push URLs on `mcdc-project` and `upstream` (§1).
 
-### Phase 2 — Re-apply in dependency order
+### Phase 2 — Re-apply in dependency order  — **✅ COMPLETE 2026-10-08. See §16.**
+
+**Done.** All 22 steps applied on `feature/photon-transport` as commit `6452dd0d`,
+3,713 insertions across 35 files. Photon transport runs in both python and numba mode,
+aluminium attenuation agrees with NIST XCOM to within 0.5% from 100 keV to 10 MeV, and all
+405 unit tests plus all 26 regression cases pass. The subsection below is the plan; **§16
+is the record, and it differs in four places.**
 
 **[REWRITTEN 2026-10-08]** Per §3, §4 and the touch-list in §13. The template column now
 names **proton** wherever proton is the newest expression of the pattern, and electron only
@@ -2739,3 +2745,152 @@ with `git push -u origin feature/photon-transport` on its first commit.
 nothing to push; its tracking ref is `mcdc-project/dev`, whose push URL is DISABLED. On the
 first Phase 2 commit, push with `git push -u origin feature/photon-transport` to retarget
 tracking at the writable remote.
+
+---
+
+## 16. Phase 2 — Execution Record  **[NEW 2026-10-08]**
+
+All 22 steps applied, as commit `6452dd0d` on `feature/photon-transport`, pushed to `origin`.
+**Four things came out differently from the plan**, each because an artifact disagreed with it
+(header rule 4).
+
+### 16.1 Validation — what was measured, not asserted
+
+| Check | Result |
+|---|---|
+| `pytest test/unit` | **405 passed**, python and numba mode |
+| `pytest test/regression --mode=python` | **26 passed** — neutron, electron, proton unaffected |
+| Aluminium attenuation vs **NIST XCOM**, 100 keV – 10 MeV | **within 0.5%** (0.11%, −0.05%, −0.10%, −0.50%, −0.20% at 0.1/0.5/1/5/10 MeV) |
+| Python vs numba mode, same deck and seed | **identical** — max rel diff 1.9e−16, well inside the harness's `rtol = 1e-6` |
+| Generated library vs `mcdc-regression_test_data` | every XS, form factor, scattering function, subshell and relaxation table **within 1e−9**; grid and sub-tabulated data **bit-identical** |
+| Same deck against reference vs generated library | **identical tallies** |
+| `rebuild_numba_support.py` → `git diff` | empty (read off `git diff`, not `git status` — §14) |
+| black over the tracked set | 232 files unchanged |
+| Docs build | clean; `settings.photon_transport.*` renders |
+
+The NIST comparison is the one that matters most, because it is the only check that
+**the port computes the right physics** rather than merely running. It validates the eV/barn
+unit handling and the interpolation together, which §4 called "the single largest source of
+silent numerical error".
+
+### 16.2 [MAJOR] EPDL declares lin-lin, not log-log
+
+§3 and §4 both insist photon must interpolate **log-log**, calling it "the one place photon
+deliberately departs from the template" and warning that linear interpolation on a log-spaced
+grid "would be visibly wrong near absorption edges".
+
+**Every EPDL photon section declares INT=2, lin-lin.** Measured from the TAB1 interpolation
+ranges of MF=23/MT=501, 502, 504, 515, 517, 522 and the MT-534+ subshells, and of MF=27/MT=502
+and 504: all `NR=1`, all `INT=2`.
+
+This splits into two questions that the plan ran together:
+
+- **Generator side — settled, lin-lin.** Building the library means reproducing EPDL's own
+  function, so the declared law governs. Interpolating log-log instead moved the coherent
+  cross section by **22%** and the incoherent by 1e−3 against the reference library;
+  honouring INT=2 brought both to **2.2e−16**. There is no judgement here — the law is a
+  property of the evaluation.
+- **Runtime side — kept log-log, as §4 says.** Between adjacent points of the stored
+  6,682-point grid the two laws differ negligibly, and the NIST agreement above is measured
+  *with* log-log. §4's instruction stands; what was wrong was applying it to the generator.
+
+### 16.3 [MAJOR] `Element` needed a two-particle story, and now has the minimal one
+
+§6.2 flagged that "`Element` has no story for two particles in one file" and said we were not
+solving it. **Phase 2 could not avoid it.** The Numba layer generator requires every annotated
+field to be present, but `set_electron_data` and `set_photon_data` each populate only their own
+half, so an element loaded for one species cannot be packed — which surfaced immediately as
+seven failures in `test/unit/transport/test_electron_ionization.py`:
+
+```
+Missing structure keys in record for element: {'photon_photoelectric_reaction_IDs_offset',
+'photon_incoherent_xs_length', 'N_photon_incoherent_reaction', ...}
+```
+
+`Element.__init__` now initializes both halves empty, through
+`_set_empty_electron_data()` and `_set_empty_photon_data()`, so an element is packable
+whichever loader ran. This is the minimal form of the story §6.2 said was missing, and it is
+worth mentioning in the PR: it makes the asymmetry symmetric rather than solving the general
+problem.
+
+### 16.4 Three corrections the generated accessors forced
+
+Each was found by running the code, not by reading it:
+
+| Assumed | The generated layer actually gives |
+|---|---|
+| `subshell_xs_IDs` | **`subshell_x_IDs`**, and `N_subshell_x`. The generator singularizes a list field by dropping a trailing "s". Electron's ionization has the same spelling, so it is upstream's convention, matched rather than corrected |
+| `evaluate_table(x, table, data)` on `simulation["data"][ID]` | that array holds the polymorphic **base**, so it needs **`evaluate_data(x, data_, simulation, data)`**, which dispatches on `sub_type` into `simulation["table_data"]` |
+| `*_reaction_IDs` indexes the subtype array | it indexes the **base** array, `simulation["photon_reactions"]`; the base record's **`sub_ID`** then indexes the subtype array. Proton and electron both do the two-step |
+
+### 16.5 The fluorescence line energy is not the binding energy
+
+The first implementation approximated the characteristic X-ray energy by the vacancy's binding
+energy. That is wrong physics and it **hangs**: a photon emitted at exactly the binding energy
+of a shell re-ionizes that shell, forever. It was caught by running a deck, which did not
+terminate.
+
+A line energy is the *difference* of two binding energies, so it is strictly below the binding
+energy of the shell that produced it and an emitted photon can never re-ionize its own shell —
+the cascade terminates by construction. The fix reads the real transition tables, which the
+reference library carries and the plan had not inspected:
+
+```
+atomic_relaxation/subshells/MT-NNN/
+  binding_energy, designator, n_electrons
+  transitions/{energy, probability, origin_designator, secondary_designator}
+```
+
+`secondary_designator` is the channel discriminator: **zero is radiative**, so an X-ray is
+emitted and transported; **non-zero is non-radiative (Auger)**, whose electron deposits
+locally. Probabilities are absolute, so they need not sum to one — the radiative ones sum to
+the shell's fluorescence yield, which is what §6.2 observed about our own EADL data.
+
+This also **supersedes §6.2's relaxation translation table**: there is no translation to
+perform, because EADL is read directly from `MF=28/MT=533` into the reference schema. Note that
+EADL keeps every subshell in **one** section, not one per subshell, which §6.2 did not record.
+
+### 16.6 What §6.2 got right, and the one thing it could not
+
+The `generate.py` + `util.py` split, the CLI to mirror, the five-heading README, the
+`$MCDC_LIB_PHOTON` output variable and mode `"w"`, writing `offset` **and** `unit` on every
+`xs`, and standardising the MT numbers — all stand exactly as written.
+
+Two corrections to its MT table, from the artifact:
+
+- **No MT-516 group.** Pair production is `MT515` and `MT517` as siblings plus an unnumbered
+  `total/xs`. §6.2 proposed 516 as the total's own MT.
+- **No union grid needs constructing.** §6.2 implies assembling one; EPDL's MT-501 abscissa
+  *is* it, bit-identically, which also preserves the duplicated edge energies for free.
+
+**The one thing §6.2 could not have known:** the EPDL cross-section parser never existed in
+this repository. `photon_transport_code/tools/` holds three bolt-on scripts, and only two of
+them read ENDF text — `add_coherent_form_factors.py` (MF=27/MT=502) and
+`add_atomic_relaxation.py`. The base cross sections in `data/mcdc/*.h5` came from
+`data/raw/photon/*.h5`, whose own provenance is not in the tree. So the new generator does not
+"replace a three-pass pipeline" as §6.2 frames it — **it is the first complete EPDL reader the
+project has had**, and its agreement with the reference library to 1e−9 is what establishes
+that reading is correct.
+
+### 16.7 Handover to Phase 3
+
+The port is on `feature/photon-transport` at `6452dd0d`, pushed to `origin`, tracking
+`origin/feature/photon-transport`. For §5 Phase 3:
+
+1. **The generic object-model tests already pass** (§5 Phase 3 item 0), including both
+   `--mode=python` and `--mode=numba`. The 405 figure is the baseline to measure against.
+2. **§5 Phase 3 item 2 is next** — rename the three unprefixed photon test files, relocate
+   them to `test/unit/photon/`, and confirm 7 → 33 collected. Nothing has been done to the
+   photon tests yet.
+3. **§10's Tier B and C rewrites** still stand, and §16.4 above tells you what three of the
+   vanished symbols became, which was not knowable when §10 was written.
+4. **The eleven element files** (§15.5) now have a generator: point `$MCDC_EPDL_LIB` and
+   `$MCDC_EADL_LIB` at `data/endf/` and run it. The generated library reproduces the
+   reference to 1e−9, so it is suitable for the §7 decks.
+5. **`PHOTON_CUTOFF_ENERGY = 1` eV**, chosen to match EPDL's 1 eV grid floor, which the
+   reference grid also starts at. §13 asked for the sibling constant and left the value open.
+
+**Not done in Phase 2, and not in its scope:** the §7 deck migration, the §10 test rewrites,
+and the §11 smoke references — all Phase 3. The `data/mcdc/` diff that §6 item 3 wants before
+those 204 MB are retired is **also still open**: the generator was diffed against the
+*regression library*, not against `data/mcdc/`, and those are different comparisons.
