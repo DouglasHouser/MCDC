@@ -1,8 +1,13 @@
 # Photon Transport — Upstream Sync Handoff
 
-Planning state as of **2026-10-08**. **Phase 0 is complete and pushed. Phase 1 is cleared to
-start — every prerequisite is met and every §6 open item is closed.** Phases 1–4 are unstarted.
-Pick up at §8 "Execution".
+Planning state as of **2026-10-08**. **Phase 0 is complete and pushed. Phase 1 is COMPLETE —
+see §15. Phase 2 is cleared to start and has not begun.** Phases 3–4 are unstarted.
+Pick up at §15's handover, then §5 Phase 2.
+
+**§15 also records three discoveries made while executing Phase 1 that change Phase 2's plan**,
+the largest being that **an authoritative photon HDF5 schema already exists** in
+`mcdc-project/mcdc-regression_test_data` — which contradicts §2.8, overrides §6.2's invented
+group names and §4's on-disk energy unit, and should be read before any generator work.
 
 **[OWNER DECISIONS 2026-10-08 — three operating rules that apply to every phase]**
 
@@ -870,7 +875,13 @@ The rest of the folder is **not** superseded and must not be swept up with it:
 
 Verify both claims before deleting anything.
 
-### Phase 1 — Fresh branch, no merge
+### Phase 1 — Fresh branch, no merge  — **✅ COMPLETE 2026-10-08. See §15.**
+
+**Done.** `feature/photon-transport` exists at `295cd909`, **0 commits ahead of
+`mcdc-project/dev` and byte-identical to it**, with a clean `git status`. All exit gates pass:
+405 unit tests, regeneration leaves `git diff` empty, black clean, and one regression case
+green against the cloned reference data. The subsection below is retained as the record of
+what was planned; **§15 is the record of what happened, and it differs in three places.**
 
 **Gated on §14 (environment) being green.** The branch cannot be imported, let alone tested,
 in `mcdc-env`.
@@ -2448,3 +2459,232 @@ That is the whole of §14's gate, executed rather than asserted. Before the fixe
 sequence gave 29 collection errors; after the `cffi` fix alone, 404 passed and 1 failed. The
 **regression** suite is not covered by this result — it needs the data clone (§5 Phase 3
 item 4) and is a Phase 3 gate, not an environment one.
+
+---
+
+## 15. Phase 1 — Execution Record  **[NEW 2026-10-08]**
+
+Phase 1 was executed on 2026-10-08. This section is what happened, as distinct from §5
+Phase 1 and §8, which are what was planned. **Three things came out differently, and the
+third is large enough to reshape Phase 2.**
+
+### 15.1 Final state
+
+| | |
+|---|---|
+| Port branch | **`feature/photon-transport`** @ `295cd909` |
+| Relationship to base | **0 commits ahead, `git diff` 0 lines — byte-identical to `mcdc-project/dev`** |
+| `git status --porcelain -uall` | **0** |
+| Snapshot worktree | `C:/Projects/MCDC-photon-old` on `wip/photon-snapshot-pre-refactor` @ `837edebf` |
+| Regression data | cloned, 8 files, 73 MB, at `test/regression/mcdc-regression_test_data` |
+| Backup branches | `backup/phase0-v1` (`0532385f`) and `-v2` (`6c06c947`) **deleted** |
+| Push URLs | `mcdc-project` and `upstream` DISABLED; `origin` only |
+| Environment | `mcdc` **0.15.4.dev352+g295cd9096** editable, numba 0.66.0, numpy 2.4.6, cffi 2.1.1 |
+
+**Phase 1 produced no commits, by design.** The whole of it is "branch, and change nothing",
+so the only correct outcome is a branch identical to its base. Anything else means Phase 1
+leaked work that belongs to Phase 2.
+
+### 15.2 Exit gates — all green
+
+| Gate | Result |
+|---|---|
+| `import mcdc` + metadata | `C:\Projects\MCDC\mcdc\__init__.py`, version `0.15.4.dev352+g295cd9096` |
+| numba / numpy / cffi | 0.66.0 / 2.4.6 / 2.1.1 |
+| `rebuild_numba_support.py` → `git diff` | **empty** — generator and committed output agree |
+| `pytest test/unit -q` | **405 passed** in 113 s |
+| black over the tracked set | **232 files unchanged** |
+| `pytest test/regression --name=slab_absorbium --mode=python` | **1 passed** — the clone is wired up |
+
+### 15.3 `.gitignore` — resolved differently from §6.3.7, and why
+
+§6.3.7 said: take upstream's file wholesale, then **re-add** what §6.3.5 justifies, and
+remember that `data/` "does not go up in the Phase 4 PR". **The re-adding was done in
+`.git/info/exclude` instead of in the committed `.gitignore`.**
+
+Rationale: branching from `mcdc-project/dev` already leaves `.gitignore` byte-identical to
+upstream, and `.git/info/exclude` is never committed. So the port branch carries **zero
+`.gitignore` churn**, which is what §6.3.7 item 4 asks for — guaranteed by construction rather
+than by remembering to strip a rule before the PR. §6.3.4 is satisfied for free: upstream has
+no blanket `*.h5`, so taking its file wholesale drops ours.
+
+**§6.3.1's audit is two findings out of date**, because it was measured against
+`CEMeNT-PSAAP/MCDC` and 1,060 commits have passed over the file. §6.3.7 step 2 says to
+re-check; the re-check found:
+
+| §6.3.1 said | Upstream's file today | Consequence |
+|---|---|---|
+| "upstream does **not** ignore `*.log`, only `pytestdebug.log`" | **blanket `*.log` at `:51`** | §6.3.5's scoped `photon_transport_code/**/*_full_run.log` rule is **absorbed** — not re-added |
+| "`*.csv` is ignored globally (line 62)" — trap #1, nine files "silently omitted" | **no `*.csv` rule at all** | the seven `xs_compare/` CSVs became **visible** for the first time. §6.3.1 asked that their status be a decision rather than an accident, so it was made explicitly: derived output of `compare_photon_xs.py`, excluded **by directory name**, not by `*.csv`, so no other CSV anywhere is hidden |
+
+`__pycache__/` and `*.pyc` (`:13`–`:14`), `*.png` with its `!docs/source/images/**/*.png`
+negation (`:40`, `:45`), `*.out` (`:49`) and `*.pbs` all still hold.
+
+**The `*.h5` audit §6.3.4 demands, performed:**
+
+| Path | Attributed to |
+|---|---|
+| `test/regression/azurv1/answer.h5` | **not ignored** — correct, it is a tracked reference |
+| `test/regression/moving_pellet/answer.h5` | **not ignored** — correct |
+| `AZURV1_Neutron_1e5.h5` (root product) | `.git/info/exclude` → `/*.h5`, **anchored** |
+| `data/mcdc/Al.h5` | `.git/info/exclude` → `/data/` |
+| `output.h5` | `.gitignore:39` → `output*.h5`, upstream's narrow rule |
+
+No hit is attributed to a blanket rule, and **26 tracked `answer.h5` files stay visible** —
+which is exactly the casualty §6.3.4 was written to prevent. The root rule is `/*.h5` with a
+leading slash for that reason.
+
+**One consequence of the exclude-file choice, worth knowing. [NEW]** **black reads
+`.gitignore` but not `.git/info/exclude`.** So `black --check .` locally reports **13 files
+would be reformatted** — all of them orphans the branch switch left on disk
+(`photon_transport_code/` owner-excluded scripts, and two root scratch scripts). Upstream's
+`black_lint.yml` runs `black --check .` on a **fresh checkout**, where those files do not
+exist. The faithful local equivalent is therefore to format the tracked set:
+
+```bash
+git ls-files -z '*.py' | xargs -0 python -m black --check     # 232 unchanged, matches CI
+```
+
+Use that, not a bare `black .`, for the whole of Phase 2 and 3. A bare `black .` would also
+reach into the cloned `mcdc-regression_test_data` repository.
+
+**Housekeeping done at the same time.** The branch switch left gitignored residue behind,
+since git removes only tracked files: **32 `__pycache__` directories holding 119 stale
+photon `.pyc` files**, plus empty `mcdc/transport/physics/photon/` and
+`test/unit/transport/physics/photon/` directories. All removed, so that Phase 2 creates those
+packages fresh and nothing greps as "photon already exists here". The 1.61 GB of SLURM `.out`
+logs and the rest of `photon_transport_code/` were **left alone** — §12 says those full-history
+outputs underpin the paper's figures and should be deposited for a DOI, so they are not
+deleted until that happens.
+
+### 15.4 [MAJOR] An authoritative photon schema already exists upstream
+
+**This is the single most consequential thing Phase 1 turned up, and no revision of this
+document anticipated it.**
+
+`mcdc-project/mcdc-regression_test_data` — the repository §5 Phase 3 item 4 tells us to clone
+— contains `Al.h5` with a **fully populated `photon_reactions/` group**, on a **6,682-point
+energy grid, the same length as ours**.
+
+**§2.8 is wrong.** It states that upstream "extracts only the electron blocks and writes no
+`photon_reactions/` group". A `photon_reactions/` group exists. What is *also* true, and
+determines how much authority to give it:
+
+- **No upstream code reads it** — `grep -rn photon_reactions mcdc/ test/ tools/` finds nothing.
+- **No upstream generator writes it** — `tools/data_library_generator/electron/` mentions
+  photon in exactly one comment.
+- **Only `Al.h5` has it.** The other seven files in the repository are neutron nuclides.
+
+So it is a schema someone produced by hand or with an unreleased tool, parked in the data
+repository ahead of the code. Treat it as **the strongest available evidence of the schema
+maintainers would accept**, not as a contract.
+
+**The measured structure**, which should be the generator's target in preference to §6.2's
+invented one:
+
+```
+photon_reactions/
+  xs_energy_grid                                    (6682,)
+  coherent_scattering/MT502/        attrs: MT=502
+    xs                              (6682,)  attrs: offset=0, unit="barns"
+    form_factor/{momentum_transfer, value}   (1209,)  mt attrs: unit="1/angstrom"
+    anomalous_scattering/{real,imaginary}/{energy, value}   (373,)  unit="eV"
+    reference_frame
+  incoherent_scattering/MT504/      attrs: MT=504
+    xs                              (6682,)  attrs: offset=0, unit="barns"
+    scattering_function/{momentum_transfer, value}   (445,)  unit="1/angstrom"
+  pair_production/
+    MT515/xs                        attrs: MT=515, offset=0, unit="barns"   (electron field)
+    MT517/xs                        attrs: MT=517, offset=0, unit="barns"   (nuclear field)
+    total/xs                        attrs: unit="barns"                     (no MT group)
+  photoelectric/MT522/              attrs: MT=522
+    xs                              (6682,)
+    subshells/MT-534 .. MT-5NN/{binding_energy, energy_grid, xs}
+                                    binding_energy, energy_grid: unit="eV"
+atomic_relaxation/                  top-level -- confirms decision 2.9
+  n_subshells, subshells/...
+```
+
+**What this overrides in the existing plan:**
+
+| Section | Said | The reference file says |
+|---|---|---|
+| §4 Units, §6.2 | energies on disk in **MeV** with `attrs["unit"]="MeV"`; "convert eV→MeV on disk" | energies on disk in **eV**, declared `unit="eV"`. `read_energy` honours either, so **our eV data may need no conversion at all** — this removes most of what §4 calls "the single largest source of silent numerical error" |
+| §6.2 group names | `coherent`, `incoherent`, `photoelectric` | **`coherent_scattering`**, **`incoherent_scattering`**, **`photoelectric`** |
+| §6.2 MT table | pair total = **516**, plus 515/517 | **no MT516.** `MT515` and `MT517` as sibling groups plus an unnumbered `total/xs` |
+| §6.2 MT naming | `MT-NNN` throughout | **`MT502`/`MT504`/`MT515`/`MT517`/`MT522` without a hyphen**, but subshells **with** one (`MT-534`). Inconsistent upstream; match it anyway |
+| §4 flat_data table | coherent form factor only | also **`anomalous_scattering`** (real + imaginary), which our EPDL extraction does not carry |
+| §6.2 | our incoherent group holds `xs` only | also **`scattering_function`** S(q) — the incoherent binding correction. **We do not have this**, and its absence is a physics gap, not a schema gap: pure Klein–Nishina without S(q) overestimates low-energy incoherent scattering |
+| §6.2 subshell PE | `MT-534+/{xs}` | `MT-534+/{binding_energy, energy_grid, xs}` — each subshell carries **its own grid**, so it is `DataTable`-shaped as §4.5 predicted |
+
+**Do this before writing a line of the generator (§6.2 / Phase 2 step 19):** diff our
+`data/mcdc/Al.h5` against this file field by field. It is the same element on the same grid
+length, so the comparison is direct, and it answers the unit question, the group-name question
+and the MT question at once. It may also show that the two were built from the same EPDL
+release, in which case the numbers should agree and any disagreement is a bug in one of them.
+
+**Add to §6.4, as the sharpest maintainer question we now have:** *there is a
+`photon_reactions/` group in your regression data that nothing in the code reads and no
+generator writes — is that the schema you want photon to target, who produced it, and does an
+unreleased photon generator exist?* That question is worth more than the three already listed,
+because the answer either hands us the schema or tells us a parallel effort exists.
+
+### 15.5 How regression decks get their data library — and a Phase 3 blocker
+
+§14 says to point `MCDC_LIB` at `C:\Projects\MCDC\data\mcdc`. **That is right for local
+runs and wrong for anything that goes in the PR.** The harness runs each `input.py` as a
+subprocess from its own case directory, and upstream's decks set the variable **themselves**,
+relative:
+
+```python
+# test/regression/lockwood/input.py:8  -- the electron deck, i.e. the photon template
+os.environ["MCDC_LIB"] = "../mcdc-regression_test_data/"
+```
+
+Seven decks do this (`basic_weight_windows`, `hybrid_multigroup`, `lockwood`, `pincell`,
+`pincell-energy_deposition`, `pincell-k_eigenvalue`, `proton_beam`). An absolute Windows path
+would fail on every CI runner.
+
+So each migrated photon deck (§7) must carry that same preamble — **and this exposes a
+blocker §5 Phase 3 does not mention:**
+
+> **The photon element files have to exist inside
+> `mcdc-project/mcdc-regression_test_data`, which is a repository we cannot push to.**
+
+The regression library currently holds exactly one element file, `Al.h5`. Our eight decks need
+Pb, Fe and the air / concrete / water compositions. Three ways out, to be decided before the
+decks are migrated rather than after:
+
+1. **Ask the maintainers to add them** — cleanest, matches how electron and proton work, and
+   is a natural companion to the §15.4 question. Costs a round trip.
+2. **Point the photon decks at a path inside the port branch**, e.g. a small
+   `test/regression/photon_data/` holding only the elements the decks need. Self-contained and
+   CI-correct, but commits data to a repository whose convention is to fetch it.
+3. **Keep the photon decks out of `test/regression/` for this PR** and carry them as §11
+   smoke-reference decks instead. Loses the `rtol = 1e-6` harness — which §7 deck 8 exists
+   specifically to provide for the rewritten energy-deposition tally, so this is the weakest
+   option.
+
+Option 1 with option 2 as the fallback is the recommendation. Either way it is an **owner
+decision, and it gates §7's migration, not Phase 2's code.**
+
+### 15.6 Handover to Phase 2
+
+The port branch is clean and the environment is proven. Phase 2 begins at §5's step table,
+which now runs to 22 steps. Before step 1:
+
+1. Read §15.4 and decide the schema question. It changes §6.2 and §4, and it is cheap to
+   settle now and expensive to retrofit.
+2. Decide §15.5 so §7's migration is not blocked later.
+3. Format with `git ls-files -z '*.py' | xargs -0 python -m black --check`, not `black .`
+   (§15.3).
+4. Re-run `rebuild_numba_support.py` after **every** annotated-field change (§5 Phase 2 step 8
+   — "not optional and not last"), and read the gate off `git diff`, never `git status`
+   (§14's Windows caveat).
+5. The snapshot is at `C:/Projects/MCDC-photon-old` for side-by-side reference. Leave it until
+   Phase 3 is green, then `git worktree remove ../MCDC-photon-old`.
+
+**`feature/photon-transport` has not been pushed.** It has no commits of its own, so there is
+nothing to push; its tracking ref is `mcdc-project/dev`, whose push URL is DISABLED. On the
+first Phase 2 commit, push with `git push -u origin feature/photon-transport` to retarget
+tracking at the writable remote.
