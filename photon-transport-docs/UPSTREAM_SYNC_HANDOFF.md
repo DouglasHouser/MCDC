@@ -1,7 +1,12 @@
 # Photon Transport — Upstream Sync Handoff
 
-Planning state as of **2026-10-08**. **Phase 0 is complete and pushed.** Phases 1–4 are
-unstarted. Pick up at §8 "Execution".
+Planning state as of **2026-10-08**. **Phase 0 is complete and pushed. Phase 1 is cleared to
+start — every prerequisite is met and every §6 open item is closed.** Phases 1–4 are unstarted.
+Pick up at §8 "Execution".
+
+**Audited end to end on 2026-10-08**: all 35 source line anchors verified against
+`mcdc-project/dev` @ `295cd909`, all cross-references resolve, and the contradictions
+introduced by this revision's own rewrites were swept out. See the §8 readiness table.
 
 Supersedes the 2026-09-18 and 2026-10-03 revisions. New findings in this revision are marked
 **[NEW]**; corrections to a previous revision are marked **[CORRECTED]**.
@@ -39,9 +44,13 @@ from the live tree, not by judgement:
   transport, so a photon-only library is complete; see §6.2 for the `generate.py` + `util.py`
   plan that replaces the merge tool an earlier draft proposed.
 
-**[NEW 2026-10-08] §14 Environment prerequisites** is new and is a hard gate on Phase 1.
-`mcdc-env` (Python 3.10, numba 0.55.1, numpy 1.21.5) **cannot import the upstream tree**, which
-requires Python ≥ 3.11, numba ≥ 0.61 and numpy ≥ 2.0. No revision before this one recorded that.
+**[NEW 2026-10-08] §14 Environment prerequisites** is new, was the last hard gate on Phase 1,
+and is **now satisfied**. `mcdc-env` (Python 3.10, numba 0.55.1, numpy 1.21.5) **cannot import
+the upstream tree**, which requires Python ≥ 3.11, numba ≥ 0.61 and numpy ≥ 2.0 — no revision
+before this one recorded that. A second environment, **`mcdc-upstream`** (Python 3.13.16,
+numba 0.66.0, numpy 2.4.6), was built on 2026-10-08 and `mcdc-env` was left untouched as the
+§9 control. Read §14's "What this environment can and cannot test" before assuming it runs the
+current tree — it runs the **ported** code, which is the Phase 3 gate, not the snapshot.
 
 **[REVISED 2026-10-03]** The 2026-10-01 revision told Phase 0 to archive
 `photon_transport_code/` wholesale. That was wrong — the folder holds **362 live tests** and
@@ -135,17 +144,42 @@ not `c4f0cb49`:
 `.gitignore` rule and adds `lead_finite_cylinder_energy_deposition.py`. **The 199-file snapshot
 figure above still refers to `c4f0cb49`**; deck 8 makes 200 files tracked from this branch.
 
-**Six files have drifted since the snapshot** and are still uncommitted. Decide their
-disposition before Phase 1 branches away from this tree:
+### The six drifted files — **RESOLVED 2026-10-08, all committed**
 
-| File | State |
-|---|---|
-| `mcdc/transport/distribution.py` | modified — **production source**, the one that matters |
-| `…/Error-Convergence_testing/AZURV1_photon.py` | modified |
-| `…/Error-Convergence_testing/AZURV1_photon_convergence_analysis_CODEX_DIAGNOSTIC_INSTRUCTIONS.md` | modified |
-| `…/CARRE_examples/10MeV_cubesat_model.py` | modified |
-| `…/CARRE_examples/Plot_cubesat_tallies_avg.py` | modified |
-| `…/CARRE_examples/10MeV_cubesat_model_old.py` | untracked |
+Owner decision: commit all six to this branch. Reviewed before staging, and two of them turn
+out to be **one coupled change**:
+
+| File | What it is | Port? |
+|---|---|---|
+| `mcdc/transport/distribution.py` | **Divide-by-zero fix** in `sample_white_direction`: `nz != 1.0` → `abs(nz) != 1.0`. At `nz = -1.0`, `B = sqrt(1 - nz²) = 0` and `C = Ac / B` divides by zero | **NO — see below** |
+| `…/CARRE_examples/10MeV_cubesat_model.py` | Boundary 100 cm → 20 cm; face sources changed from pointwise isotropic to inward cosine (`white_direction`), inset 1 mm inside the vacuum boundary. **This is what exposed the bug above** — line 336 passes `white_direction=[0.0, 0.0, -1.0]`, the exact `nz = -1.0` case | yes, as a deck |
+| `…/CARRE_examples/Plot_cubesat_tallies_avg.py` | Axis labels `a.u.` → physical units; default input filename follows the model rename | yes, as tooling |
+| `…/CARRE_examples/10MeV_cubesat_model_old.py` | The pre-change 100 cm version, kept as reference | no |
+| `…/Error-Convergence_testing/AZURV1_photon.py` | Run parameters only: `N_particle` 60 → 10 000, `N_batch` 2 → 10. Note this is **not** §7 deck 5 — that is `AZURV1_photon_v3.py` | n/a |
+| `…/CODEX_DIAGNOSTIC_INSTRUCTIONS.md` | One sentence scoping an agent task to a single file | no |
+
+**The cubesat change is substantive and measured.** Shrinking the enclosing box leaves the
+interior field unchanged (a convex enclosing surface with inward cosine emission gives a
+uniform isotropic interior field, `phi = 4/A_box` per source photon) while raising the fraction
+of histories that reach the spacecraft from **1.1% to 29%**. Over 400k histories that moved the
+median per-voxel flux error from **33.8% to 6.3%**, and the share of voxels under 10% error from
+**2.6% to 88%**. It is a sampling-efficiency change, not a physics change.
+
+**⚠ `distribution.py` must NOT be ported — verified obsolete.** Upstream **rewrote**
+`sample_white_direction` (`transport/distribution.py:258`). The `if nz != 1.0` branch structure
+no longer exists; it now calls `make_direction_basis(nx, ny, nz)`
+(`transport/linalg.py:51`), which handles the degenerate axis explicitly:
+
+```python
+r = math.hypot(px, py)
+if r == 0.0:
+    return 1.0, 0.0, 0.0, 0.0, 1.0, 0.0
+```
+
+That covers **both** poles, so upstream's version is strictly better than our patch and the bug
+we hit cannot occur there. Carrying our fix forward would conflict with a function that no
+longer has the line we changed. **Do not raise it with maintainers either** — it is already
+fixed. It is committed here only so the snapshot records why the cubesat deck works.
 
 `backup/phase0-v1` and `backup/phase0-v2` are local-only, 13 commits each off superseded
 snapshot attempts, and are not pushed. They are insurance against nothing that `c4f0cb49` does
@@ -787,6 +821,13 @@ and the regeneration step in the middle is load-bearing.
 until the generator has run.** Regenerate after every change to an annotated field, and never
 hand-edit the output.
 
+**Do not port these two snapshot commits** — both are obsolete against upstream:
+
+| Snapshot commit | Why not |
+|---|---|
+| `cdbc5bab` | Formatter churn in generated accessors. Upstream `force-exclude`s `mcdc_get/`, `mcdc_set/` and `numba_types.py` from black, so it cannot recur (§1) |
+| the `distribution.py` fix | Upstream rewrote `sample_white_direction` around `make_direction_basis`, which handles both poles. The line we patched is gone (§1 "six drifted files") |
+
 Mechanical renames throughout: `mcdc` → `simulation` (~100 sites in the photon files),
 `ObjectPolymorphic` → `MCDCPolymorphic`, `ObjectSingleton` / `ObjectNonSingleton` →
 `MCDCObject`, `collision_data` → `interaction_data`. `MaterialBase` / `MaterialMG` and the
@@ -819,6 +860,18 @@ Inside `@njit` functions, recover the simulation with
    three, relocate to `test/unit/photon/`, and confirm the collected count rises 7 → 33.
    **Reconcile** `test_energy_deposition.py` with upstream's
    `test/unit/tally/test_energy_deposition.py` instead of duplicating.
+
+   **[VERIFIED 2026-10-08]** Re-measured under `mcdc-env`, and the numbers are exact:
+
+   ```bash
+   pytest test/unit/transport/physics --collect-only -q          # 7
+   pytest test/unit/transport/physics/photon/coherent_form_factor.py           test/unit/transport/physics/photon/cross_sections.py           test/unit/transport/physics/photon/fluorescence.py           --collect-only -q                                      # 26
+   ```
+
+   **Trap:** passing the directory *and* the three files in one invocation collects **7**,
+   not 33 — pytest dedupes against the directory argument and the unprefixed files are
+   dropped again. So the obvious way to check "33" reports 7 and makes this section look
+   wrong. Run the two commands separately and add them.
 3. **[REVISED]** Port and re-run `photon_transport_code/test/` — **362 tests** — after
    rewriting its imports onto `mcdc.transport.physics.photon.*`. These were written against
    the April API and many import symbols that no longer exist, so this is not a bulk
@@ -1408,8 +1461,20 @@ add nothing to `examples/`.
 
 **[REWRITTEN 2026-10-08]**
 
-**Blocked on: §14, the environment.** That is now the only hard blocker, and it is a real one —
-`mcdc-env` cannot import the upstream tree.
+**✅ Blocked on nothing. Cleared to start Phase 1 as of 2026-10-08.**
+
+| Gate | Status |
+|---|---|
+| §14 environment | **done** — `mcdc-upstream`, Python 3.13.16, upstream pins installed |
+| The six drifted files | **done** — all committed; `distribution.py` flagged do-not-port |
+| `.gitignore` + §7 deck 8 | **done** — rule removed, deck tracked |
+| `PARTICLE_PHOTON = 3` free | **verified by the owner 2026-10-08** |
+| 300 block free | verified on `295cd909`; re-confirm on the tip you fetch (§8 step 4) |
+| All §6 open items | closed |
+
+The one remaining prerequisite is **step 0 of the block below — install a standalone Python
+3.14 for the black hook, or accept the documented fallback.** It does not block Phase 1 or
+Phase 2; it blocks §5 Phase 3 item 1.
 
 **Every other open item in §6 is now closed.** §6.1 (energy units) and §6.2 (data generation,
 including the relaxation translation) are settled by evidence; §6.3 (`.gitignore`) is resolved
@@ -1422,8 +1487,12 @@ re-create `wip/photon-snapshot-pre-refactor`; it exists at `c4f0cb49` and is pus
 ```bash
 cd /c/Projects/MCDC
 
-# 0. PREREQUISITE — build the environment (section 14). Nothing below works without it.
-#    Then decide the six drifted files (section 1) and commit or discard them.
+# 0. PREREQUISITES -- both DONE as of 2026-10-08:
+#      - environment `mcdc-upstream` (Python 3.13.16) built, section 14
+#      - the six drifted files reviewed and committed, section 1
+#    Remaining, and it only gates Phase 3 item 1: a standalone Python 3.14 for the
+#    black pre-commit hook, or accept the fallback in section 14.
+conda activate mcdc-upstream
 
 # 1. Disarm push to repositories we do not own
 git remote set-url --push mcdc-project DISABLED
@@ -1438,8 +1507,11 @@ git worktree add ../MCDC-photon-old wip/photon-snapshot-pre-refactor
 git fetch mcdc-project
 git checkout -b feature/photon-transport mcdc-project/dev
 
-# 4. Re-verify the two assumptions this document rests on, against the tip you just got
-grep -nE "^PARTICLE_|= 3[0-9][0-9] *$" mcdc/constant.py   # PARTICLE_PHOTON=3 free? 300 free?
+# 4. Re-verify, against the tip you just got.
+#    PARTICLE_PHOTON = 3 was verified free by the owner on 2026-10-08; the 300 block
+#    was verified free on 295cd909. Both still worth one grep, since proton took the
+#    200 block between two revisions of this very document.
+grep -nE "^PARTICLE_|= 3[0-9][0-9] *$" mcdc/constant.py   # expect no 3xx constants
 git ls-tree -r --name-only HEAD | grep -i photon          # expect EMPTY
 
 # 5. Regression reference data (section 5 Phase 3 item 4)
@@ -1505,7 +1577,10 @@ pytest test/unit/transport/physics --collect-only  ->    7 tests collected
 ```
 
 Both under `C:\Users\dwhou\anaconda3\envs\mcdc-env`. The 362 collect cleanly — live, not
-rotted. Per-file counts in `test/unit/photon/`: `test_coverage_gaps` 50,
+rotted. **[RE-VERIFIED 2026-10-08]** Both figures reproduce exactly on the current tree —
+362 collected in 0.45 s, 7 from the main tree. This is why `mcdc-env` must not be upgraded in
+place (§14): it is the control for §10's rewrite tiers, and `mcdc-upstream` cannot replace it
+(our pre-port code predates numpy 2 and the upstream API rename). Per-file counts in `test/unit/photon/`: `test_coverage_gaps` 50,
 `test_phase1_structure` 43, `test_photon_reaction` 37, `test_distributions` 28,
 `test_total_xsec` 26, `test_pair_production` 17, `test_photoelectric` 16,
 `test_klein_nishina` 15, `test_docstrings` 9 (241 total), plus 7 regression files and 1
@@ -1783,6 +1858,79 @@ modelled with a shared isotropic distribution, in which case take proton's.
 
 Dev extras: `black<27`, `pre-commit<5`, `pyright<1.2`, `pytest<10`.
 
+### ✅ BUILT 2026-10-08 — `mcdc-upstream`
+
+| | Value |
+|---|---|
+| Name | **`mcdc-upstream`** |
+| Python | **3.13.16** |
+| Path | `C:\Users\dwhou\anaconda3\envs\mcdc-upstream` |
+| Interpreter | `C:/Users/dwhou/anaconda3/envs/mcdc-upstream/python.exe` |
+
+Installed, with upstream's pin beside each so a future reader can see the headroom:
+
+| Package | Installed | Upstream pin |
+|---|---|---|
+| Python | **3.13.16** | `>=3.11` |
+| numba | **0.66.0** | `>=0.61.0,<0.67` |
+| numpy | **2.4.6** | `>=2.0.0,<2.5` |
+| scipy | 1.18.1 | `<1.19` |
+| matplotlib | 3.11.2 | `<3.12` |
+| h5py | 3.16.0 | `<3.17` |
+| colorama | 0.4.6 | `<0.5` |
+| sympy | 1.14.0 | `<1.15` |
+| mpi4py | 4.1.2 | `>=3.1.4,<4.2` |
+| black | **26.1.0** — pinned deliberately, see below | `<27` |
+| pytest | 9.1.1 | `<10` |
+| pyright | 1.1.414 | `<1.2` |
+
+`mpi4py` built against the MS MPI already on this machine
+(`C:\Program Files\Microsoft MPI\Bin`), so no SDK install was needed.
+
+**numba verified working on 3.13, not merely installed.** The whole 3.13-vs-3.14 question in
+this section is about numba, so it was tested rather than assumed — an `@njit` kernel
+compiled and returned the correct result:
+
+```
+njit sum-of-squares over 1000 elements -> 332833500.0  (exact)
+numba 0.66.0 on py3.13: WORKING
+```
+
+**black is pinned to exactly 26.1.0** to match `.pre-commit-config.yaml`. `black<27` initially
+resolved to 26.10.0, which is *newer* than the hook's pin and could therefore format
+differently from CI. Pinning removes that divergence and makes the fallback in the next
+subsection genuinely safe rather than merely probable.
+
+**`mcdc-env` is untouched and must stay that way** — it is the only environment in which
+§9's 362-test baseline reproduces, and that baseline is the evidence behind §10's rewrite
+tiers. Two environments, two jobs.
+
+#### What this environment can and cannot test  **[READ THIS — it is a common misreading]**
+
+**It tests the ported code, not the current tree.**
+
+| Target | Environment | Why |
+|---|---|---|
+| Upstream's own `test/unit` and `test/regression`, after Phase 1 | **`mcdc-upstream`** | this is what it is for |
+| The ported photon layer and the 8 migrated decks, in Phase 3 | **`mcdc-upstream`** | same |
+| `photon_transport_code/test/` — the 362-test baseline **as it stands today** | **`mcdc-env`** | written against the April API, numba 0.55 / numpy 1.21 |
+| The pre-port snapshot tree (this branch) | **`mcdc-env`** | our photon code predates the numpy 2 / numba 0.61 era and the upstream API rename |
+
+So the answer to "can this environment test that all the test problems run" is **yes — once
+they are ported**, and that is precisely the Phase 3 gate. It cannot validate the snapshot
+as it exists right now, and it is not meant to: Phase 1 branches onto pristine upstream, and
+everything after that runs in `mcdc-upstream`.
+
+**Three things must be in place before the decks will run there**, none of which the
+environment itself provides:
+
+1. **`MCDC_LIB`** must point at a photon library — see the subsection below. Not needed today
+   (our loader hardcodes its path), required from Phase 2.
+2. **The regression reference data** must be cloned — §5 Phase 3 item 4.
+3. **The photon data library must be regenerated** by the new §6.2 generator, because the
+   existing files have empty `xs` attrs and will `KeyError` on the first element under the
+   upstream loader (§4).
+
 ### Build a second environment — do not upgrade `mcdc-env` in place
 
 `mcdc-env` is the only place the 362-test baseline in §9 reproduces, and that baseline is the
@@ -1853,10 +2001,16 @@ does not need numba, numpy or MC/DC itself, so the 3.14 install needs no package
 pre-commit puts in its own venv.
 
 Fallback if a 3.14 install is inconvenient: run `black` directly from the 3.13 environment and
-let `black_lint.yml` arbitrate. Black's output is stable across these versions for this
-codebase — `[tool.black] target-version` lists py311 through py314, so it is not emitting
-version-specific formatting — and generated accessors are `force-exclude`d. This is a safe
-fallback, not a silent divergence.
+let `black_lint.yml` arbitrate. **This is now exactly equivalent, not approximately so**, for
+two independent reasons: the environment pins **black 26.1.0, the same version the hook
+pins**, and `[tool.black] target-version` lists py311 through py314, so black is not emitting
+version-specific formatting in the first place. Generated accessors are `force-exclude`d.
+Run it as:
+
+```bash
+conda activate mcdc-upstream
+python -m black .          # note: the env's Scripts/ dir is not on PATH, so use -m
+```
 
 ### `MCDC_LIB` — a Phase 2 task, not a prerequisite  **[CORRECTED 2026-10-08]**
 

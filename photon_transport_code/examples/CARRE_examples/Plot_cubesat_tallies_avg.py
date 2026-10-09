@@ -87,14 +87,14 @@ def plot_mesh_slices(label, mesh):
         axes[0, col].set_xlabel(xlabel)
         axes[0, col].set_ylabel(ylabel)
         axes[0, col].set_aspect("equal")
-        fig.colorbar(im0, ax=axes[0, col], label="mean flux [a.u.]")
+        fig.colorbar(im0, ax=axes[0, col], label="mean flux [per source particle]")
 
         im1 = axes[1, col].pcolormesh(gx, gy, eslice, shading="flat", cmap="magma")
         axes[1, col].set_title(f"Energy deposit — {title}")
         axes[1, col].set_xlabel(xlabel)
         axes[1, col].set_ylabel(ylabel)
         axes[1, col].set_aspect("equal")
-        fig.colorbar(im1, ax=axes[1, col], label="mean energy deposit [a.u.]")
+        fig.colorbar(im1, ax=axes[1, col], label="mean energy deposit [MeV per source particle]")
 
     fig.tight_layout()
     return fig
@@ -102,7 +102,7 @@ def plot_mesh_slices(label, mesh):
 
 def plot_sv_bars(label, svs, n_total):
     """
-    Combined figure: mean flux [a.u.], mean energy deposit [a.u.], and total
+    Combined figure: mean flux [per source particle], mean energy deposit [MeV per source particle], and total
     energy deposit [MeV] (= mean * n_total, undoing MC/DC's per-history
     normalization) for each named subvolume, all as one 1x3 panel figure.
     """
@@ -119,12 +119,12 @@ def plot_sv_bars(label, svs, n_total):
 
     axes[0].bar(names, flux_mean, yerr=flux_sdev, capsize=5, color="steelblue")
     axes[0].set_title("Mean flux")
-    axes[0].set_ylabel("flux [a.u.]")
+    axes[0].set_ylabel("flux [per source particle]")
     axes[0].tick_params(axis="x", rotation=30)
 
     axes[1].bar(names, edep_mean, yerr=edep_sdev, capsize=5, color="firebrick")
     axes[1].set_title("Mean energy deposit")
-    axes[1].set_ylabel("energy deposit [a.u.]")
+    axes[1].set_ylabel("energy deposit [MeV per source particle]")
     axes[1].tick_params(axis="x", rotation=30)
 
     axes[2].bar(names, edep_MeV, yerr=edep_MeV_sdev, capsize=5, color="darkorange")
@@ -137,7 +137,7 @@ def plot_sv_bars(label, svs, n_total):
 
 
 def main():
-    default_name = "10MeV_cubesat_model.h5"
+    default_name = "10MeV_cubesat_model_20_cm3.h5"
     script_dir = os.path.dirname(os.path.abspath(__file__))
     default_path = os.path.join(script_dir, default_name)
 

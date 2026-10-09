@@ -116,20 +116,11 @@ def box(x0, x1, y0, y1, z0, z1, bcx0="none", bcx1="none",
 
 # =============================================================================
 # OUTER BOUNDARY
-# 20 cm x 20 cm x 20 cm vacuum cube centered on the CubeSat.
-#
-# Sized deliberately: the source lives on these faces, so the box area sets the
-# sampling efficiency.  A photon born on an enclosing convex surface hits the
-# spacecraft with probability ~ A_body/A_box, and the resulting interior field
-# is uniform and isotropic regardless of the box size (phi = 4/A_box per source
-# photon).  Shrinking 100 cm -> 20 cm therefore leaves the physics untouched
-# while cutting the per-voxel statistical error ~5x at fixed history count.
-# 20 cm leaves 3.9 cm of clearance at the tightest face (+Z, rails end at
-# z = 11); re-check that clearance before enlarging the spacecraft.
+# 100 cm x 100 cm x 100 cm vacuum cube centered on the CubeSat.
 # =============================================================================
 
 boundary_center = np.array([5.0, 5.0, 5.0])
-boundary_half_width = 10.0
+boundary_half_width = 50.0
 
 boundary_x0, boundary_y0, boundary_z0 = boundary_center - boundary_half_width
 boundary_x1, boundary_y1, boundary_z1 = boundary_center + boundary_half_width
@@ -270,76 +261,49 @@ void_cell = mcdc.Cell(region=void_region, fill=m_void)
 
 # =============================================================================
 # SOURCE
-# Surface photon source on all six faces of the 20 cm outer boundary cube,
-# each face emitting with an inward "white" (cosine-weighted) angular
-# distribution.  Integrated over the enclosing surface this is exactly a
-# uniform, isotropic 10 MeV photon field bathing the CubeSat from every
-# direction, and because every history is launched inward none are wasted
-# heading straight out of the problem (as half of a pointwise
-# ``isotropic=True`` face source would be).
+# Surface photon source on all six faces of a "cage" box that tightly encloses
+# the CubeSat (the whole spacecraft spans x,y in [-0.2, 10.2] and z in [0, 11],
+# so the cage sits just outside that at a ~0.8-1 cm standoff).  Each face is a
+# planar surface source emitting 10 MeV photons isotropically; the inward-going
+# half of each face's emission, integrated over the enclosing surface, immerses
+# the CubeSat in a uniform, isotropic 10 MeV photon field arriving from every
+# direction.  Energy for photon transport is specified in MeV.
 #
-# Each source plane is pulled ``source_inset`` inward from its boundary plane
-# so that birth positions lie strictly inside the vacuum cell: a particle born
-# exactly on a vacuum boundary plane has an ambiguous birth-cell locate (which
-# side of the plane is "on" the plane?), whereas 1 mm in is unambiguous and
-# negligible next to the 10 cm half-width.
-#
-# Efficiency note: at this 10 cm half-width about 29% of histories reach the
-# ~10 cm CubeSat, against 1.1% at the original 50 cm half-width.  Measured over
-# 400k histories, that moves the median per-voxel flux error from 33.8% to 6.3%
-# and puts 88% of voxels under 10% error instead of 2.6%.  The angular
-# character of the bath at the CubeSat surface is unchanged.
-#
-# Photon energies are in MeV, as in the rest of the photon decks.
+# The cage is used (rather than the 100 cm boundary faces) purely for
+# efficiency: at a 45 cm standoff almost every photon would stream past the
+# ~10 cm spacecraft and never interact, leaving the flux/dose tallies starved.
+# The angular distribution of the bath at the CubeSat surface is identical
+# either way.  A cosine/"white" inward source would avoid emitting the outward
+# half entirely, but the framework's white-direction sampler has a pole
+# singularity for a -Z-facing normal, so we use robust isotropic emission.
 # =============================================================================
 
 E_SOURCE = 10.0  # MeV
 
-# How far each source plane sits inside its boundary plane (cm).
-source_inset = 0.1
+# Source cage: a box just outside the CubeSat envelope.
+cage_x0, cage_x1 = -1.0, 11.0
+cage_y0, cage_y1 = -1.0, 11.0
+cage_z0, cage_z1 = -1.0, 12.0
 
-boundary_sources = [
-    dict(
-        x=[boundary_x0 + source_inset, boundary_x0 + source_inset],
-        y=[boundary_y0 + source_inset, boundary_y1 - source_inset],
-        z=[boundary_z0 + source_inset, boundary_z1 - source_inset],
-        white_direction=[1.0, 0.0, 0.0],
-    ),
-    dict(
-        x=[boundary_x1 - source_inset, boundary_x1 - source_inset],
-        y=[boundary_y0 + source_inset, boundary_y1 - source_inset],
-        z=[boundary_z0 + source_inset, boundary_z1 - source_inset],
-        white_direction=[-1.0, 0.0, 0.0],
-    ),
-    dict(
-        x=[boundary_x0 + source_inset, boundary_x1 - source_inset],
-        y=[boundary_y0 + source_inset, boundary_y0 + source_inset],
-        z=[boundary_z0 + source_inset, boundary_z1 - source_inset],
-        white_direction=[0.0, 1.0, 0.0],
-    ),
-    dict(
-        x=[boundary_x0 + source_inset, boundary_x1 - source_inset],
-        y=[boundary_y1 - source_inset, boundary_y1 - source_inset],
-        z=[boundary_z0 + source_inset, boundary_z1 - source_inset],
-        white_direction=[0.0, -1.0, 0.0],
-    ),
-    dict(
-        x=[boundary_x0 + source_inset, boundary_x1 - source_inset],
-        y=[boundary_y0 + source_inset, boundary_y1 - source_inset],
-        z=[boundary_z0 + source_inset, boundary_z0 + source_inset],
-        white_direction=[0.0, 0.0, 1.0],
-    ),
-    dict(
-        x=[boundary_x0 + source_inset, boundary_x1 - source_inset],
-        y=[boundary_y0 + source_inset, boundary_y1 - source_inset],
-        z=[boundary_z1 - source_inset, boundary_z1 - source_inset],
-        white_direction=[0.0, 0.0, -1.0],
-    ),
+source_faces = [
+    # -X face
+    dict(x=[cage_x0, cage_x0], y=[cage_y0, cage_y1], z=[cage_z0, cage_z1]),
+    # +X face
+    dict(x=[cage_x1, cage_x1], y=[cage_y0, cage_y1], z=[cage_z0, cage_z1]),
+    # -Y face
+    dict(x=[cage_x0, cage_x1], y=[cage_y0, cage_y0], z=[cage_z0, cage_z1]),
+    # +Y face
+    dict(x=[cage_x0, cage_x1], y=[cage_y1, cage_y1], z=[cage_z0, cage_z1]),
+    # -Z face
+    dict(x=[cage_x0, cage_x1], y=[cage_y0, cage_y1], z=[cage_z0, cage_z0]),
+    # +Z face
+    dict(x=[cage_x0, cage_x1], y=[cage_y0, cage_y1], z=[cage_z1, cage_z1]),
 ]
 
-for source_bounds in boundary_sources:
+for extent in source_faces:
     mcdc.Source(
-        **source_bounds,
+        **extent,
+        isotropic=True,
         energy=E_SOURCE,
         particle_type="photon",
         probability=1.0 / 6.0,
@@ -369,7 +333,7 @@ mcdc.Tally(name="Comms SV", cell=comms_sv, scores=["flux", "energy-deposit"])
 # SETTINGS AND RUN
 # =============================================================================
 
-mcdc.settings.N_particle = 10000000
+mcdc.settings.N_particle = 1000000
 mcdc.settings.N_batch = 100
 mcdc.settings.rng_seed = 42
 

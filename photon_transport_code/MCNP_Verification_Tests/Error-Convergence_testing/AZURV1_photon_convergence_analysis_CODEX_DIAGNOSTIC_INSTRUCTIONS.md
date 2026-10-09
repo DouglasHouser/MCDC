@@ -1,6 +1,6 @@
 # Codex Task — Add Time-Resolved Error Plot and Diagnose Non-1/sqrt(N) Convergence
 
-Follow this file as a single implementation prompt. Do not merely describe the changes. Inspect the available files, implement the requested analysis, run it against all available HDF5 results, and use the evidence to determine why the absolute- and relative-error curves do not follow the expected 1/sqrt(N) behavior.
+Follow this file as a single implementation prompt. Do not merely describe the changes. Inspect the available files, implement the requested analysis, run it against all available HDF5 results, and use the evidence to determine why the absolute- and relative-error curves do not follow the expected 1/sqrt(N) behavior. Do not alter code in any files except for 'AZURV1_photon_convergence_analysis_codex.py'.
 
 ## Files to inspect
 

@@ -50,8 +50,8 @@ mesh = mcdc.MeshStructured(x=np.linspace(-20.5, 20.5, 202))
 mcdc.Tally(mesh=mesh, scores=["flux"], time=np.linspace(0.0, 20.0, 21))
 
 # Settings
-mcdc.settings.N_particle = 60
-mcdc.settings.N_batch = 2
+mcdc.settings.N_particle = 10000
+mcdc.settings.N_batch = 10
 mcdc.settings.output_name = "AZURV1_1e5_V2"
 
 # Run

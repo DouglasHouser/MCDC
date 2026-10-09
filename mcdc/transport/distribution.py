@@ -174,7 +174,7 @@ def sample_white_direction(nx, ny, nz, rng_state):
     sin_azi = math.sin(azi)
     Ac = (1.0 - mu**2) ** 0.5
 
-    if nz != 1.0:
+    if abs(nz) != 1.0:
         B = (1.0 - nz**2) ** 0.5
         C = Ac / B
 
@@ -182,7 +182,8 @@ def sample_white_direction(nx, ny, nz, rng_state):
         y = ny * mu + (ny * nz * cos_azi + nx * sin_azi) * C
         z = nz * mu - cos_azi * Ac * B
 
-    # If dir = 0i + 0j + k, interchange z and y in the formula
+    # If dir = 0i + 0j +/- k, B above is zero and C blows up, so interchange
+    # z and y in the formula (B is then built from ny == 0 instead).
     else:
         B = (1.0 - ny**2) ** 0.5
         C = Ac / B
