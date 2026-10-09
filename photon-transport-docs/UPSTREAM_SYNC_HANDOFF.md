@@ -23,6 +23,14 @@ convention.
 3. **The owner assembles the PR to `mcdc-project/mcdc` at the end.** §5 Phase 4's
    open-a-PR step is the owner's; what binds the port is Phase 4's *content* — the
    `CHANGELOG.md` entry, the five docs pages, and the PR-template fields.
+4. **The artifact wins.** Where a real upstream artifact — a file in the tree, a dataset in
+   the regression library, a generated accessor, a passing test — disagrees with a convention
+   stated in this document, **the artifact is right and this document is wrong.** Follow the
+   artifact, then fix the text and say so. No part of this plan is evidence about upstream;
+   it is only ever a reading of it, and 1,060 commits have passed under it. This is not a new
+   rule — it is what §6.2 already meant by "adopt **upstream's** layout" — but it was
+   implicit, and being implicit cost one unnecessary escalation (§15.4). It applies to every
+   phase, and it is never a reason to ask rather than to proceed.
 
 **Audited end to end on 2026-10-08**: all 35 source line anchors verified against
 `mcdc-project/dev` @ `295cd909`, all cross-references resolve, and the contradictions
