@@ -7,6 +7,37 @@ Pick up at §8 "Execution".
 **Audited end to end on 2026-10-08**: all 35 source line anchors verified against
 `mcdc-project/dev` @ `295cd909`, all cross-references resolve, and the contradictions
 introduced by this revision's own rewrites were swept out. See the §8 readiness table.
+**[AMENDED by the second audit]** 38 anchors were re-checked independently against the same
+tip: **33 landed exactly and 5 were off by ≤2 lines**, each pointing at a decorator or at the
+line above its target. All five are fixed in place and marked **[ANCHOR FIX]**. Two anchors
+were wrong outright rather than off by a line — both in §14's `MCDC_LIB` paragraph, corrected
+there.
+
+**[SECOND AUDIT 2026-10-08 — the environment gate was not actually green]** The audit above
+checked the document for internal consistency and checked its anchors against the remote. It
+did **not** execute §14's own four-command readiness gate. That gate was then run, against a
+throwaway worktree of `mcdc-project/dev` @ `295cd909`, and **its fourth command failed**:
+`pytest test/unit` produced **29 collection errors**, every one
+`ModuleNotFoundError: No module named 'cffi'`. Two environment defects were behind it, both
+now fixed and both recorded in §14:
+
+1. **`cffi>=1.17.1,<3` was missing.** It is upstream's *first* declared runtime dependency and
+   §14's table omitted it entirely.
+2. **MC/DC itself was never installed into `mcdc-upstream`.** §14's check
+   `python -c "import mcdc"` passes on a CWD-relative import, which masked it; the first test
+   to call `importlib.metadata.version("mcdc")` did not.
+
+Root cause: §14 built the environment by hand-transcribing pins out of `pyproject.toml`
+instead of running upstream's documented developer setup, `python -m pip install -e ".[dev]"`,
+which resolves both automatically. **The gate now passes in full — 405 passed, `git diff`
+empty after regeneration.** See §14's "Gate result".
+
+Four further gaps found by the same audit, all corrected below: **§13's touch-list is
+incomplete by construction** (its grep cannot see bare lowercase `"proton"`, and the delta
+includes a CI-gated file — §13); **Phase 4 carries an undocumented `CHANGELOG.md` and docs
+obligation** (§5 Phase 4); **the regression harness has no answer-generation flag** (§7); and
+**§1's post-snapshot commit table was stale** (§1). Minor anchor corrections are marked
+**[ANCHOR FIX]** in place.
 
 Supersedes the 2026-09-18 and 2026-10-03 revisions. New findings in this revision are marked
 **[NEW]**; corrections to a previous revision are marked **[CORRECTED]**.
@@ -45,7 +76,7 @@ from the live tree, not by judgement:
   plan that replaces the merge tool an earlier draft proposed.
 
 **[NEW 2026-10-08] §14 Environment prerequisites** is new, was the last hard gate on Phase 1,
-and is **now satisfied**. `mcdc-env` (Python 3.10, numba 0.55.1, numpy 1.21.5) **cannot import
+and is **now satisfied — but only after the second audit; see the block above.** `mcdc-env` (Python 3.10, numba 0.55.1, numpy 1.21.5) **cannot import
 the upstream tree**, which requires Python ≥ 3.11, numba ≥ 0.61 and numpy ≥ 2.0 — no revision
 before this one recorded that. A second environment, **`mcdc-upstream`** (Python 3.13.16,
 numba 0.66.0, numpy 2.4.6), was built on 2026-10-08 and `mcdc-env` was left untouched as the
@@ -132,17 +163,24 @@ The previous revision's header said "no code has been changed yet". That is no l
 | `ca6f2e9c` | Remaining verification decks and reference data |
 | `c4f0cb49` | This document's §6.3 rewrite |
 
-**Commits made after the snapshot** (planning only — no photon source), so the branch tip is
-not `c4f0cb49`:
+**Commits made after the snapshot**, so the branch tip is not `c4f0cb49`.
+**[CORRECTED 2026-10-08 — second audit]** This table listed only the first two and called them
+"planning only — no photon source". Both statements were stale: two more commits exist, and
+`41660da2` carries the six drifted files, which *are* source.
 
-| Commit | Content |
-|---|---|
-| `6965d2a9` | Retarget the plan at `mcdc-project` and the proton template |
-| `84154afb` | Close the last two §6 items; un-ignore and commit §7 deck 8 |
+| Commit | Content | Source? |
+|---|---|---|
+| `6965d2a9` | Retarget the plan at `mcdc-project` and the proton template | no |
+| `84154afb` | Close the last two §6 items; un-ignore and commit §7 deck 8 | §7 deck 8 + `.gitignore` |
+| `e45833c8` | Audit the sync plan end to end; fix 14 contradictions and 11 bad anchors | no |
+| `41660da2` | Build the 3.13 environment and commit the six drifted files | **yes — the six drifted files** |
 
-`84154afb` is the only one that touches anything outside this document: it removes a
-`.gitignore` rule and adds `lead_finite_cylinder_energy_deposition.py`. **The 199-file snapshot
-figure above still refers to `c4f0cb49`**; deck 8 makes 200 files tracked from this branch.
+Two of the four touch something outside this document. `84154afb` removes a `.gitignore` rule
+and adds `lead_finite_cylinder_energy_deposition.py`. `41660da2` commits the six drifted files
+reviewed in the next subsection — including `mcdc/transport/distribution.py`, which is tracked
+here and **must not be ported** (see below). **The 199-file snapshot figure above still refers
+to `c4f0cb49`**; deck 8 makes 200 files tracked from this branch, and the six drifted files are
+edits to files already tracked.
 
 ### The six drifted files — **RESOLVED 2026-10-08, all committed**
 
@@ -200,15 +238,16 @@ recur.
 - **`PARTICLE_PROTON = 2` and `PROTON_REACTION_* = 200..203`.** The 200 block photon was
   assigned is gone; see §2.4. **[NEW 2026-10-08]**
 - **`collision_data` is now `InteractionData`.** The container is `interaction_data`, the
-  object is `object_/particle.py:34`, the dtype is `numba_types.py:579`, and it carries exactly
+  object is `object_/particle.py:35`, the dtype is `numba_types.py:579`, and it carries exactly
   two fields: `energy_deposition` (float, **eV**, weight-included) and `incident_particle`
   (a saved `ParticleData`). The collision signature is
   `collision(particle_container, interaction_data_container, program, data)` — the previous
   revision's `collision_data_container` is wrong. **[CORRECTED 2026-10-08]**
 - **`score.collision()` is now `score.interaction()`** — `transport/tally/score.py:128`,
-  consuming `interaction_data["energy_deposition"]` at `:174`. **[CORRECTED 2026-10-08]**
+  consuming `interaction_data["energy_deposition"]` at `:175` (the `SCORE_ENERGY_DEPOSITION`
+  branch opens at `:174`). **[CORRECTED 2026-10-08; ANCHOR FIX, second audit]**
 - **`set_transported_particles` is gone.** Replaced by a `ParticleTransportSettings` dataclass
-  per species (`settings.py:96`): `neutron_transport`, `electron_transport`,
+  per species (`settings.py:97`): `neutron_transport`, `electron_transport`,
   `proton_transport`, each with `active` and `prioritize_low_energy`. Activation is automatic
   from the source list in `simulation.py:359`. **[CORRECTED 2026-10-08]**
 - **`transport/physics/cross_species_production.py` is new and matters a great deal for
@@ -401,7 +440,7 @@ recur.
    ```
 
    identical to `proton_transport` at `settings.py:183`, with no `default_factory` lambda.
-   Note that `simulation.py:351–355` currently `print_error`s if `prioritize_low_energy` is
+   Note that `simulation.py:350–356` currently `print_error`s if `prioritize_low_energy` is
    set on neutron or proton — **photon must be added to that guard**, or the setting will be
    silently accepted and silently ignored.
 
@@ -472,9 +511,26 @@ mcdc/object_/simulation.py (again)      + photon_transport in the prioritize_low
                                           guard at :351-355, else silently ignored
 tools/data_library_generator/photon/    generate.py + util.py + README.md, writing
                                           $MCDC_LIB_PHOTON  (see 6.2 -- NOT a merge tool)
+mcdc/transport/physics/__init__.py      + import mcdc.transport.physics.photon as photon
+                                          (one line, beside its three siblings)  [NEW]
+docs/source/_ext/simulation_members.py  + "photon" in the hardcoded species tuple at :119.
+                                          CI-GATED by docs_test.yml  (§13)        [NEW]
+docs/source/user_guide/{sources,tallies}.rst
+docs/source/user_guide/getting_started/what_is_mcdc.rst
+docs/source/developer_guide/architecture/particle_transport.rst
+                                          particle-type lists + the "three-particle"
+                                          claim  (§5 Phase 4)                     [NEW]
+CHANGELOG.md                            + one entry under [Unreleased] / ### Added.
+                                          Required by the contributing guide       [NEW]
 test/unit/photon/                       relocated + renamed unit tests  (§10)
 test/regression/<case>/input.py         + answer.h5, one directory per deck  (§7)
 ```
+
+**The five `[NEW]` entries were added by the second audit on 2026-10-08.** Four of them are
+documentation and the fifth is one import line, so they are easy to leave out — but
+`simulation_members.py` is enforced by `docs_test.yml` on every push and pull request, and
+`CHANGELOG.md` is a PR-template checklist item. See §13 for why §13's own derivation missed
+them.
 
 **Not applicable to photon:** `transport/physics/condensed_interactions.py` and
 `proton/condensed_interactions.py`. Condensed interactions model continuous slowing-down for
@@ -601,7 +657,10 @@ ELECTRON_MASS = 510.99895069e3   # eV/c^2
 ```
 
 So the pair threshold is `1021997.90138 eV`, not a new literal. There is also
-`ELECTRON_CUTOFF_ENERGY = 100  # eV`; photon will want a `PHOTON_CUTOFF_ENERGY` sibling, and
+`ELECTRON_CUTOFF_ENERGY = 100  # eV` and `PROTON_CUTOFF_ENERGY = 250000  # eV`
+(**[CORRECTED 2026-10-08, second audit]** — there are two siblings, not one, so the
+convention is established rather than inferred); photon will want a `PHOTON_CUTOFF_ENERGY`
+sibling, and
 our EPDL grid's 1 eV floor is the natural lower bound to justify it against.
 
 **This is the single largest source of silent numerical error in the port** — it is mechanical,
@@ -809,12 +868,19 @@ and the regeneration step in the middle is load-bearing.
 | 12 | `physics/photon/interface.py` + `__init__.py` | `physics/neutron/interface.py` (**not** proton's) |
 | 13 | Four dispatch arms in `physics/interface.py` | its `PARTICLE_PROTON` arms |
 | 14 | `photon_transport: ParticleTransportSettings` | `settings.py:183` `proton_transport` |
-| 15 | Activation + loader call in `simulation.py` `_finalize_compilation` | `:365`, `:482`, `:498` |
+| 15 | Activation + loader call in `simulation.py` `_finalize_compilation` | `:363`, `:483`, `:512` |
 | 16 | `"photon"` source type | `object_/source.py:431` |
 | 17 | `"photon"` tally filter + output label | `object_/tally.py:323`, `transport/util.py:25` |
-| 18 | `photon_transport` in the `prioritize_low_energy` guard at `simulation.py:351–355` | its neutron/proton arms (§2.11) |
+| 18 | `photon_transport` in the `prioritize_low_energy` guard at `simulation.py:350–356` | its neutron/proton arms (§2.11) |
 | 19 | `tools/data_library_generator/photon/{generate.py,util.py,README.md}` (mode `"w"`, `$MCDC_LIB_PHOTON`) | `tools/data_library_generator/electron/` — see §6.2 |
+| 20 | `import mcdc.transport.physics.photon as photon` in `physics/__init__.py` | its three sibling imports — **[ADDED 2026-10-08, second audit]** |
+| 21 | `"photon"` in the species tuple at `docs/source/_ext/simulation_members.py:119`, leaving the `prioritize_low_energy` special case alone (§2.11) | its `"proton"` entry — **[ADDED 2026-10-08, second audit; CI-gated by `docs_test.yml`]** |
+| 22 | The four docs pages and the `CHANGELOG.md` entry | §5 Phase 4 — **[ADDED 2026-10-08, second audit]** |
 | — | ~~Photon arm in `cross_species_production.py`~~ | **DEFERRED, not a step — §2.10** |
+
+**Steps 20–22 are small and were missing entirely before the second audit.** Step 21 in
+particular fails CI rather than review, so do not defer it to Phase 4 with the rest of the
+documentation — it belongs with the code that makes it true.
 
 **Step 8 is not optional and not last.** Steps 2–7 define annotated fields; the accessors in
 `mcdc_get.element.photon_*` and `mcdc_get.photon_reaction.*` that step 10 calls **do not exist
@@ -840,11 +906,18 @@ Inside `@njit` functions, recover the simulation with
 0. **[NEW 2026-10-08] The generic object-model tests now cover photon for free** — and will
    fail loudly if the new objects are malformed. Run these first, before any photon-specific
    test:
-   - `test/unit/test_object_compilation.py`
    - `test/unit/test_numba_layers_generator.py`
    - `test/unit/test_annotation_shape.py`
    - `test/unit/test_material.py`, `test_settings.py`, `test_source.py`,
      `test_transport_model_data.py`
+   - `test/unit/test_object_compilation.py` — **but this one is not free.**
+     **[CORRECTED 2026-10-08, second audit]** Its per-particle cases are hand-written, not
+     parametrised (`:198`–`:217` proton, `:228`–`:237` electron), so photon gets no coverage
+     from it until a photon case is added. Add one; see §13.
+
+   **Baseline, so a photon failure is distinguishable from an inherited one:** the whole of
+   `test/unit` is **405 passed** on `mcdc-project/dev` @ `295cd909` under `mcdc-upstream`
+   (§14 "Gate result"). Measure the ported tree against that number, not against zero.
 
    A missing `label`, a bad `sub_type`, or an `Annotated` shape the generator cannot pack will
    surface here with a clear message, long before a physics test gets confusing numbers.
@@ -906,6 +979,49 @@ retired. Split by layer (data/objects → physics → tooling → tests) rather 
 drop; the Phase 2 table above is already in that order and steps 1–8 (objects + the Numba
 layer), 9–13 (physics), 14–18 (wiring), 19 (the generator) and the tests are natural PR
 boundaries.
+
+**The cross-fork PR works directly from `origin` — verified, no re-fork needed.
+[NEW 2026-10-08, second audit]** This was an unexamined assumption: GitHub only offers a pull
+request between repositories in the same fork network, and the plan's base moved mid-stream
+from CEMeNT-PSAAP to mcdc-project. Checked against the API, and the network has been
+re-parented in our favour:
+
+| Repo | `fork` | parent |
+|---|---|---|
+| `mcdc-project/mcdc` | false | — (network root) |
+| `DouglasHouser/MCDC` (`origin`) | true | **`mcdc-project/mcdc`** |
+| `CEMeNT-PSAAP/MCDC` (`upstream`) | true | `mcdc-project/mcdc` |
+
+So `origin` is a **direct fork of the PR target**, and CEMeNT-PSAAP is now itself a downstream
+fork of it. Note also that CEMeNT-PSAAP/MCDC is **not** GitHub-archived — "retired" in this
+document means "no longer the canonical upstream", not "locked".
+
+**Upstream requires a `CHANGELOG.md` entry and documentation updates.
+[NEW 2026-10-08, second audit]** No previous revision mentioned either, and both are
+checklist items on the PR template that a reviewer will ask for:
+
+1. **`CHANGELOG.md`** — add one entry under `## [Unreleased]` → `### Added`, in the existing
+   house style, which ends each line with `from [@handle]`. Proton's own entry is the model:
+   *"Add proton transport with nuclear reactions and secondary-particle production, …, from
+   [@ethan-lame]"*. Required by
+   `docs/source/developer_guide/contributing/pull_requests.rst` for any notable change.
+2. **Documentation**, which is **CI-gated** — `docs_test.yml` builds the docs on every push
+   and pull request. The pages that enumerate particle types and will be wrong without a
+   photon edit:
+
+   | Page | What needs the photon arm |
+   |---|---|
+   | `docs/source/_ext/simulation_members.py:119` | **the hard one** — a hardcoded `for species in ("neutron", "electron", "proton")`. See §13 |
+   | `docs/source/user_guide/sources.rst` | the `particle_type` value list |
+   | `docs/source/user_guide/tallies.rst` | the particle-filter value list |
+   | `docs/source/user_guide/getting_started/what_is_mcdc.rst` | says MC/DC is a three-particle code |
+   | `docs/source/developer_guide/architecture/particle_transport.rst` | per-particle interaction data and tally scoring |
+
+   The docs extras must be installed to build these locally — see §14, where they were also
+   missing.
+
+Fill in the PR template's "Associated Developers" and link the §6.4 maintainer questions as
+issues rather than burying them in the PR body.
 
 `photon-transport-docs/` and `photon-transport-directions/` (9,500 lines at repo root)
 should not go up as-is — upstream's root carries no loose directories. Fold the durable
@@ -1446,6 +1562,25 @@ That tolerance is far tighter than MCNP agreement — `answer.h5` is a **self-co
 reference generated from our own code once it is trusted, not an MCNP comparison. Keep the
 MCNP comparison as separate analysis, which is what §11 and §12 already assume.
 
+**There is no answer-generation flag. [NEW 2026-10-08, second audit]** `test/regression/conftest.py`
+takes `--name`, `--skip`, `--target`, `--mode` and `--mpiexec` / `--srun`, and nothing else —
+no `--generate-answer`, no `--update`. Each `answer.h5` is produced **by hand**, and the
+previous revision said only that it was "generated from our own code once it is trusted", which
+is not a procedure. It is:
+
+1. Run the deck exactly the way the harness will, from inside the case directory. The harness
+   invokes `python input.py --clear_cache --caching --mode=<mode> --target=<target>
+   --output=output --no-progress-bar`, so match those flags — in particular `--output=output`,
+   which fixes the filename.
+2. Rename `output.h5` to `answer.h5` in the same directory.
+3. Re-run the harness against it and confirm the case passes before committing.
+
+**Record which `--mode` produced it.** `rtol = 1e-6` is tight enough that a `python`-mode answer
+is not guaranteed to satisfy a `numba`-mode run, and `regression_test.yml` runs
+`--mode numba`. Generate each answer in **numba** mode and verify it also passes in python
+mode, not the reverse. A deck whose two modes disagree above `1e-6` is a finding, not a
+tolerance to loosen.
+
 **The example validator does apply if we add an example.**
 `test/unit/test_example_inputs.py` globs `examples/**/input.py`, runs each with `run()`
 monkeypatched to compile-only, and asserts exactly one simulation compiles. It carries
@@ -1465,16 +1600,24 @@ add nothing to `examples/`.
 
 | Gate | Status |
 |---|---|
-| §14 environment | **done** — `mcdc-upstream`, Python 3.13.16, upstream pins installed |
-| The six drifted files | **done** — all committed; `distribution.py` flagged do-not-port |
-| `.gitignore` + §7 deck 8 | **done** — rule removed, deck tracked |
-| `PARTICLE_PHOTON = 3` free | **verified by the owner 2026-10-08** |
-| 300 block free | verified on `295cd909`; re-confirm on the tip you fetch (§8 step 4) |
+| §14 environment | **done, and now actually executed** — `mcdc-upstream`, Python 3.13.16; §14's four-command gate run against `mcdc-project/dev` @ `295cd909`: **405 passed**, `git diff` empty after regeneration. **[REVISED 2026-10-08, second audit — this row said "done" before the gate had ever been run, and the gate failed on first execution. See §14 "Gate result".]** |
+| The six drifted files | **done** — all committed in `41660da2`; `distribution.py` flagged do-not-port |
+| `.gitignore` + §7 deck 8 | **done** — rule removed, deck tracked (`check-ignore` exits 1) |
+| `PARTICLE_PHOTON = 3` free | **verified by the owner 2026-10-08**; re-verified against `295cd909` — `PARTICLE_` stops at `PROTON = 2`, with `PARTICLE_ANY = 100` |
+| 300 block free | verified on `295cd909` — no constant in `mcdc/constant.py` matches `= 3[0-9][0-9]`; re-confirm on the tip you fetch (§8 step 4) |
 | All §6 open items | closed |
+| §13 touch-list complete | **was incomplete; now corrected — 2026-10-08, second audit.** Its grep could not see bare lowercase `"proton"`; two files were missing, one of them CI-gated. See §13 |
+| Phase 4 obligations known | **were undocumented; now recorded — 2026-10-08, second audit.** `CHANGELOG.md` and five docs pages. See §5 Phase 4 |
 
 The one remaining prerequisite is **step 0 of the block below — install a standalone Python
 3.14 for the black hook, or accept the documented fallback.** It does not block Phase 1 or
 Phase 2; it blocks §5 Phase 3 item 1.
+
+**What the second audit did not change.** Every physics decision, the §4 unit model, the §6.2
+relaxation translation table and the Phase 2 dependency order were re-checked and stand. So do
+all 38 spot-checked source anchors (33 exact, 5 off by ≤2 lines and fixed in place), every
+file line count in §3 and §13, §13's proton mention counts, the 7 / 26 / 362 test counts, the
+`Al.h5` schema and empty-attrs finding in §6.2, and the regression harness tolerances in §7.
 
 **Every other open item in §6 is now closed.** §6.1 (energy units) and §6.2 (data generation,
 including the relaxation translation) are settled by evidence; §6.3 (`.gitignore`) is resolved
@@ -1487,8 +1630,11 @@ re-create `wip/photon-snapshot-pre-refactor`; it exists at `c4f0cb49` and is pus
 ```bash
 cd /c/Projects/MCDC
 
-# 0. PREREQUISITES -- both DONE as of 2026-10-08:
+# 0. PREREQUISITES -- all DONE as of 2026-10-08:
 #      - environment `mcdc-upstream` (Python 3.13.16) built, section 14
+#      - section 14's four-command gate RUN, not just asserted: 405 passed.
+#        It failed on first execution -- cffi was missing and mcdc itself was
+#        never installed. Both fixed; see section 14 "Gate result".
 #      - the six drifted files reviewed and committed, section 1
 #    Remaining, and it only gates Phase 3 item 1: a standalone Python 3.14 for the
 #    black pre-commit hook, or accept the fallback in section 14.
@@ -1513,6 +1659,17 @@ git checkout -b feature/photon-transport mcdc-project/dev
 #    200 block between two revisions of this very document.
 grep -nE "^PARTICLE_|= 3[0-9][0-9] *$" mcdc/constant.py   # expect no 3xx constants
 git ls-tree -r --name-only HEAD | grep -i photon          # expect EMPTY
+
+# 4b. Reinstall editable against UPSTREAM's pyproject, now that it is checked out.
+#     Until this runs, the editable install points at the snapshot's pyproject, which
+#     declares neither cffi nor cffconvert and pins the wrong Sphinx theme. This picks
+#     up upstream's own dependency set and extras. Section 14.
+python -m pip install -e ".[dev]"
+
+# 4c. Confirm section 14's gate still passes on the branch you just made.
+#     Expect 405 passed and an EMPTY git diff from the regeneration.
+python mcdc/code_factory/rebuild_numba_support.py && git diff --stat
+pytest test/unit -q
 
 # 5. Regression reference data (section 5 Phase 3 item 4)
 git clone https://github.com/mcdc-project/mcdc-regression_test_data \
@@ -1762,8 +1919,14 @@ where, unlike a working tree, it could never be removed.
 
 Derived mechanically: every file on `mcdc-project/dev` @ `295cd909` that mentions
 `PARTICLE_PROTON`, `proton_transport` or `PROTON_REACTION`, ordered by mention count. Proton
-is the most recently integrated particle, so **this is the complete set of places a new
-particle type touches.** Photon needs an edit in each one except where noted.
+is the most recently integrated particle, so this is **nearly** the complete set of places a
+new particle type touches. Photon needs an edit in each one except where noted.
+
+**[CORRECTED 2026-10-08, second audit]** That sentence read "**this is the complete set**". It
+was not, and the derivation is why — the grep sees constants and field names but not bare
+lowercase `"proton"`. Two files were missing, one of them CI-gated. They are now rows in the
+table, and **"The grep above has a blind spot"** below explains the gap and gives the wider
+command. Re-run both greps, not just the one in the block below.
 
 Reproduce on whatever tip you branch from — the counts and line numbers will drift:
 
@@ -1777,7 +1940,7 @@ git grep -c -E "PARTICLE_PROTON|proton_transport|PROTON_REACTION" mcdc-project/d
 | `mcdc/transport/physics/proton/native.py` | 17 | **New file** `physics/photon/native.py` |
 | `mcdc/object_/proton_reaction.py` | 11 | **New file** `object_/photon_reaction.py` |
 | `mcdc/transport/physics/proton/multigroup.py` | 9 | **New file** `physics/photon/constant_xs.py` (different physics, same slot) |
-| `mcdc/object_/simulation.py` | 6 | **4 edits** — list declaration `:120`, init `:315`, activation `:365`, loader call `:498`; plus the `set_elements_from_nuclides` gate and the `print_msg` gate |
+| `mcdc/object_/simulation.py` | 6 | **4 edits** — list declaration `:120`, init `:315`, activation `:363`, loader call `:512`; plus the `set_elements_from_nuclides` gate (`:473`–`:477`) and the `print_msg` gate (`:483`). **[ANCHOR FIX 2026-10-08, second audit — activation was `:365`, loader call `:498`; both measured against the electron arms, which are the photon templates]** |
 | `mcdc/transport/physics/interface.py` | 5 | **4 arms** — `particle_speed`, `macro_xs`, `collision_distance` (SigmaT block), `collision` |
 | `mcdc/constant.py` | 5 | `PARTICLE_PHOTON = 3` + `PHOTON_REACTION_* = 300..304` + a `PHOTON_CUTOFF_ENERGY` sibling |
 | `mcdc/transport/physics/cross_species_production.py` | 3 | **DEFERRED — no edit this PR** (§2.10). Would be 1 arm in the transport-active gate (`:69`–`:73`) once electrons are coupled |
@@ -1785,10 +1948,56 @@ git grep -c -E "PARTICLE_PROTON|proton_transport|PROTON_REACTION" mcdc-project/d
 | `mcdc/object_/tally.py` | 3 | particle-type **filter**: string to constant `:323`, label map `:414`, docstring `:82` |
 | `mcdc/object_/source.py` | 3 | string to constant `:431`, docstring `:94`, `decode_particle_type` `:546` |
 | `mcdc/transport/util.py` | 2 | `PARTICLE_PHOTON` to `"photon"` at `:25` (used for output naming) |
+| `docs/source/_ext/simulation_members.py` | **0** — see below | **1 edit, CI-gated** — `:119` hardcodes `for species in ("neutron", "electron", "proton")`. **[ADDED 2026-10-08, second audit]** |
+| `mcdc/transport/physics/__init__.py` | **0** — see below | **1 line** — `import mcdc.transport.physics.photon as photon`, beside its three siblings. **[ADDED 2026-10-08, second audit]** |
 | `mcdc/object_/settings.py` | 1 | `photon_transport: ParticleTransportSettings` field (§2.11, plain `default_factory`) |
 | `mcdc/numba_types.py` | 1 | **GENERATED** — never hand-edit; comes from step 8 |
 | `mcdc/transport/simulation.py` | 1 | proton-only condensed-interaction gate — **NO EDIT** |
 | `test/regression/*/answer.h5` (15 files) | 1 each | **NO EDIT** — the string appears inside stored tally metadata |
+
+### The grep above has a blind spot — read this before trusting the table
+**[NEW 2026-10-08, second audit]**
+
+This section called itself "the complete set of places a new particle type touches". It is not,
+and the reason is in its own derivation: the pattern
+`PARTICLE_PROTON|proton_transport|PROTON_REACTION` matches **constants and field names only**.
+It cannot see a bare lowercase `"proton"` string, and upstream has those. Re-derive with the
+wider pattern as well:
+
+```bash
+git grep -lI "proton" mcdc-project/dev \
+  -- 'mcdc/*' 'tools/*' 'test/*' 'examples/*' 'docs/*' CHANGELOG.md
+```
+
+The difference between the two greps is 29 files. Most are generated (`mcdc_get/`,
+`mcdc_set/`), proton-specific with no photon analogue, or already covered by name elsewhere in
+this plan. **Two need a photon edit and are now rows in the table above**, and one of the two
+is the more dangerous kind of miss, because it is enforced by CI rather than by a reviewer:
+
+- **`docs/source/_ext/simulation_members.py:119`** — a Sphinx extension that documents
+  `Simulation`'s members, with a hardcoded `for species in ("neutron", "electron", "proton")`
+  and, at `:124`, an `is_electron`-style special case for `prioritize_low_energy`. Add
+  `"photon"` to the tuple and leave the special case alone (§2.11: photon does not prioritize
+  low energy). `docs_test.yml` builds the docs on **every push and pull request**, so this is a
+  CI failure, not a documentation nit. It is also why §14 now installs the docs extras.
+- **`mcdc/transport/physics/__init__.py`** — re-exports the interface functions and then
+  imports each particle subpackage by name (`electron`, `neutron`, `proton`). Photon needs the
+  fourth line, or `physics.photon` is reachable only by full import path while its three
+  siblings are not.
+
+**Two further files mention proton but need no photon edit, for reasons worth recording:**
+
+- `test/unit/transport/test_native_particle_kinematics.py` parametrises over
+  `(neutron, NEUTRON_MASS)` and `(proton, PROTON_MASS)`. Photons are massless and have no
+  analogue here — the same reasoning as `condensed_interactions.py`. **No edit.**
+- `test/unit/test_object_compilation.py` has **hand-written per-particle cases**, not generic
+  ones (`:198`–`:217` for proton, `:228`–`:237` for electron, each asserting a
+  `"Loading <particle> data [1/1]: <file>.h5"` message). This qualifies §5 Phase 3 item 0's
+  claim that the object-model tests "cover photon for free": the genuinely generic ones
+  (`test_annotation_shape.py`, `test_numba_layers_generator.py`) do, but this file gives photon
+  no coverage until a photon case is added to it. Add one — it is four lines and it is the
+  cheapest possible check that `set_photon_data` is wired into
+  `_finalize_compilation` at all.
 
 Three files proton does **not** touch but photon must, because photon is per-**element** where
 proton is per-nuclide:
@@ -1847,6 +2056,7 @@ modelled with a shared isotropic distribution, in which case take proton's.
 | | `mcdc-env` (measured) | `mcdc-project/dev` requires |
 |---|---|---|
 | Python | **3.10.20** | `>=3.11` |
+| **cffi** | **absent** | **`>=1.17.1,<3`** — **[ADDED 2026-10-08, second audit]** upstream's *first* declared dependency, omitted by the original table. `mcdc/code_factory/array_return.py:1` does a bare `import cffi`, reached through `mcdc.transport` → `geometry` → `mcdc_get`, so **every** import of the transport layer fails without it |
 | numba | **0.55.1** | `>=0.61.0,<0.67` |
 | numpy | **1.21.5** | `>=2.0.0,<2.5` |
 | scipy | — | `<1.19` |
@@ -1856,7 +2066,12 @@ modelled with a shared isotropic distribution, in which case take proton's.
 | colorama | — | `<0.5` |
 | sympy | — | `<1.15` |
 
-Dev extras: `black<27`, `pre-commit<5`, `pyright<1.2`, `pytest<10`.
+Dev extras: `black<27`, **`cffconvert>=2,<3`**, `pre-commit<5`, `pyright<1.2`, `pytest<10`.
+Docs extras: `sphinx>=8,<10`, `pydata-sphinx-theme>=0.20,<0.21`, `sphinx-design>=0.6,<0.8`.
+**[CORRECTED 2026-10-08, second audit]** `cffconvert` and all three docs extras were missing
+from this line and from the environment. `cffconvert` backs `check_citation.yml` and the docs
+extras back `docs_test.yml`; both workflows run on every push and pull request, so a photon PR
+that cannot build the docs locally will fail CI (§5 Phase 4).
 
 ### ✅ BUILT 2026-10-08 — `mcdc-upstream`
 
@@ -1880,9 +2095,48 @@ Installed, with upstream's pin beside each so a future reader can see the headro
 | colorama | 0.4.6 | `<0.5` |
 | sympy | 1.14.0 | `<1.15` |
 | mpi4py | 4.1.2 | `>=3.1.4,<4.2` |
+| **cffi** | **2.1.1** | `>=1.17.1,<3` |
 | black | **26.1.0** — pinned deliberately, see below | `<27` |
 | pytest | 9.1.1 | `<10` |
 | pyright | 1.1.414 | `<1.2` |
+| pre-commit | 4.6.2 | `<5` |
+| **cffconvert** | **2.0.0** | `>=2,<3` |
+| **sphinx** | **9.1.0** | `>=8,<10` |
+| **pydata-sphinx-theme** | **0.20.0** | `>=0.20,<0.21` |
+| **sphinx-design** | **0.7.0** | `>=0.6,<0.8` |
+| **`mcdc` itself** | **editable, from `C:\Projects\MCDC`** | — |
+
+**[CORRECTED 2026-10-08, second audit] `cffi` and the last five rows were added after the
+environment failed §14's own gate.** The bolded entries did not exist when this section was
+first written. Two of them were fatal rather than cosmetic:
+
+- **`cffi`** — without it `pytest test/unit` produced **29 collection errors**, all
+  `ModuleNotFoundError: No module named 'cffi'`. Nothing in the transport layer imports.
+- **`mcdc` itself was never installed.** The environment had the dependencies but not the
+  package, so `importlib.metadata.version("mcdc")` raised `PackageNotFoundError` and
+  `test/unit/test_output.py::test_output_serializes_nested_transport_settings` failed. The
+  verification command `python -c "import mcdc"` **does not catch this** — it succeeds on a
+  CWD-relative import whenever you are standing in the repo root, which is exactly where you
+  run it. Only a test that reads the package *metadata* notices.
+
+**The underlying mistake was the install method, and it is worth not repeating.** This section
+originally built the environment by transcribing pins out of `pyproject.toml` by hand. Upstream
+documents one command for developers
+(`docs/source/user_guide/getting_started/installation.rst:63`) that resolves the whole set,
+extras included:
+
+```bash
+conda activate mcdc-upstream
+python -m pip install -e ".[dev]"
+```
+
+**Run that from `feature/photon-transport` as soon as Phase 1 branches.** Until then the
+editable install points at this snapshot's `pyproject.toml`, which declares neither `cffi` nor
+`cffconvert` and pins `sphinx==7.2.6` with `furo` rather than upstream's `pydata-sphinx-theme`.
+It was therefore installed with `--no-deps`, specifically so the snapshot's stale pins could
+not disturb the versions above, and the missing packages were added explicitly. `-e` follows
+branch switches, so the install survives the Phase 1 checkout — but re-run it as
+`-e ".[dev]"` on the new branch to pick up upstream's own extras and drop this caveat.
 
 `mpi4py` built against the MS MPI already on this machine
 (`C:\Program Files\Microsoft MPI\Bin`), so no SDK install was needed.
@@ -2023,8 +2277,14 @@ DATA_DIR = Path(__file__).parent.parent.parent.parent.parent / "data" / "mcdc"
 ```
 
 That resolves to the repo's own `data/mcdc/` and is why every benchmark in §9 runs today.
-`MCDC_LIB` is read only by `object_/material.py:118` and `object_/nuclide.py:62` — the
-**neutron** continuous-energy path, which no photon deck exercises.
+`MCDC_LIB` is read by `object_/material.py:297` and `object_/nuclide.py:139`, `:171` and
+`:319` — the **neutron** continuous-energy path, which no photon deck exercises — **and also
+by `object_/element.py:68` and `:88`**, which is the path that matters here.
+**[ANCHOR FIX 2026-10-08, second audit]** This sentence previously read "read only by
+`object_/material.py:118` and `object_/nuclide.py:62`". Both anchors were wrong, and the word
+"only" contradicted the next paragraph, which correctly says
+`Element._compile_into_simulation` is `os.getenv("MCDC_LIB")`-based. The conclusion below is
+unaffected.
 
 The port changes this: `Element._compile_into_simulation` is `os.getenv("MCDC_LIB")`-based and
 `print_error`s when it is unset. So that hardcoded `DATA_DIR` is **deleted by the port**, and
@@ -2034,9 +2294,13 @@ photon generator (§6.2) writes somewhere else. Generator variables `MCDC_LIB_PH
 
 ### Verification — the environment is ready when this passes
 
+**[REVISED 2026-10-08, second audit]** The first command was not a sufficient check — see
+"the install method" above — so it is replaced by a metadata check, which is what actually
+failed.
+
 ```bash
-python -c "import mcdc; print(mcdc.__file__)"
-python -c "import numba, numpy; print(numba.__version__, numpy.__version__)"
+python -c "import mcdc, importlib.metadata as m; print(mcdc.__file__, m.version('mcdc'))"
+python -c "import numba, numpy, cffi; print(numba.__version__, numpy.__version__, cffi.__version__)"
 python mcdc/code_factory/rebuild_numba_support.py && git diff --stat
 pytest test/unit -q
 ```
@@ -2045,3 +2309,28 @@ The third command must leave `git diff` **empty** on a clean checkout. If regene
 tracked files before you have touched anything, the generator and the committed output
 disagree, and that must be understood before any photon field is added — it would otherwise
 look like damage from step 8.
+
+**Windows caveat on the third command. [NEW 2026-10-08, second audit]** With
+`core.autocrlf=true`, which is the setting on this machine, regeneration writes CRLF while the
+repository stores LF, so `git status` lists all **57** generated files as modified even though
+their content is byte-identical after normalisation. `git diff` is correctly empty.
+**Read the gate off `git diff`, as written above, and not off `git status`**, or the check
+reports a generator/output disagreement that does not exist. `git add --renormalize .` confirms
+it: nothing under `mcdc_get/`, `mcdc_set/` or `numba_types.py` survives as a real change.
+
+### Gate result — PASSES IN FULL  **[NEW 2026-10-08, second audit]**
+
+Run against a throwaway `git worktree` of `mcdc-project/dev` @ `295cd909`, under
+`mcdc-upstream`, after the two fixes above:
+
+| Command | Result |
+|---|---|
+| metadata check | `mcdc` imports; `importlib.metadata.version` returns `0.12.0` |
+| versions | numba 0.66.0, numpy 2.4.6, cffi 2.1.1 |
+| `rebuild_numba_support.py` | `git diff` **empty** — generator and committed output agree |
+| `pytest test/unit -q` | **405 passed** in 107 s |
+
+That is the whole of §14's gate, executed rather than asserted. Before the fixes the same
+sequence gave 29 collection errors; after the `cffi` fix alone, 404 passed and 1 failed. The
+**regression** suite is not covered by this result — it needs the data clone (§5 Phase 3
+item 4) and is a Phase 3 gate, not an environment one.
