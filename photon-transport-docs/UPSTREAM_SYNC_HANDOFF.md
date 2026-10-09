@@ -187,8 +187,19 @@ Two of the four touch something outside this document. `84154afb` removes a `.gi
 and adds `lead_finite_cylinder_energy_deposition.py`. `41660da2` commits the six drifted files
 reviewed in the next subsection — including `mcdc/transport/distribution.py`, which is tracked
 here and **must not be ported** (see below). **The 199-file snapshot figure above still refers
-to `c4f0cb49`**; deck 8 makes 200 files tracked from this branch, and the six drifted files are
-edits to files already tracked.
+to `c4f0cb49`**. **[MEASURED 2026-10-08, second audit]** The 199 reconciles exactly —
+`git diff --name-status dev..c4f0cb49` gives **181 added + 18 modified = 199**, so the figure
+has always meant "paths in `git status --porcelain -uall`", not "files added". At the current
+tip it is **183 added + 19 modified = 202**, not the 200 this paragraph predicted: deck 8 is
+one of the three new paths, and `41660da2` contributed the other two — it added
+`10MeV_cubesat_model_old.py` and modified `mcdc/transport/distribution.py`. Four of the six
+drifted files were edits to already-tracked files; two were new.
+
+Re-derive rather than trusting any of these numbers:
+
+```bash
+git diff --name-status dev..HEAD | awk '{print $1}' | sort | uniq -c
+```
 
 ### The six drifted files — **RESOLVED 2026-10-08, all committed**
 
@@ -1471,7 +1482,23 @@ git status --porcelain -uall | awk '{print $2}' \
   | while read -r f; do [ -f "$f" ] && du -k "$f"; done | sort -rn | head -5
 
 # 8. After committing, before pushing: confirm the pack is small
-git count-objects -vH    # size-pack should be single-digit MB
+#
+#    [CORRECTED 2026-10-08, second audit] As written this check CANNOT PASS, and
+#    it is measuring the wrong thing. `git count-objects` reports the whole
+#    repository, upstream's history included, which is 59.14 MiB here -- dominated
+#    by five revisions of test/regression/moving_pellet/answer.h5 at ~27.7 MB each
+#    and a 19.54 MB examples/.../sphere_S.npy. None of that is ours and none of it
+#    is removable. A failure here would say nothing about the photon snapshot.
+#
+#    Measure what the BRANCH adds instead. Expect ~2.8 MB over ~191 blobs, which
+#    is what the "~2.5 MB across 199 files" figure in 6.3 refers to:
+git rev-list --objects dev..HEAD | awk '{print $1}' \
+  | git cat-file --batch-check='%(objecttype) %(objectsize)' \
+  | awk '$1=="blob"{s+=$2; n++} END{printf "%d blobs, %.2f MB\n", n, s/1048576}'
+
+#    Measured 2026-10-08: 191 blobs, 2.76 MB. Largest single file added by the
+#    branch is 348 KB (AZURV1_photon_error_analysis.txt), well under GitHub's
+#    50 MB warning and 100 MB hard limit.
 ```
 
 **Gate:** items 2, 3, 5 and 6 must all hit their expected values before anything is staged.
