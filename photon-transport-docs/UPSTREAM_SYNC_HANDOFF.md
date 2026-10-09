@@ -4,6 +4,17 @@ Planning state as of **2026-10-08**. **Phase 0 is complete and pushed. Phase 1 i
 start — every prerequisite is met and every §6 open item is closed.** Phases 1–4 are unstarted.
 Pick up at §8 "Execution".
 
+**[OWNER DECISIONS 2026-10-08 — three operating rules that apply to every phase]**
+
+1. **Everything runs on Python 3.13.** No 3.14 is installed and none is needed. Format with
+   `python -m black .`, never `pre-commit`, and **do not run `pre-commit install`** — upstream's
+   config pins `python3.14` and the hook cannot bootstrap here. Measured equivalent: §14.
+2. **`origin` is the only writable remote.** The push URLs on `mcdc-project` and `upstream` are
+   disarmed (§1). All work lands on branches in `DouglasHouser/MCDC`.
+3. **The owner assembles the PR to `mcdc-project/mcdc` at the end.** §5 Phase 4's
+   open-a-PR step is the owner's; what binds the port is Phase 4's *content* — the
+   `CHANGELOG.md` entry, the five docs pages, and the PR-template fields.
+
 **Audited end to end on 2026-10-08**: all 35 source line anchors verified against
 `mcdc-project/dev` @ `295cd909`, all cross-references resolve, and the contradictions
 introduced by this revision's own rewrites were swept out. See the §8 readiness table.
@@ -129,14 +140,29 @@ after the snapshot, not retroactively). **Eight** named `Complex_M&G/` exclusion
 | Divergence | **19 ours / 1,060 theirs** vs `mcdc-project/dev` (`295cd909`). "Ours" grows as this document is revised; only the 1,060 matters for the port |
 | Photon code | **committed** in the Phase 0 snapshot — 12 topical commits, 199 files added |
 
-**Remote hygiene.** Both `upstream` and `mcdc-project` were added with the same URL for fetch
-and push, so a bare `git push mcdc-project …` would attempt to write to a repository we do not
-own. Disarm both before Phase 1:
+**Remote hygiene — DONE 2026-10-08.** Both `upstream` and `mcdc-project` were added with the
+same URL for fetch and push, so a bare `git push mcdc-project …` would have attempted to write
+to a repository we do not own. **Both push URLs are now disarmed** by owner decision, so the
+only writable remote is `origin`:
 
 ```bash
 git remote set-url --push mcdc-project DISABLED
 git remote set-url --push upstream DISABLED
 ```
+
+| Remote | Fetch | Push |
+|---|---|---|
+| `origin` | `DouglasHouser/MCDC` | `DouglasHouser/MCDC` — **the only writable remote** |
+| `mcdc-project` | `mcdc-project/mcdc` | `DISABLED` |
+| `upstream` | `CEMeNT-PSAAP/MCDC` | `DISABLED` |
+
+**[OWNER DECISION 2026-10-08] Nothing is pushed anywhere but `origin`, and the PR is assembled
+by the owner at the end.** All Phase 1–3 work happens on branches in `DouglasHouser/MCDC`. The
+pull request to `mcdc-project/mcdc` is composed by the owner once the work is green — so §5
+Phase 4's branch-and-open-a-PR step is **the owner's**, not something to perform in passing.
+What §5 Phase 4 still binds is the *content*: the `CHANGELOG.md` entry, the five docs pages,
+and the PR-template fields all have to exist before that PR can be opened. `origin` being a
+direct fork of `mcdc-project/mcdc` (§5 Phase 4) is what makes it openable.
 
 **`mcdc-project/dev` moves daily.** It advanced from `d41bf52f` to `295cd909` inside a single
 day while this revision was being written. Re-run `git fetch mcdc-project` immediately before
@@ -940,10 +966,27 @@ Inside `@njit` functions, recover the simulation with
 
    A missing `label`, a bad `sub_type`, or an `Annotated` shape the generator cannot pack will
    surface here with a clear message, long before a physics test gets confusing numbers.
-1. `pre-commit run --all-files` against upstream's pinned black 26.1.0 /
-   `language_version: python3.14`. **See §14** — this hook cannot bootstrap without a 3.14
-   interpreter on `PATH`, and pre-commit will not install one. Fallback: run `black` directly
-   and let CI arbitrate. Generated accessors are `force-exclude`d, so they need no formatting.
+1. **Formatting. [SETTLED 2026-10-08 — OWNER DECISION: everything runs on Python 3.13.]**
+   Do **not** run `pre-commit`, and do **not** install a Python 3.14. Run black directly:
+
+   ```bash
+   conda activate mcdc-upstream
+   python -m black .          # the env's Scripts/ dir is not on PATH, so use -m
+   ```
+
+   This is **verified equivalent, not a concession** — see §14, where black 26.1.0 on
+   CPython 3.13.16 was run against pristine `mcdc-project/dev` and reported **all 232 files
+   unchanged**, which is the same verdict `black_lint.yml` reaches on 3.14. Generated
+   accessors are `force-exclude`d and need no formatting. Let `black_lint.yml` arbitrate on
+   the PR.
+
+   **Two things not to do**, because both convert a non-problem into a real one:
+   - **Do not run `pre-commit install`.** Upstream's config pins `language_version:
+     python3.14`, so the hook cannot bootstrap here and *every* commit on the Phase 1 branch
+     would fail. No hook is installed today — verified — and it should stay that way.
+   - **Do not edit upstream's `.pre-commit-config.yaml`** to say `python3.13`. It would work
+     locally and it would be unexplained churn in the PR, touching a file the photon port has
+     no business changing.
 2. **[REVISED] The `test_` prefix is a correctness problem, not a convention tidy-up.**
    `pytest test/unit/transport/physics` collects **7 tests**, because only
    `test_energy_deposition.py` matches the default discovery pattern.
@@ -1644,9 +1687,15 @@ add nothing to `examples/`.
 | §13 touch-list complete | **was incomplete; now corrected — 2026-10-08, second audit.** Its grep could not see bare lowercase `"proton"`; two files were missing, one of them CI-gated. See §13 |
 | Phase 4 obligations known | **were undocumented; now recorded — 2026-10-08, second audit.** `CHANGELOG.md` and five docs pages. See §5 Phase 4 |
 
-The one remaining prerequisite is **step 0 of the block below — install a standalone Python
-3.14 for the black hook, or accept the documented fallback.** It does not block Phase 1 or
-Phase 2; it blocks §5 Phase 3 item 1.
+**[UPDATED 2026-10-08 — OWNER DECISION] There is no remaining prerequisite.** This paragraph
+previously said one was left: install a standalone Python 3.14 for the black pre-commit hook,
+or accept the fallback. **The owner took the fallback — everything runs on Python 3.13**, and
+§14 now carries the measurement that makes the two identical in outcome (black 26.1.0 on
+3.13.16 leaves all 232 files of pristine upstream unchanged). `pre-commit` is not used; black
+runs directly. See §5 Phase 3 item 1 for the two things not to do.
+
+The push URLs on `mcdc-project` and `upstream` are also **already disarmed** (§1), so §8's
+step 1 below is a no-op kept for the record.
 
 **What the second audit did not change.** Every physics decision, the §4 unit model, the §6.2
 relaxation translation table and the Phase 2 dependency order were re-checked and stand. So do
@@ -1671,11 +1720,18 @@ cd /c/Projects/MCDC
 #        It failed on first execution -- cffi was missing and mcdc itself was
 #        never installed. Both fixed; see section 14 "Gate result".
 #      - the six drifted files reviewed and committed, section 1
-#    Remaining, and it only gates Phase 3 item 1: a standalone Python 3.14 for the
-#    black pre-commit hook, or accept the fallback in section 14.
+#      - push URLs on mcdc-project and upstream DISARMED, section 1
+#      - Python 3.14: NOT needed. Owner decision -- everything runs on 3.13 and
+#        black is run directly instead of through pre-commit. Section 14 carries
+#        the measurement: black 26.1.0 on 3.13.16 leaves all 232 files of
+#        pristine upstream unchanged. Do NOT run `pre-commit install`.
+#    Nothing is outstanding.
 conda activate mcdc-upstream
 
-# 1. Disarm push to repositories we do not own
+# 1. Disarm push to repositories we do not own -- ALREADY DONE 2026-10-08,
+#    kept here for the record. Re-running is harmless. Only `origin` is
+#    writable, and the PR to mcdc-project/mcdc is assembled by the owner at
+#    the end (section 1).
 git remote set-url --push mcdc-project DISABLED
 git remote set-url --push upstream     DISABLED
 
@@ -2259,7 +2315,7 @@ run numba-mode regressions on 3.14 in `python_compatibility.yml` indicates the p
 does carry 3.14 support. The concern was never that numba *cannot* work on 3.14; it is that
 **3.13 is where the evidence is.**
 
-### The `pre-commit` / black 3.14 problem
+### The `pre-commit` / black 3.14 problem — **CLOSED: 3.13 only**
 
 `.pre-commit-config.yaml` pins:
 
@@ -2274,27 +2330,50 @@ does carry 3.14 support. The concern was never that numba *cannot* work on 3.14;
 `language_version` tells pre-commit which interpreter to build the hook's virtualenv with.
 **pre-commit cannot install a Python interpreter**, so `pre-commit run --all-files` fails to
 bootstrap unless `python3.14` is on `PATH`. No 3.14 interpreter exists on this machine
-(`anaconda3` base is 3.9.13, `epics-env` is 3.13.13, `mcdc-env` is 3.10.20).
+(`anaconda3` base is 3.9.13, `epics-env` is 3.13.13, `mcdc-env` is 3.10.20,
+`mcdc-upstream` is 3.13.16).
 
-**[RESOLVED 2026-10-08] Use two interpreters for two different jobs.** This is not a
-compromise — it is exactly what upstream's CI does:
+**[OWNER DECISION 2026-10-08 — everything runs on Python 3.13. Do not install a 3.14.]**
+A previous revision of this subsection told the reader to install a standalone 3.14 purely so
+`pre-commit` could build the black hook's virtualenv, with "run black directly" as a fallback.
+**The fallback is now the decision, and it was measured rather than assumed.**
+
+**The evidence. [NEW 2026-10-08, second audit]** Both halves were run, not predicted:
+
+| Run on pristine `mcdc-project/dev` @ `295cd909`, under `mcdc-upstream` (3.13.16) | Result |
+|---|---|
+| `python -m black --version` | `black 26.1.0 (compiled: yes)`, CPython **3.13.16** — the exact version the hook pins |
+| `python -m black --check .` | **"232 files would be left unchanged"** — the same verdict `black_lint.yml` reaches on 3.14 |
+| `python -m pre_commit run --all-files` | fails, as predicted: `RuntimeError: failed to find interpreter for Builtin discover of python_spec='python3.14'` |
+
+So the two interpreters produce **identical formatting on the real tree**, and the only thing
+3.14 buys is the ability to run a bootstrapper we have no need for. Three independent reasons
+it has to come out that way: the environment pins **black 26.1.0, the version the hook pins**;
+`[tool.black] target-version` lists py311 through py314, so black emits no version-specific
+formatting; and the generated accessors are `force-exclude`d, so the largest body of machine-
+written code is not formatted at all.
+
+**What this means in practice:**
+
+- **Format with `python -m black .`** from `mcdc-upstream`. Let `black_lint.yml` arbitrate on
+  the PR — it runs on 3.14 and will agree.
+- **Do not run `pre-commit install`.** Upstream's config pins `python3.14`, so the hook cannot
+  bootstrap here and every commit on the Phase 1 branch would fail with the error above.
+  Verified 2026-10-08: no hook is installed in `.git/hooks/pre-commit`, and it should stay
+  that way. (Note the local snapshot's own config pins `python3.11`, so this trap appears only
+  *after* Phase 1 takes upstream's file.)
+- **Do not edit upstream's `.pre-commit-config.yaml`.** Changing `python3.14` to `python3.13`
+  would work locally and would be unexplained churn in a PR that has no business touching it.
+
+For the record, upstream's own split — which is what the superseded two-interpreter advice was
+mirroring:
 
 | Interpreter | Purpose | Matches |
 |---|---|---|
 | **3.13** | the environment: numba, pytest, running MC/DC | `unit_test.yml`, `regression_test.yml`, `check_numba_support.yml` |
-| **3.14** | the black pre-commit hook only — never imports mcdc | `black_lint.yml` |
+| 3.14 | the black formatter only — never imports mcdc | `black_lint.yml` |
 
-So install a standalone Python 3.14 **solely** so `pre-commit` can build the black hook's
-virtualenv, and keep the 3.13 conda environment for everything else. Black reformats text and
-does not need numba, numpy or MC/DC itself, so the 3.14 install needs no packages beyond what
-pre-commit puts in its own venv.
-
-Fallback if a 3.14 install is inconvenient: run `black` directly from the 3.13 environment and
-let `black_lint.yml` arbitrate. **This is now exactly equivalent, not approximately so**, for
-two independent reasons: the environment pins **black 26.1.0, the same version the hook
-pins**, and `[tool.black] target-version` lists py311 through py314, so black is not emitting
-version-specific formatting in the first place. Generated accessors are `force-exclude`d.
-Run it as:
+Run black as:
 
 ```bash
 conda activate mcdc-upstream
