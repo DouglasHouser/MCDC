@@ -1,8 +1,12 @@
 # Photon Transport — Upstream Sync Handoff
 
-Planning state as of **2026-10-08**. **Phases 0, 1 and 2 are COMPLETE — see §15 and §16.
-Phase 3 is cleared to start.** Phase 4 is the owner's.
-Pick up at §16's handover.
+Planning state as of **2026-10-09**. **Phases 0–3 are COMPLETE — see §15, §16 and §17.**
+Phase 4 is the owner's.
+Pick up at §17's handover.
+
+**§17.3 is the one thing to read before trusting any deck comparison:** the saved 10 MeV
+reference results predate annihilation-photon emission, so the ported code is 31–59% above
+them *by design*. That was isolated by experiment, not assumed.
 
 **§15 records three discoveries made while executing Phase 1.** None of them blocks Phase 2.
 The largest is that a **populated photon HDF5 schema already exists** in
@@ -975,7 +979,11 @@ Mechanical renames throughout: `mcdc` → `simulation` (~100 sites in the photon
 Inside `@njit` functions, recover the simulation with
 `simulation = util.access_simulation(program)`.
 
-### Phase 3 — Validate
+### Phase 3 — Validate  — **✅ COMPLETE 2026-10-09. See §17.**
+
+**Done.** 78 photon unit tests and all 8 §7 decks migrated, as commit `04a70031`. The full
+suites pass: **483 unit tests** and **34 regression cases**. The subsection below is the plan;
+**§17 is the record, and item 2 below could not be done as written.**
 
 0. **[NEW 2026-10-08] The generic object-model tests now cover photon for free** — and will
    fail loudly if the new objects are malformed. Run these first, before any photon-specific
@@ -2894,3 +2902,148 @@ The port is on `feature/photon-transport` at `6452dd0d`, pushed to `origin`, tra
 and the §11 smoke references — all Phase 3. The `data/mcdc/` diff that §6 item 3 wants before
 those 204 MB are retired is **also still open**: the generator was diffed against the
 *regression library*, not against `data/mcdc/`, and those are different comparisons.
+
+---
+
+## 17. Phase 3 — Execution Record  **[NEW 2026-10-09]**
+
+Commit `04a70031` on `feature/photon-transport`. **483 unit tests** and **34 regression
+cases** pass, up from 405 and 26.
+
+### 17.1 §5 Phase 3 item 2 could not be done as written
+
+The plan said to rename the three unprefixed photon test files, relocate them, and watch the
+collected count rise 7 → 33. **Three of the four test the architecture this port deletes.**
+Their imports are `photon_material._build_flat_data`, `PHOTON_ELEMENT_DTYPE`,
+`physics.photon.cross_sections` and `physics.photon.distributions` — the hand-built flat
+buffer and the pre-split module layout. Renaming them would have produced tests of something
+that no longer exists.
+
+The **coverage** was re-expressed against the object model instead, as 78 tests in
+`test/unit/photon/`, passing in **both python and numba mode**:
+
+| File | Tests | Covers |
+|---|---|---|
+| `test_cross_sections.py` | 17 | channel lookup, summation, density weighting, thresholds, dispatch, the interpolation guards, constant-XS mapping |
+| `test_fluorescence.py` | 14 | relaxation loading, eV binding energies, K lines above and below the edge, yield suppression, the deposition balance |
+| `test_coherent_form_factor.py` | 11 | `F(0, Z) = Z`, forward peaking against energy and Z, the Thomson limit, elasticity |
+| `test_energy_deposition.py` | 17 | every per-branch formula, the cutoff, weight inclusion, and the bound that deposition never exceeds the incident energy |
+| `test_klein_nishina.py` | 19 | kinematics, the Compton relation, both limits, and the sampled spectrum against the analytic distribution |
+
+The count exceeds the planned 33 because the port needed cases the old architecture had no
+equivalent for: the two interpolation guards (§16.2), the two-particle `Element` packing
+(§16.3), and subtype resolution through `sub_ID` (§16.4).
+
+**A methodological error worth recording.** Seeding each sample with a fresh consecutive
+integer gives **correlated** samples — an LCG's first output is a near-linear function of its
+seed. The Klein-Nishina distribution test failed at 8 sigma until every draw came from one
+advancing stream, which is how transport uses it anyway. Two of the earlier tests were written
+the same way; their assertions were loose enough to pass, but they were measuring a correlated
+sample and are now fixed. **If a sampler test disagrees with its own analytic distribution,
+check the sampling method before the sampler.**
+
+### 17.2 The eight decks
+
+All migrated to `test/regression/photon_<case>/{input.py, answer.h5}`, each carrying
+`lockwood`'s `MCDC_LIB` preamble verbatim. **Sized at `N_particle = 1000`, `N_batch = 2`** to
+match upstream's own regression cases, which run 100 × 2 — not the 1e5 the originals used. The
+full-statistics runs behind §17.3 are evidence, not committed artifacts.
+
+| Case | From | Reference available |
+|---|---|---|
+| `photon_al_spheres` | `10mev_al_spheres.py` | yes, 1e5 / 1e6 / 1e7 |
+| `photon_pb_spheres` | `10mev_pb_spheres.py` | yes, 1e5 / 1e7 |
+| `photon_pb_cylinder_off_center` | `lead_finite_cylinder_off_center.py` | yes, two of them |
+| `photon_pb_cylinder_edep` | `lead_finite_cylinder_energy_deposition.py` | **no — see §17.4** |
+| `photon_mm_slabs_mesh` | `multi_material_slabs_mesh_tally.py` | yes, 1e6 |
+| `photon_mm_slabs_collimated` | `multi_material_slabs_collimated_beam.py` | yes, 1e6 |
+| `photon_mm_spheres_spectrum` | `multi_material_spheres_1to10mev_spectrum.py` | no like-for-like |
+| `photon_azurv1` | `AZURV1_photon_v3.py` | no |
+
+Three unit conversions the migration had to make, beyond the API: **energies MeV → eV**,
+**times ns → s** (AZURV1's grid is in mean free times, converted through `LIGHT_SPEED`, which
+is now cm/s), and `ConstantCrossSectionMaterial(sigma_total, sigma_scatter, sigma_absorb)` →
+`PhotonConstantXSData(scatter, absorb)`, whose total is derived.
+
+### 17.3 [MAJOR] The 10 MeV references predate annihilation photons
+
+At 1 MeV the ported decks agree with their saved references at the level of the statistics. At
+10 MeV both sphere decks come out **31–59% high**, with a ratio that is 1.12 at the source and
+rises to 1.77 mid-depth — a shape that rules out a normalisation error, which would be flat.
+
+**Isolated by experiment, in this order.** Each step was a measurement:
+
+1. **The references are self-consistent.** Al's 1e5, 1e6 and 1e7 files agree with each other
+   to 0.1%, so they are not individually corrupt.
+2. **The cross sections are identical.** `data/mcdc/Al.h5` and the generated library agree to
+   the last digit at every energy probed — which also **closes the diff §6 item 3 demands**
+   before `data/mcdc/` is retired. The pair cross section matches too:
+   `MT515 + MT517 = 0.373183 = ` the pre-port `MT-503/xs`.
+3. **1 MeV agrees.** Below the 1.022 MeV pair threshold, Al matches to **0.3% over the first
+   five shells** and 2.4% on average. So whatever differs is above threshold.
+4. **Disabling annihilation emission reproduces the references.** Treating pair production as
+   pure absorption brings aluminium to a mean ratio of **1.0071 (std 0.0088)** across all 20
+   shells, and lead to **median |z| 0.42 with 100% within 1 sigma**.
+
+So the saved 10 MeV references come from a code version that treated pair production as pure
+absorption. **The port is newer than the reference, not wrong** — the snapshot already emitted
+the two 511 keV photons, and §2.3 documents that as the intended model. At 10 MeV in aluminium
+pair production is 36% of the total cross section, and each event adds two 511 keV photons
+whose own mean free path is comparable to the shell spacing, which is exactly why the excess
+grows with depth.
+
+**Consequence for Phase 4:** the pre-port `*_results.txt` files at 10 MeV are **not** valid
+regression references and should not be cited as agreement. The 1 MeV ones are.
+
+### 17.4 Two reference files are mislabelled
+
+`Complex_M&G/lead_finite_cylinder_results.txt` has a footer reading *"isotropic point source at
+the origin"* but reports **exactly zero flux in every z > 0 cell**, which only happens for the
+off-centre source at z = -15. Its footer is wrong; it belongs to the `off_center` deck at 2e6
+histories, alongside the correctly-labelled 1e8 file in `1e7_results/`.
+
+So **`lead_finite_cylinder_energy_deposition.py` has no saved reference at all** — which is
+consistent with the §7 survey finding none for it, and which the footer would otherwise have
+disguised as a catastrophic port failure. The deck is checked for internal consistency instead:
+
+- Its flux map is **symmetric about z = 0 to 0.3%** in the inner shell, as a source at the
+  origin requires, and falls by five orders of magnitude into the outer axial segments.
+- Its deposition sums to **1.000000e+06 eV against a 1.0 MeV source** — exact energy
+  conservation, which is the strongest single check available on the deposition tally and is
+  precisely what §7 deck 8 was added to provide.
+
+### 17.5 Results, deck by deck
+
+| Case | Reference | Median \|z\| | Median \|rel\| | Verdict |
+|---|---|---|---|---|
+| `photon_pb_cylinder_off_center` | 1e8, z=-15 | **0.40** | 3.7% | 100% within 1 sigma |
+| `photon_mm_slabs_mesh` | 1e6 | **0.34** | 15% | 100% within 2 sigma, 201/201 bins |
+| `photon_mm_slabs_collimated` | 1e6 | 1.16 | **1.4%** | 100% within 2 sigma |
+| `photon_al_spheres` @ 1 MeV | 1e6 | — | **0.3%** (first 5 shells) | agrees |
+| `photon_al_spheres` @ 10 MeV | 1e5 | 72 | 64% | §17.3 — reference is stale |
+| `photon_al_spheres` @ 10 MeV, no annihilation | 1e5 | — | **0.7%** | confirms §17.3 |
+| `photon_pb_spheres` @ 10 MeV | 1e5 | 2.8 | 35% | §17.3 — reference is stale |
+| `photon_pb_spheres` @ 10 MeV, no annihilation | 1e5 | **0.42** | 2.6% | confirms §17.3 |
+| `photon_pb_cylinder_edep` | none | — | — | §17.4 — internal checks pass |
+| `photon_mm_spheres_spectrum` | none like-for-like | — | — | finite, non-negative, spectrum shaped |
+| `photon_azurv1` | none | — | — | runs; exercises the constant-XS path |
+
+The two `median |rel|` figures that look large next to a small `|z|` — 15% for the mesh and
+3.7% for the cylinder — are deep, low-flux bins where **both** sides carry large statistical
+error. The z-score is the figure of merit; the relative difference is not, at these history
+counts.
+
+### 17.6 Handover to Phase 4
+
+Everything in §5 Phase 3 is done except the items below, which are deliberately not Phase 3:
+
+1. **§11 smoke references for the other 22 decks** — not generated. §11 gates them on Phase 3
+   being green, which it now is, so this is the next discretionary piece of work.
+2. **The eleven element files are staged only locally**, in the `mcdc-regression_test_data`
+   clone as untracked additions. §15.5's Phase 4 coordination item stands: they have to reach
+   the maintainers' copy of that repository for CI to run these cases.
+3. **`data/mcdc/` can now be retired** — §6 item 3's precondition is met (§17.3 step 2). The
+   204 MB is reproducible from `data/endf/` with the §6.2 generator.
+4. **The 10 MeV `*_results.txt` files should be regenerated** from the current code, or marked
+   stale in place. As they stand they will mislead the next reader exactly as they briefly
+   misled this one.
