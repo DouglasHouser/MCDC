@@ -175,6 +175,14 @@ The previous revision's header said "no code has been changed yet". That is no l
 | `e45833c8` | Audit the sync plan end to end; fix 14 contradictions and 11 bad anchors | no |
 | `41660da2` | Build the 3.13 environment and commit the six drifted files | **yes — the six drifted files** |
 
+**This table necessarily lags by at least one commit** — the revision that updates it cannot
+list itself, which is how it went stale the first time. Regenerate it instead of trusting it:
+
+```bash
+git log --oneline --reverse c4f0cb49..HEAD
+git diff --stat c4f0cb49..HEAD -- . ':!photon-transport-docs'   # what is NOT just planning
+```
+
 Two of the four touch something outside this document. `84154afb` removes a `.gitignore` rule
 and adds `lead_finite_cylinder_energy_deposition.py`. `41660da2` commits the six drifted files
 reviewed in the next subsection — including `mcdc/transport/distribution.py`, which is tracked
