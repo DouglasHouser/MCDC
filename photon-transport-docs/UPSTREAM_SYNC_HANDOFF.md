@@ -4,10 +4,14 @@ Planning state as of **2026-10-08**. **Phase 0 is complete and pushed. Phase 1 i
 see §15. Phase 2 is cleared to start and has not begun.** Phases 3–4 are unstarted.
 Pick up at §15's handover, then §5 Phase 2.
 
-**§15 also records three discoveries made while executing Phase 1 that change Phase 2's plan**,
-the largest being that **an authoritative photon HDF5 schema already exists** in
-`mcdc-project/mcdc-regression_test_data` — which contradicts §2.8, overrides §6.2's invented
-group names and §4's on-disk energy unit, and should be read before any generator work.
+**§15 records three discoveries made while executing Phase 1.** None of them blocks Phase 2.
+The largest is that a **populated photon HDF5 schema already exists** in
+`mcdc-project/mcdc-regression_test_data`, which contradicts §2.8 and settles three details
+§6.2 had to guess — group names, the on-disk energy unit, and the pair-production MT numbers.
+§6.2 plus the electron generator were already sufficient to write the generator; the
+discovered file is a **free cross-check**, and §15.4 resolves each detail in its favour on the
+standing principle that matching a real upstream artifact beats matching an invented
+convention.
 
 **[OWNER DECISIONS 2026-10-08 — three operating rules that apply to every phase]**
 
@@ -2617,17 +2621,36 @@ atomic_relaxation/                  top-level -- confirms decision 2.9
 | §6.2 | our incoherent group holds `xs` only | also **`scattering_function`** S(q) — the incoherent binding correction. **We do not have this**, and its absence is a physics gap, not a schema gap: pure Klein–Nishina without S(q) overestimates low-energy incoherent scattering |
 | §6.2 subshell PE | `MT-534+/{xs}` | `MT-534+/{binding_energy, energy_grid, xs}` — each subshell carries **its own grid**, so it is `DataTable`-shaped as §4.5 predicted |
 
-**Do this before writing a line of the generator (§6.2 / Phase 2 step 19):** diff our
-`data/mcdc/Al.h5` against this file field by field. It is the same element on the same grid
-length, so the comparison is direct, and it answers the unit question, the group-name question
-and the MT question at once. It may also show that the two were built from the same EPDL
-release, in which case the numbers should agree and any disagreement is a bug in one of them.
+### Resolved, not deferred  **[DECIDED 2026-10-08]**
 
-**Add to §6.4, as the sharpest maintainer question we now have:** *there is a
-`photon_reactions/` group in your regression data that nothing in the code reads and no
-generator writes — is that the schema you want photon to target, who produced it, and does an
-unreleased photon generator exist?* That question is worth more than the three already listed,
-because the answer either hands us the schema or tells us a parallel effort exists.
+An earlier draft of this subsection asked the owner to choose between §6.2's schema and this
+one. **That was an over-escalation and is withdrawn.** §6.2, plus the electron and proton
+generators it points at, was always sufficient to write the generator — the discovered file
+does not add a decision, it removes three guesses. §6.2's own stated goal is "keep EPDL, adopt
+**upstream's** layout", so where a real upstream artifact and an invented convention disagree,
+the artifact wins. Each row of the table above resolves that way:
+
+| Detail | Resolution |
+|---|---|
+| On-disk energy unit | **eV**, with `attrs["unit"] = "eV"`. Our data is already eV, so the conversion §4 called "the single largest source of silent numerical error" **largely disappears**. `read_energy` honours either unit, so this is a free simplification, not a compromise |
+| Group names | **`coherent_scattering`**, **`incoherent_scattering`**, `photoelectric`, `pair_production` |
+| Pair production | **`MT515` + `MT517` siblings plus an unnumbered `total/xs`.** No MT516 |
+| MT group spelling | `MT502`/`MT504`/`MT515`/`MT517`/`MT522` **unhyphenated**; photoelectric subshells `MT-534+` **hyphenated**. Inconsistent, but matched exactly |
+| Subshell PE | `MT-534+/{binding_energy, energy_grid, xs}` — per-subshell grid, so `DataTable`-shaped per §4.5 |
+| `anomalous_scattering`, `scattering_function` | **Not written.** We have neither, and §2.10 says the photon physics is not changed by this merge, so adding S(q) binding corrections is out of scope. Omitting a dataset nothing reads is schema-compatible; record it as a gap for the electron-coupling PR |
+| Everything else | §6.2 stands unchanged — the `generate.py`/`util.py` split, the CLI to mirror, the relaxation translation table, the five-heading README |
+
+**One step is still worth doing first, as verification rather than as a decision:** diff our
+`data/mcdc/Al.h5` against the reference file field by field. Same element, same grid length, so
+the comparison is direct. If the two were built from the same EPDL release the numbers should
+agree, and any disagreement is a bug in one of them — which is exactly the diff §6 item 3
+already demands before `data/mcdc/` is retired.
+
+**Still worth adding to §6.4 as a maintainer question**, now purely informational rather than
+blocking: *there is a `photon_reactions/` group in your regression data that nothing reads and
+no generator writes — is that the schema you want, who produced it, and does an unreleased
+photon generator exist?* The answer costs nothing to wait for, because we are proceeding on the
+artifact regardless.
 
 ### 15.5 How regression decks get their data library — and a Phase 3 blocker
 
@@ -2645,44 +2668,64 @@ Seven decks do this (`basic_weight_windows`, `hybrid_multigroup`, `lockwood`, `p
 `pincell-energy_deposition`, `pincell-k_eigenvalue`, `proton_beam`). An absolute Windows path
 would fail on every CI runner.
 
-So each migrated photon deck (§7) must carry that same preamble — **and this exposes a
-blocker §5 Phase 3 does not mention:**
+So each migrated photon deck (§7) carries that same two-line preamble. **Copy electron's
+exactly** — `lockwood/input.py` is the template for this as it is for per-element data
+generally.
 
-> **The photon element files have to exist inside
-> `mcdc-project/mcdc-regression_test_data`, which is a repository we cannot push to.**
+### Resolved from the electron precedent  **[DECIDED 2026-10-08]**
 
-The regression library currently holds exactly one element file, `Al.h5`. Our eight decks need
-Pb, Fe and the air / concrete / water compositions. Three ways out, to be decided before the
-decks are migrated rather than after:
+An earlier draft called this a blocker needing an owner decision between three options.
+**Withdrawn — the electron precedent answers it, and the quantity involved is small and
+bounded.**
 
-1. **Ask the maintainers to add them** — cleanest, matches how electron and proton work, and
-   is a natural companion to the §15.4 question. Costs a round trip.
-2. **Point the photon decks at a path inside the port branch**, e.g. a small
-   `test/regression/photon_data/` holding only the elements the decks need. Self-contained and
-   CI-correct, but commits data to a repository whose convention is to fetch it.
-3. **Keep the photon decks out of `test/regression/` for this PR** and carry them as §11
-   smoke-reference decks instead. Loses the `rtol = 1e-6` harness — which §7 deck 8 exists
-   specifically to provide for the rewritten energy-deposition tally, so this is the weakest
-   option.
+**What the decks actually need.** Measured by parsing `elements=[...]` and the composition
+tables out of all eight decks: **eleven elements**, and `AZURV1_photon_v3.py` needs none at all
+because it uses the constant-XS treatment (§2.2).
 
-Option 1 with option 2 as the fallback is the recommendation. Either way it is an **owner
-decision, and it gates §7's migration, not Phase 2's code.**
+| Z | 1 | 7 | 8 | 11 | 12 | 13 | 14 | 18 | 20 | 26 | 82 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| | H | N | O | Na | Mg | Al | Si | Ar | Ca | Fe | Pb |
+
+All eleven are already in `data/mcdc/`, and they total **9.7 MB** — `Pb.h5` is the largest at
+3.2 MB. That is the same order as the single `Al.h5` the regression library already carries for
+electron, so nothing here is unusual in kind or size.
+
+**Local Phase 3 runs: copy the eleven files into the clone.** It is a working clone; adding
+files to it is not a push. Verified that the `regression_data` fixture's `git pull` tolerates
+added untracked files (exit 0), and the fixture warns rather than skips even if a pull fails, so
+an enriched clone stays usable offline.
+
+**The PR: the data goes to the maintainers' repository the same way electron's did.** Someone
+had to add `Al.h5` to `mcdc-regression_test_data` when electron landed, and the same step
+applies to photon. That makes it a **Phase 4 coordination item, not a design decision** — it
+belongs in the PR description beside the §6.4 questions, and it is why §15.4's maintainer
+question is worth asking early even though we are not waiting on it. Nothing about it blocks
+writing the decks, generating their `answer.h5` locally, or anything in Phase 2.
 
 ### 15.6 Handover to Phase 2
 
-The port branch is clean and the environment is proven. Phase 2 begins at §5's step table,
-which now runs to 22 steps. Before step 1:
+The port branch is clean and the environment is proven. **Phase 2 is unblocked — there is
+nothing to decide first.** It begins at §5's step table, which now runs to 22 steps. Carry
+these five standing rules through it:
 
-1. Read §15.4 and decide the schema question. It changes §6.2 and §4, and it is cheap to
-   settle now and expensive to retrofit.
-2. Decide §15.5 so §7's migration is not blocked later.
-3. Format with `git ls-files -z '*.py' | xargs -0 python -m black --check`, not `black .`
-   (§15.3).
-4. Re-run `rebuild_numba_support.py` after **every** annotated-field change (§5 Phase 2 step 8
+1. **Schema: follow the reference file** (§15.4's resolution table) — eV on disk,
+   `coherent_scattering` / `incoherent_scattering`, `MT515`+`MT517`+`total`, unhyphenated
+   reaction MTs, hyphenated subshell MTs. §6.2 governs everything else.
+2. **Decks: copy `lockwood/input.py`'s `MCDC_LIB` preamble verbatim** and put the eleven
+   element files in the local clone (§15.5). The maintainers' copy is a Phase 4 item.
+3. **Format** with `git ls-files -z '*.py' | xargs -0 python -m black --check`, never a bare
+   `black .` (§15.3).
+4. **Re-run `rebuild_numba_support.py` after every annotated-field change** (§5 Phase 2 step 8
    — "not optional and not last"), and read the gate off `git diff`, never `git status`
    (§14's Windows caveat).
-5. The snapshot is at `C:/Projects/MCDC-photon-old` for side-by-side reference. Leave it until
-   Phase 3 is green, then `git worktree remove ../MCDC-photon-old`.
+5. **The snapshot is at `C:/Projects/MCDC-photon-old`** for side-by-side reference. Leave it
+   until Phase 3 is green, then `git worktree remove ../MCDC-photon-old`.
+
+**A note on where work lands, since it caused confusion once.** `origin` is the remote *name*
+for `DouglasHouser/MCDC`; `wip/photon-snapshot-pre-refactor` is a *branch on* it. Every
+planning and documentation commit belongs on that branch and has gone there. `origin/dev`
+remains untouched at `86ee515a`. Phase 2's code belongs on `feature/photon-transport`, pushed
+with `git push -u origin feature/photon-transport` on its first commit.
 
 **`feature/photon-transport` has not been pushed.** It has no commits of its own, so there is
 nothing to push; its tracking ref is `mcdc-project/dev`, whose push URL is DISABLED. On the
