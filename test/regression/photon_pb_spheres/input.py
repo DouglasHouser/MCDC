@@ -76,7 +76,7 @@ tallies = [
 ]
 simulation.set_tallies(tallies)
 
-simulation.settings.N_particle = 1000
+simulation.settings.N_particle = 500
 simulation.settings.N_batch = 2
 simulation.settings.rng_seed = 42
 
