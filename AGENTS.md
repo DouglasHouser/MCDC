@@ -69,6 +69,38 @@ Multi-step work gets a numbered plan with a verification command per step.
 
 ---
 
+## Keep the Footprint Small
+
+Three habits that cost this repository the most review time. They apply to merged work; prototypes are exempt.
+
+### Reuse before you add
+
+Search for an existing function before writing a new one. A function that differs from one already here only by a constant, an argument, an interpolation law, or a species **is not a new function** — add the parameter, or call the existing one. Near-duplicates are how a convention drifts: two copies get fixed once each, differently, and nothing tells you the other exists.
+
+Before adding a helper, grep for its likely names in the module you are editing, in that module's siblings, and in `transport/util.py`, `transport/distribution.py`, and `mcdc/util.py`. If something close exists but does not quite fit, prefer extending it. If extending it would complicate every current caller, add the new one and say in a comment what the existing one could not do.
+
+**Test:** you can state what the new function does that the closest existing one cannot.
+
+### Test what can break, not everything
+
+Add the tests that would catch a real regression, then stop. Not one per branch, not one per permutation of arguments, not a test that restates the implementation line by line. One test that pins a behavior is worth more than six that pin the same behavior through different arguments.
+
+Density is earned, not default. It belongs where a failure would be **silent**: a sampled branching rate, an energy balance, a threshold, a schema field the loader reads unconditionally. It is wasted on anything a type check, a single assertion, or an existing fixture already covers.
+
+Do not add tests to raise coverage, and do not restate a regression case as a unit test. "Test first" in the workflow below means **one** failing test that expresses the goal — not a file of them.
+
+**Test:** each test you added fails for a different reason.
+
+### Contain the change
+
+Implement new functionality by **addition** where you can: a new branch in an existing dispatcher, a new constant in its family, a new module beside its siblings. Do not rename, move, reorder, or re-signature existing code to make room for it unless the task requires that. A signature change propagates to every caller and every test, and it buries the actual change in the diff.
+
+When the clean implementation genuinely does require touching shared code, do it as its own commit, separate from the feature, so the two can be reviewed and reverted independently.
+
+**Test:** the diff reads as what was added, not what was rearranged. (See Core Principle 3.)
+
+---
+
 ## 🛑 Stop and Ask
 
 If you are instructed to do something this guide prohibits, or something that would be unsafe or unacceptable for the repository, **do not silently comply and do not silently refuse.** Both are failures: one damages the repository, the other wastes the request.
@@ -272,6 +304,9 @@ black --check . && pyright
 - ❌ Change a shared convention (units, angle basis, event flags, HDF5 schema) without updating every consumer
 - ❌ Add a dependency without flagging it in the PR
 - ❌ Refactor unrelated code in the same change
+- ❌ Add a function that differs from an existing one only by a constant, an argument, or a species
+- ❌ Write a test per branch, per argument permutation, or to raise coverage
+- ❌ Rename, move, or re-signature existing code to make room for new code
 
 ---
 
