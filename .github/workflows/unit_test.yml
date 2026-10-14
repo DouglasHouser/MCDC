@@ -54,7 +54,7 @@ jobs:
 
       - name: Generate coverage report
         run: | 
-          coverage run -m pytest test/unit
+          coverage run -m pytest test/unit --mode=python
           coverage xml
         
       - name: Upload coverage to coveralls
