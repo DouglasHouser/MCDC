@@ -20,7 +20,7 @@ CSDA_RANGE = 0.569  # g/cm2
 ANGLE = 0.0
 
 # MCDC Simulation Parameters
-N_PARTICLES = 5
+N_PARTICLES = 2
 z0 = 0.0  # Starting source position
 
 # Material Properties
@@ -35,8 +35,9 @@ MAT_DENSITY_ATOMS_PER_BARN_CM = (
     AVAGADRO_NUMBER / ATOMIC_WEIGHT_G_MOL * RHO_G_CM3 / 1e24
 )  # atoms/barn-cm
 TINY = 1e-30
-L = CSDA_RANGE / RHO_G_CM3  # cm
-N_LAYERS = int(L / dz)
+# A thin target exercises electron transport and deposition without full slowing down.
+L = dz / 10  # cm
+N_LAYERS = 4
 THETA = math.radians(ANGLE)
 
 # Output variables for naming

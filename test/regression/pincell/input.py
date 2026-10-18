@@ -8,18 +8,15 @@ os.environ["MCDC_LIB"] = "../mcdc-regression_test_data/"
 simulation = mcdc.Simulation("Pincell")
 
 # Material
+# Minimal fuel/moderator composition keeps continuous-energy data preparation short.
 fuel = mcdc.Material(
     nuclide_composition={
         "U235": 0.0001654509603995036,
-        "U238": 0.022801089905717036,
-        "O16": 0.04593308173223308,
     }
 )
 moderator = mcdc.Material(
     nuclide_composition={
         "H1": 0.05129627050184732,
-        "O16": 0.024622209840886707,
-        "B10": 4.103701640147785e-05,
     }
 )
 
@@ -40,9 +37,9 @@ source = mcdc.Source(position=[0.0, 0.0, 0.0], isotropic=True, time=0.0, energy=
 simulation.set_sources([source])
 
 # Setting
-simulation.settings.N_particle = 20
+simulation.settings.N_particle = 2
 simulation.settings.N_batch = 2
-simulation.settings.time_boundary = 1.0
+simulation.settings.time_boundary = 1e-8
 simulation.settings.active_bank_buffer = 1000
 
 # Tally

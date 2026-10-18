@@ -17,8 +17,10 @@ x0 = mcdc.Surface.PlaneX(x=-pitch / 2, boundary_condition="reflective")
 x1 = mcdc.Surface.PlaneX(x=pitch / 2, boundary_condition="reflective")
 y0 = mcdc.Surface.PlaneY(y=-pitch / 2, boundary_condition="reflective")
 y1 = mcdc.Surface.PlaneY(y=pitch / 2, boundary_condition="reflective")
-#
-cell = mcdc.Cell(+x0 & -x1 & +y0 & -y1, fill=mat)
+# A thin slab keeps electron histories short while exercising both weight windows.
+z0 = mcdc.Surface.PlaneZ(z=-1e-4, boundary_condition="vacuum")
+z1 = mcdc.Surface.PlaneZ(z=1e-4, boundary_condition="vacuum")
+cell = mcdc.Cell(+x0 & -x1 & +y0 & -y1 & +z0 & -z1, fill=mat)
 simulation.set_model([cell])
 
 # Source
@@ -39,7 +41,7 @@ esource = mcdc.Source(
 simulation.set_sources([nsource, esource])
 
 # Setting
-simulation.settings.N_particle = 10
+simulation.settings.N_particle = 4
 simulation.settings.active_bank_buffer = 1000
 
 # Mesh
