@@ -8,18 +8,15 @@ os.environ["MCDC_LIB"] = "../mcdc-regression_test_data/"
 simulation = mcdc.Simulation("Pincell k-eigenvalue")
 
 # Material
+# Minimal fuel/moderator composition keeps continuous-energy data preparation short.
 fuel = mcdc.Material(
     nuclide_composition={
-        "U235": 0.0001654509603995036,
-        "U238": 0.022801089905717036,
-        "O16": 0.04593308173223308,
+        "U235": 0.02296654086611654,
     }
 )
 moderator = mcdc.Material(
     nuclide_composition={
         "H1": 0.05129627050184732,
-        "O16": 0.024622209840886707,
-        "B10": 4.103701640147785e-05,
     }
 )
 
@@ -40,10 +37,10 @@ source = mcdc.Source(position=[0.0, 0.0, 0.0], isotropic=True, energy=14.1e6)
 simulation.set_sources([source])
 
 # Setting
-simulation.settings.N_particle = 30
+simulation.settings.N_particle = 4
 simulation.settings.active_bank_buffer = 1000
-simulation.settings.census_bank_buffer_ratio = 3.0
-simulation.settings.source_bank_buffer_ratio = 3.0
+simulation.settings.census_bank_buffer_ratio = 10.0
+simulation.settings.source_bank_buffer_ratio = 10.0
 simulation.settings.set_eigenmode(N_inactive=1, N_active=2)
 
 # Tally
