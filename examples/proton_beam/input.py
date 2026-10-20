@@ -57,12 +57,12 @@ tally = mcdc.Tally(mesh=mesh, name="proton_edep", scores=["energy_deposition"])
 simulation.set_tallies([tally])
 
 # Settings
-simulation.settings.N_particle = 1000000
+simulation.settings.N_particle = 1000
 simulation.settings.N_batch = 1
-simulation.settings.condensed_interactions(max_fractional_energy_loss=0.001)
+simulation.settings.condensed_interactions(max_fractional_energy_loss=0.15)
 
 # Techniques
-simulation.technique.implicit_capture()
+# simulation.technique.implicit_capture()
 
 # Run
 simulation.run()

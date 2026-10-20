@@ -1,4 +1,6 @@
+import math
 from typing import Annotated, Sequence
+
 import numpy as np
 
 from numpy import float64
@@ -23,6 +25,7 @@ from mcdc.constant import (
     SURFACE_CONE_X,
     SURFACE_CONE_Y,
     SURFACE_CONE_Z,
+    SURFACE_CONE,
     SURFACE_QUADRIC,
     SURFACE_TORUS_X,
     SURFACE_TORUS_Y,
@@ -71,6 +74,14 @@ class Surface(MCDCObject):
     >>> cylinder = mcdc.Surface.CylinderZ(
     ...     center=[1.0, -1.0],
     ...     radius=0.5,
+    ... )
+
+    Create a cone about an arbitrary axis:
+
+    >>> cone = mcdc.Surface.Cone(
+    ...     apex=[0.0, 0.0, 0.0],
+    ...     axis=[0.0, 1.0, 1.0],
+    ...     half_angle=30.0,
     ... )
 
     Create an oblique plane from its equation coefficients:
@@ -218,9 +229,9 @@ class Surface(MCDCObject):
             text += f"  - Center (x, y): ({x}, {y}) cm\n"
             text += f"  - Radius: {r} cm\n"
         elif self.type == SURFACE_CYLINDER:
-            text += f"  - Coeffs.: {self.A}, {self.B}, {self.C},\n"
-            text += f"             {self.D}, {self.E}, {self.F},\n"
-            text += f"             {self.G}, {self.H}, {self.I}, {self.J}\n"
+            text += f"  - Point: ({self.A}, {self.B}, {self.C}) cm\n"
+            text += f"  - Axis: ({self.nx}, {self.ny}, {self.nz})\n"
+            text += f"  - Radius: {self.R} cm\n"
         elif self.type == SURFACE_SPHERE:
             x = -0.5 * self.G
             y = -0.5 * self.H
@@ -234,21 +245,25 @@ class Surface(MCDCObject):
             z0 = -0.5 * self.I
             x0 = 0.0 if t_sq == 0.0 else 0.5 * self.G / t_sq
             text += f"  - Apex (x, y, z): ({x0}, {y0}, {z0}) cm\n"
-            text += f"  - tan^2(theta): {t_sq}\n"
+            text += f"  - Half-angle: {_get_cone_half_angle(t_sq):.12g} degrees\n"
         elif self.type == SURFACE_CONE_Y:
             t_sq = -self.B
             x0 = -0.5 * self.G
             z0 = -0.5 * self.I
             y0 = 0.0 if t_sq == 0.0 else 0.5 * self.H / t_sq
             text += f"  - Apex (x, y, z): ({x0}, {y0}, {z0}) cm\n"
-            text += f"  - tan^2(theta): {t_sq}\n"
+            text += f"  - Half-angle: {_get_cone_half_angle(t_sq):.12g} degrees\n"
         elif self.type == SURFACE_CONE_Z:
             t_sq = -self.C
             x0 = -0.5 * self.G
             y0 = -0.5 * self.H
             z0 = 0.0 if t_sq == 0.0 else 0.5 * self.I / t_sq
             text += f"  - Apex (x, y, z): ({x0}, {y0}, {z0}) cm\n"
-            text += f"  - tan^2(theta): {t_sq}\n"
+            text += f"  - Half-angle: {_get_cone_half_angle(t_sq):.12g} degrees\n"
+        elif self.type == SURFACE_CONE:
+            text += f"  - Apex: ({self.A}, {self.B}, {self.C}) cm\n"
+            text += f"  - Axis: ({self.nx}, {self.ny}, {self.nz})\n"
+            text += f"  - Half-angle: {_get_cone_half_angle(self.R):.12g} degrees\n"
         elif self.type == SURFACE_QUADRIC:
             text += f"  - Coeffs.: {self.A}, {self.B}, {self.C},\n"
             text += f"             {self.D}, {self.E}, {self.F},\n"
@@ -517,6 +532,12 @@ class Surface(MCDCObject):
         point : sequence of 3 float, optional
             A point on the cylinder axis, in cm.
         """
+        # Axis and point
+        ax, ay, az = axis
+        norm = (ax**2 + ay**2 + az**2) ** 0.5
+        if norm == 0.0:
+            print_error("Cylinder axis must be a nonzero vector.")
+
         type_ = SURFACE_CYLINDER
         surface = cls(type_, name, boundary_condition)
 
@@ -524,28 +545,11 @@ class Surface(MCDCObject):
         surface.quadric = True
         surface.quartic = False
 
-        # Axis and point
-        ax, ay, az = axis
-        norm = (ax**2 + ay**2 + az**2) ** 0.5
-        dx, dy, dz = ax / norm, ay / norm, az / norm
-        px, py, pz = point
-        r = radius
-
-        # Coefficients
-        surface.A = 1.0 - dx**2
-        surface.B = 1.0 - dy**2
-        surface.C = 1.0 - dz**2
-        surface.D = -2.0 * dx * dy
-        surface.E = -2.0 * dx * dz
-        surface.F = -2.0 * dy * dz
-        Qpx = (1.0 - dx**2) * px - dx * dy * py - dx * dz * pz
-        Qpy = -dx * dy * px + (1.0 - dy**2) * py - dy * dz * pz
-        Qpz = -dx * dz * px - dy * dz * py + (1.0 - dz**2) * pz
-        surface.G = -2.0 * Qpx
-        surface.H = -2.0 * Qpy
-        surface.I = -2.0 * Qpz
-        pdotd = px * dx + py * dy + pz * dz
-        surface.J = px**2 + py**2 + pz**2 - pdotd**2 - r**2
+        surface.A, surface.B, surface.C = point
+        surface.nx = ax / norm
+        surface.ny = ay / norm
+        surface.nz = az / norm
+        surface.R = radius
 
         return surface
 
@@ -584,14 +588,20 @@ class Surface(MCDCObject):
         cls,
         name: str = "",
         apex: Sequence[float] = [0.0, 0.0, 0.0],
-        t_sq: float = 1.0,
+        half_angle: float = 45.0,
         boundary_condition: str = "none",
     ) -> "Surface":
         """Create a double cone aligned with the x axis.
 
-        ``apex`` is in cm and ``t_sq`` is the squared tangent of the opening
-        half-angle.
+        Parameters
+        ----------
+        apex : sequence of 3 float, optional
+            Coordinates of the shared vertex of the two cone nappes, in cm.
+        half_angle : float, optional
+            Angle between the x axis and the cone surface, in degrees. Must be
+            greater than zero and less than 90 degrees.
         """
+        t_sq = _get_cone_t_sq(half_angle)
         type_ = SURFACE_CONE_X
         surface = cls(type_, name, boundary_condition)
 
@@ -616,14 +626,20 @@ class Surface(MCDCObject):
         cls,
         name: str = "",
         apex: Sequence[float] = [0.0, 0.0, 0.0],
-        t_sq: float = 1.0,
+        half_angle: float = 45.0,
         boundary_condition: str = "none",
     ) -> "Surface":
         """Create a double cone aligned with the y axis.
 
-        ``apex`` is in cm and ``t_sq`` is the squared tangent of the opening
-        half-angle.
+        Parameters
+        ----------
+        apex : sequence of 3 float, optional
+            Coordinates of the shared vertex of the two cone nappes, in cm.
+        half_angle : float, optional
+            Angle between the y axis and the cone surface, in degrees. Must be
+            greater than zero and less than 90 degrees.
         """
+        t_sq = _get_cone_t_sq(half_angle)
         type_ = SURFACE_CONE_Y
         surface = cls(type_, name, boundary_condition)
 
@@ -648,14 +664,20 @@ class Surface(MCDCObject):
         cls,
         name: str = "",
         apex: Sequence[float] = [0.0, 0.0, 0.0],
-        t_sq: float = 1.0,
+        half_angle: float = 45.0,
         boundary_condition: str = "none",
     ) -> "Surface":
         """Create a double cone aligned with the z axis.
 
-        ``apex`` is in cm and ``t_sq`` is the squared tangent of the opening
-        half-angle.
+        Parameters
+        ----------
+        apex : sequence of 3 float, optional
+            Coordinates of the shared vertex of the two cone nappes, in cm.
+        half_angle : float, optional
+            Angle between the z axis and the cone surface, in degrees. Must be
+            greater than zero and less than 90 degrees.
         """
+        t_sq = _get_cone_t_sq(half_angle)
         type_ = SURFACE_CONE_Z
         surface = cls(type_, name, boundary_condition)
 
@@ -672,6 +694,50 @@ class Surface(MCDCObject):
         surface.H = -2.0 * y0
         surface.I = 2.0 * t_sq * z0
         surface.J = x0**2 + y0**2 - t_sq * z0**2
+
+        return surface
+
+    @classmethod
+    def Cone(
+        cls,
+        name: str = "",
+        apex: Sequence[float] = [0.0, 0.0, 0.0],
+        axis: Sequence[float] = [0.0, 0.0, 1.0],
+        half_angle: float = 45.0,
+        boundary_condition: str = "none",
+    ) -> "Surface":
+        """Create a double cone with an arbitrary axis.
+
+        Parameters
+        ----------
+        apex : sequence of 3 float, optional
+            Coordinates of the shared vertex of the two cone nappes, in cm.
+        axis : sequence of 3 float, optional
+            Nonzero vector parallel to the cone's axis of symmetry. It is
+            normalized internally; for a double cone, its sign does not change
+            the surface.
+        half_angle : float, optional
+            Angle between ``axis`` and the cone surface, in degrees. Must be
+            greater than zero and less than 90 degrees.
+        """
+        ax, ay, az = axis
+        norm = (ax**2 + ay**2 + az**2) ** 0.5
+        if norm == 0.0:
+            print_error("Cone axis must be a nonzero vector.")
+        t_sq = _get_cone_t_sq(half_angle)
+
+        type_ = SURFACE_CONE
+        surface = cls(type_, name, boundary_condition)
+
+        surface.linear = False
+        surface.quadric = True
+        surface.quartic = False
+
+        surface.A, surface.B, surface.C = apex
+        surface.nx = ax / norm
+        surface.ny = ay / norm
+        surface.nz = az / norm
+        surface.R = t_sq
 
         return surface
 
@@ -889,6 +955,20 @@ class Surface(MCDCObject):
             automatically.
         """
         move_object(self, velocities, durations)
+
+
+def _get_cone_t_sq(half_angle: float) -> float:
+    """Convert a cone half-angle in degrees to its squared tangent."""
+
+    if not 0.0 < half_angle < 90.0:
+        print_error("Cone half-angle must be greater than 0 and less than 90 degrees.")
+    return math.tan(math.radians(half_angle)) ** 2
+
+
+def _get_cone_half_angle(t_sq: float) -> float:
+    """Convert a cone's squared tangent to its half-angle in degrees."""
+
+    return math.degrees(math.atan(math.sqrt(t_sq)))
 
 
 def decode_BC_type(type_):

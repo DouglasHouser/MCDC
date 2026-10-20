@@ -127,6 +127,7 @@ def create_runtime_dataset(file, mcdc):
     for name in [
         "total",
         "preparation",
+        "data_loading",
         "simulation",
         "output",
         "bank_management",

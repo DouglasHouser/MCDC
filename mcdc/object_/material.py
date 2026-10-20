@@ -7,6 +7,8 @@ from numpy.typing import ArrayLike, NDArray
 import h5py
 import os
 
+from mcdc.constant import INTERPOLATION_LINEAR
+from mcdc.object_.data import DataBase, DataNone, DataTable
 from mcdc.object_.base import MCDCObject
 from mcdc.object_.element import Element
 from mcdc.object_.transport_model_data import NeutronMultigroupData
@@ -104,8 +106,7 @@ class Material(MCDCObject):
     element_densities: NDArray[float64]
 
     stopping_power_provided: bool = False
-    stopping_power: NDArray[float64]
-    stopping_power_energy_grid: NDArray[float64]
+    stopping_power: DataBase
 
     radiation_length: float = 0.0
     radiation_length_provided: bool = False
@@ -190,8 +191,7 @@ class Material(MCDCObject):
             list(self.element_composition.values()), dtype=float64
         )
 
-        self.stopping_power = np.array([])
-        self.stopping_power_energy_grid = np.array([])
+        self.stopping_power = DataNone()
 
     @classmethod
     def multigroup(
@@ -298,8 +298,11 @@ class Material(MCDCObject):
         file_name = stopping_power_filename
         file = h5py.File(f"{dir_name}/{file_name}.h5", "r")
 
-        self.stopping_power = file["stopping_power"]["total_stopping_power"][()]
-        self.stopping_power_energy_grid = file["stopping_power"]["energy"][()]
+        self.stopping_power = DataTable(
+            file["stopping_power"]["energy"][()],
+            file["stopping_power"]["total_stopping_power"][()],
+            INTERPOLATION_LINEAR,
+        )
         if file["radiation_length"]["radiation_length"][()]:
             self.radiation_length = file["radiation_length"]["radiation_length"][()]
 

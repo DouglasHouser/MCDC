@@ -100,7 +100,8 @@ def run_simulation(simulationPy: Simulation):
     time_total_end = MPI.Wtime()
 
     # Manage timers
-    simulation["runtime_total"] = time_total_end - time_total_start
+    data_loading = simulation["runtime_data_loading"]
+    simulation["runtime_total"] = data_loading + time_total_end - time_total_start
     simulation["runtime_preparation"] = time_prep_end - time_prep_start
     simulation["runtime_simulation"] = time_simulation_end - time_simulation_start
     simulation["runtime_output"] = time_output_end - time_output_start

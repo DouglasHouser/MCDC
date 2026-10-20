@@ -94,10 +94,7 @@ material = into_dtype([
     ('element_densities_offset', int64),
     ('element_densities_length', int64),
     ('stopping_power_provided', bool_),
-    ('stopping_power_offset', int64),
-    ('stopping_power_length', int64),
-    ('stopping_power_energy_grid_offset', int64),
-    ('stopping_power_energy_grid_length', int64),
+    ('stopping_power_ID', int64),
     ('radiation_length', float64),
     ('radiation_length_provided', bool_),
     ('ID', int64),
@@ -482,10 +479,7 @@ nuclide = into_dtype([
     ('neutron_fission_delayed_decay_rates_length', int64),
     ('N_neutron_fission_delayed_spectrum', int64),
     ('neutron_fission_delayed_spectrum_IDs_offset', int64),
-    ('stopping_power_offset', int64),
-    ('stopping_power_length', int64),
-    ('stopping_power_energy_grid_offset', int64),
-    ('stopping_power_energy_grid_length', int64),
+    ('stopping_power_ID', int64),
     ('ID', int64),
 ])
 
@@ -626,15 +620,9 @@ proton_reaction = into_dtype([
     ('sub_ID', int64),
 ])
 
-condensed_particle_settings = into_dtype([
-    ('energy_model', int64),
-    ('angular_model', int64),
-    ('max_fractional_energy_loss', float64),
-])
-
 condensed_interactions = into_dtype([
-    ('proton', condensed_particle_settings),
-    ('electron', condensed_particle_settings),
+    ('proton', bool_),
+    ('max_fractional_energy_loss', float64),
 ])
 
 neutron_multigroup = into_dtype([
@@ -699,6 +687,7 @@ global_weight_roulette = into_dtype([
 
 weight_windows = into_dtype([
     ('active', bool_),
+    ('ptype', int64),
     ('time_bounds_offset', int64),
     ('time_bounds_length', int64),
     ('Nt', int64),
@@ -729,7 +718,9 @@ technique = into_dtype([
     ('implicit_capture', implicit_capture),
     ('weighted_emission', weighted_emission),
     ('global_weight_roulette', global_weight_roulette),
-    ('weight_windows', weight_windows),
+    ('neutron_weight_windows', weight_windows),
+    ('electron_weight_windows', weight_windows),
+    ('proton_weight_windows', weight_windows),
     ('population_control', population_control),
 ])
 
@@ -750,16 +741,27 @@ source = into_dtype([
     ('mono_direction', bool_),
     ('white_direction', bool_),
     ('direction', float64, (3,)),
+    ('uniform_polar_cosine', bool_),
+    ('uniform_azimuthal', bool_),
     ('polar_cosine', float64, (2,)),
     ('azimuthal', float64, (2,)),
+    ('polar_cosine_pdf_ID', int64),
+    ('azimuthal_pdf_ID', int64),
     ('mono_energetic', bool_),
     ('discrete_energy', bool_),
+    ('energy_at_polar_cosine_active', bool_),
+    ('energy_at_polar_cosine_is_distribution', bool_),
     ('energy', float64),
     ('energy_pdf_ID', int64),
     ('energy_pmf_ID', int64),
+    ('energy_at_polar_cosine_offset', int64),
+    ('energy_at_polar_cosine_length', int64),
+    ('energy_at_polar_cosine_distribution_ID', int64),
     ('discrete_time', bool_),
+    ('uniform_time', bool_),
     ('time', float64),
     ('time_range', float64, (2,)),
+    ('time_pdf_ID', int64),
     ('particle_type', int64),
     ('probability', float64),
     ('moving', bool_),
@@ -979,6 +981,8 @@ def make_simulation_type(N: dict):
         ('bank_census', make_bank_type(N['census_particle'])),
         ('bank_active', make_bank_type(N['active_particle'])),
         ('name', 'U32'),
+        ('source_cdf_offset', int64),
+        ('source_cdf_length', int64),
         ('idx_work', int64),
         ('idx_cycle', int64),
         ('idx_census', int64),
@@ -1013,6 +1017,7 @@ def make_simulation_type(N: dict):
         ('mpi_work_iter', int64, (1,)),
         ('runtime_total', float64),
         ('runtime_preparation', float64),
+        ('runtime_data_loading', float64),
         ('runtime_simulation', float64),
         ('runtime_output', float64),
         ('runtime_bank_management', float64),

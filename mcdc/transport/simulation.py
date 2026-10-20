@@ -193,7 +193,7 @@ def source_loop(seed, simulation, data):
         # Run the source particle and its secondaries
         exhaust_active_bank(simulation, data)
 
-        source_closeout(simulation, idx_work, N_prog, data)
+        N_prog = source_closeout(simulation, idx_work, N_prog, data)
 
 
 @njit
@@ -273,6 +273,7 @@ def source_closeout(simulation, idx_work, N_prog, data):
         N_prog += 1
         with objmode():
             print_progress(percent, simulation)
+    return N_prog
 
 
 # ======================================================================================
@@ -469,17 +470,9 @@ def use_condensed_interactions(particle_container, settings):
     """Return whether condensed interactions is enabled for the particle."""
     particle = particle_container[0]
     condensed_interactions = settings["condensed_interactions"]
-    particle_type = particle["particle_type"]
-    if particle_type == PARTICLE_PROTON:
-        models = condensed_interactions["proton"]
-    elif particle_type == PARTICLE_ELECTRON:
-        models = condensed_interactions["electron"]
-    else:
-        return False
-    # Active when any particle uses a condensed model
     return (
-        models["energy_model"] != CONDENSED_ENERGY_ANALOG
-        or models["angular_model"] != CONDENSED_ANGLE_ANALOG
+        particle["particle_type"] == PARTICLE_PROTON
+        and condensed_interactions["proton"]
     )
 
 
@@ -591,7 +584,7 @@ def apply_techniques(particle_container, program, data):
     particle = particle_container[0]
 
     # Weight windows
-    if simulation["technique"]["weight_windows"]["active"]:
+    if technique.get_weight_window_object(particle_container, program)["active"]:
         technique.weight_windows(particle_container, program, data)
         if not particle["alive"]:
             return

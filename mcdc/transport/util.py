@@ -5,24 +5,18 @@ import numba as nb
 from numba import njit
 from typing import Sequence
 
-from mcdc.constant import (
-    PARTICLE_ANY,
-    PARTICLE_NEUTRON,
-    PARTICLE_ELECTRON,
-    PARTICLE_PROTON,
-)
+from mcdc.transport.linalg import make_direction_basis
+
+from mcdc.constant import PARTICLE_ANY, PARTICLE_TYPE_NAME_PAIRS
 
 
 @njit
 def particle_name(particle_type):
     """Return the name of a particle type."""
-    if particle_type == PARTICLE_NEUTRON:
-        return "neutron"
-    elif particle_type == PARTICLE_ELECTRON:
-        return "electron"
-    elif particle_type == PARTICLE_PROTON:
-        return "proton"
-    elif particle_type == PARTICLE_ANY:
+    for code, name in PARTICLE_TYPE_NAME_PAIRS:
+        if particle_type == code:
+            return name
+    if particle_type == PARTICLE_ANY:
         return "any particle"
     return f"unknown particle type {particle_type}"
 
@@ -213,42 +207,6 @@ def calculate_angles(particle_container, polar_reference):
     azimuthal = math.atan2(rel_uy, rel_ux)
 
     return mu, azimuthal
-
-
-@njit
-def make_direction_basis(px, py, pz):
-    """Define the azimuthal basis for a normalized polar reference.
-
-    Parameters
-    ----------
-    px, py, pz : float
-        Components of a normalized polar reference vector.
-
-    Returns
-    -------
-    e1x, e1y, e1z, e2x, e2y, e2z : float
-        Components of the zero-azimuth and pi/2-azimuth basis vectors.
-
-    Notes
-    -----
-    When the reference has a nonzero XY projection, e1 is normalized Z
-    cross reference and e2 is reference cross e1. At either exact Z pole,
-    e1 is positive X and e2 is positive Y. The basis is orthonormal and
-    transverse in all cases; (e1, e2, reference) is left-handed at negative Z.
-    """
-    r = math.hypot(px, py)
-    if r == 0.0:
-        return 1.0, 0.0, 0.0, 0.0, 1.0, 0.0
-
-    cx = px / r
-    cy = py / r
-    e1x = -cy
-    e1y = cx
-    e1z = 0.0
-    e2x = -pz * cx
-    e2y = -pz * cy
-    e2z = r
-    return e1x, e1y, e1z, e2x, e2y, e2z
 
 
 # ======================================================================================

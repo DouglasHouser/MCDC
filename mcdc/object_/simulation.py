@@ -30,7 +30,12 @@ from numpy.typing import NDArray
 
 ####
 
-from mcdc.constant import PARTICLE_NEUTRON, PARTICLE_ELECTRON, PARTICLE_PROTON
+from mcdc.constant import (
+    PARTICLE_NEUTRON,
+    PARTICLE_ELECTRON,
+    PARTICLE_PROTON,
+    PARTICLE_TYPE_BY_NAME,
+)
 from mcdc.object_.base import MCDCBase
 from mcdc.object_.data import DataBase
 from mcdc.object_.distribution import DistributionBase
@@ -96,6 +101,7 @@ class Simulation(MCDCBase):
     label = "simulation"
     non_numba = [
         "_next_compile_ID",
+        "_next_sub_ID",
         "compiled",
         "regions",
         "root_universe",
@@ -105,6 +111,7 @@ class Simulation(MCDCBase):
         "bank_future",
     ]
     _next_compile_ID: int = 1  # Non-Numba
+    _next_sub_ID: dict[tuple[int, int], int]  # Non-Numba
 
     # Basic parameters
     name: str
@@ -121,6 +128,7 @@ class Simulation(MCDCBase):
     materials: list[Material]
     neutron_multigroup_data: list[NeutronMultigroupData]
     sources: list[Source]
+    source_cdf: NDArray[float64]
     secondary_products: list[SecondaryProduct]
 
     # Geometry
@@ -193,6 +201,7 @@ class Simulation(MCDCBase):
     # Runtimes
     runtime_total: float
     runtime_preparation: float
+    runtime_data_loading: float
     runtime_simulation: float
     runtime_output: float
     runtime_bank_management: float
@@ -216,6 +225,7 @@ class Simulation(MCDCBase):
 
         # Also empty sources and tallies
         self.sources = []
+        self.source_cdf = np.zeros(1)
         self.tallies = []
 
         # ==============================================================================
@@ -285,6 +295,7 @@ class Simulation(MCDCBase):
         # Runtimes
         self.runtime_total = 0.0
         self.runtime_preparation = 0.0
+        self.runtime_data_loading = 0.0
         self.runtime_simulation = 0.0
         self.runtime_output = 0.0
         self.runtime_bank_management = 0.0
@@ -298,6 +309,9 @@ class Simulation(MCDCBase):
         self.source_seed = 0
 
     def _reset_model(self) -> None:
+        # Registration state
+        self._next_sub_ID = {}
+
         # Physics
         self.data = []
         self.distributions = []
@@ -354,6 +368,18 @@ class Simulation(MCDCBase):
                 settings.electron_transport.active = True
             elif source.particle_type == PARTICLE_PROTON:
                 settings.proton_transport.active = True
+
+        # Check that specified weight windows will actually trigger
+        active_ww = lambda pname: getattr(
+            self.technique, f"{pname}_weight_windows"
+        ).active
+        active_particle = lambda pname: getattr(settings, f"{pname}_transport").active
+        for pname in PARTICLE_TYPE_BY_NAME:
+            if active_ww(pname) and not active_particle(pname):
+                print_error(
+                    "Weight windows have been specified for particle type: "
+                    f"{pname}, however {pname} transport is not active."
+                )
 
         # Censuses split histories; GPU closeout aggregates them.
         # Both require batch samples for fixed-source uncertainty estimates.
@@ -468,21 +494,41 @@ class Simulation(MCDCBase):
                 set_elements_from_nuclides(material, self)
 
         # Load the physics data required by the completed material model
+        if (
+            (settings.neutron_transport.active and self.nuclides)
+            or (settings.proton_transport.active and self.nuclides)
+            or (settings.electron_transport.active and self.elements)
+        ):
+            print_msg("")
+
+        time_data_loading_start = MPI.Wtime()
+
         if settings.neutron_transport.active:
-            for nuclide in self.nuclides:
+            N_nuclide = len(self.nuclides)
+            for index, nuclide in enumerate(self.nuclides, start=1):
+                file_name = f"{nuclide.name}-{nuclide.temperature}K.h5"
+                print_msg(f" Loading neutron data [{index}/{N_nuclide}]: {file_name}")
                 nuclide.set_neutron_data(self)
             for material in self.materials:
                 update_fissionable_from_nuclides(material)
 
         if settings.proton_transport.active:
-            for nuclide in self.nuclides:
+            N_nuclide = len(self.nuclides)
+            for index, nuclide in enumerate(self.nuclides, start=1):
+                file_name = f"{nuclide.name}.h5"
+                print_msg(f" Loading proton data [{index}/{N_nuclide}]: {file_name}")
                 nuclide.set_proton_data(self)
             for material in self.materials:
                 update_radiation_length_from_nuclides(material)
 
         if settings.electron_transport.active:
-            for element in self.elements:
+            N_element = len(self.elements)
+            for index, element in enumerate(self.elements, start=1):
+                file_name = f"{element.name}.h5"
+                print_msg(f" Loading electron data [{index}/{N_element}]: {file_name}")
                 element.set_electron_data(self)
+
+        self.runtime_data_loading = MPI.Wtime() - time_data_loading_start
 
         # Resolve tally filters and shapes that require the complete model
         for tally in self.tallies:
@@ -494,8 +540,13 @@ class Simulation(MCDCBase):
 
         # Normalize source-selection probabilities across the complete source set
         source_probability = sum(source.probability for source in self.sources)
-        for source in self.sources:
+        self.source_cdf = np.zeros(len(self.sources) + 1)
+        for i, source in enumerate(self.sources):
             source.probability /= source_probability
+            self.source_cdf[i + 1] = self.source_cdf[i] + source.probability
+        if self.sources:
+            # Ensure that roundoff cannot leave a gap at the upper CDF boundary.
+            self.source_cdf[-1] = 1.0
 
         # Derive particle-bank capacities from settings and the MPI decomposition
         N_work = math.ceil(settings.N_particle / self.mpi_size)

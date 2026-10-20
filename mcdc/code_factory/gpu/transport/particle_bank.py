@@ -14,7 +14,7 @@ from mcdc.constant import GPU_ASYNC_SIMPLE
 # =============================================================================
 
 
-@njit
+@njit(cache=False)
 def bank_active_particle(particle_container, program):
     simulation = util.access_simulation(program)
 

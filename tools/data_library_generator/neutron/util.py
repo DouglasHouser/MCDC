@@ -89,7 +89,7 @@ def get_ace_name(Z, A, T, S=None):
     return f"{ID}{extension}"
 
 
-def extract_interpolation_data(interpolation_data, tag):
+def extract_interpolation_data(interpolation_data, tag, number_points):
     interpolations = []
     for interpolation in interpolation_data.interpolants:
         if interpolation == 1:
@@ -105,6 +105,14 @@ def extract_interpolation_data(interpolation_data, tag):
         else:
             print_error(f"Unsupported interpolation type in {tag}")
     interpolation_boundaries = interpolation_data.boundaries[:]
+
+    # ACE permits zero interpolation regions to denote the default linear-linear
+    # rule.  Store that default explicitly because the MC/DC HDF5 schema requires
+    # every table to define at least one interpolation region.
+    if len(interpolations) == 0:
+        interpolations = ["linear"]
+        interpolation_boundaries = [number_points]
+
     return interpolations, interpolation_boundaries
 
 
@@ -191,11 +199,13 @@ def load_energy_distribution(data, h5_group: h5py.Group):
     elif isinstance(data, ACEtk.continuous.EvaporationSpectrum):
         h5_group.attrs["type"] = "evaporation"
 
+        energy = np.array(data.energies)
         interpolations, interpolation_boundaries = extract_interpolation_data(
-            data.interpolation_data, "Evaporation spectrum temperature"
+            data.interpolation_data,
+            "Evaporation spectrum temperature",
+            len(energy),
         )
 
-        energy = np.array(data.energies)
         temperature = np.array(data.temperatures)
         restriction_energy = np.array(data.restriction_energy)
 
@@ -213,15 +223,17 @@ def load_energy_distribution(data, h5_group: h5py.Group):
     elif isinstance(data, ACEtk.continuous.SimpleMaxwellianFissionSpectrum):
         h5_group.attrs["type"] = "maxwellian"
 
+        energy = np.array(data.energies)
         interpolations, interpolation_boundaries = extract_interpolation_data(
-            data.interpolation_data, "Maxwellian spectrum temperature"
+            data.interpolation_data,
+            "Maxwellian spectrum temperature",
+            len(energy),
         )
 
-        energy = np.array(data.energies)
         temperature = np.array(data.temperatures)
         restriction_energy = np.array(data.restriction_energy)
 
-        h5_group.create_dataset("temperature_interpolation", data=interpolations)
+        h5_group.create_dataset("temperature_interpolations", data=interpolations)
         h5_group.create_dataset(
             "interpolation_boundaries", data=interpolation_boundaries
         )

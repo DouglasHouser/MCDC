@@ -197,7 +197,7 @@ tally = mcdc.Tally(mesh=mesh, scores=["flux"])
 simulation.set_tallies([tally])
 
 # Settings
-simulation.settings.N_particle = 20
+simulation.settings.N_particle = 10
 simulation.settings.census_bank_buffer_ratio = 4.0
 simulation.settings.source_bank_buffer_ratio = 3.0
 simulation.settings.set_eigenmode(

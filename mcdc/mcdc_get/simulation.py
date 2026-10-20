@@ -10,6 +10,35 @@ import numba as nb
 
 
 @njit
+def source_cdf(index, simulation, data):
+    offset = simulation["source_cdf_offset"]
+    return data[offset + index]
+
+
+@array_return(nb.types.float64)
+def source_cdf_all(simulation, data):
+    start = simulation["source_cdf_offset"]
+    size = simulation["source_cdf_length"]
+    end = start + size
+    return array_result(data[start:end])
+
+
+@njit
+def source_cdf_last(simulation, data):
+    start = simulation["source_cdf_offset"]
+    size = simulation["source_cdf_length"]
+    end = start + size
+    return data[end - 1]
+
+
+@array_return(nb.types.float64)
+def source_cdf_chunk(start, length, simulation, data):
+    start += simulation["source_cdf_offset"]
+    end = start + length
+    return array_result(data[start:end])
+
+
+@njit
 def k_cycle(index, simulation, data):
     offset = simulation["k_cycle_offset"]
     return data[offset + index]

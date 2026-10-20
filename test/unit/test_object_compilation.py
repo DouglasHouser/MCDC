@@ -2,9 +2,11 @@ import numpy as np
 import pytest
 
 import mcdc
+import mcdc.object_.simulation as simulation_module
 
 from mcdc.object_.base import MCDCBase, MCDCObject
-from mcdc.object_.data import DataPolynomial
+from mcdc.object_.data import DataPolynomial, DataTable
+from mcdc.object_.element import Element
 from mcdc.object_.transport_model_data import NeutronMultigroupData
 from mcdc.object_.technique import Technique
 from mcdc.object_.nuclide import Nuclide
@@ -134,6 +136,14 @@ def test_standard_multigroup_accepts_integer_group_coordinates(source):
             mcdc.Source(energy=([0.0, 1.0], [1.0, 1.0])),
             "requires neutron sources to use a scalar energy or discrete_energy",
         ),
+        (
+            mcdc.Source(
+                direction=[0.0, 0.0, 1.0],
+                polar_cosine=([0.0, 1.0], [1.0, 1.0]),
+                energy_at_polar_cosine=[1.0, 2.0],
+            ),
+            "requires neutron sources to use a scalar energy or discrete_energy",
+        ),
     ],
 )
 def test_standard_multigroup_rejects_invalid_source_energy(
@@ -184,6 +194,57 @@ def test_native_only_simulation_remains_hybrid(monkeypatch):
     assert simulation.settings.neutron_multigroup.hybrid
 
 
+def test_native_nuclide_data_loading_is_reported(monkeypatch, capsys):
+    def compile_nuclide(nuclide, simulation):
+        nuclide.fissionable = False
+        nuclide.mass_number = 1
+        nuclide.radiation_length = 1.0
+        return MCDCObject._compile_into_simulation(nuclide, simulation)
+
+    monkeypatch.setattr(Nuclide, "_compile_into_simulation", compile_nuclide)
+    monkeypatch.setattr(Nuclide, "set_neutron_data", lambda self, simulation: None)
+    monkeypatch.setattr(Nuclide, "set_proton_data", lambda self, simulation: None)
+
+    material = mcdc.Material(nuclide_composition={"H1": 0.1}, temperature=293.6)
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell(fill=material)])
+    simulation.set_sources(
+        [
+            mcdc.Source(particle_type="neutron", energy=1.0),
+            mcdc.Source(particle_type="proton", energy=1.0),
+        ]
+    )
+    times = iter([10.0, 12.5])
+    monkeypatch.setattr(simulation_module.MPI, "Wtime", lambda: next(times))
+
+    simulation.compile()
+
+    output = capsys.readouterr().out
+    assert "\n Loading neutron data [1/1]" in output
+    assert "Loading neutron data [1/1]: H1-293.6K.h5" in output
+    assert "Loading proton data [1/1]: H1.h5" in output
+    assert simulation.runtime_data_loading == 2.5
+
+
+def test_native_element_data_loading_is_reported(monkeypatch, capsys):
+    def compile_element(element, simulation):
+        element.atomic_number = 1
+        element.atomic_weight_ratio = 1.0
+        return MCDCObject._compile_into_simulation(element, simulation)
+
+    monkeypatch.setattr(Element, "_compile_into_simulation", compile_element)
+    monkeypatch.setattr(Element, "set_electron_data", lambda self, simulation: None)
+
+    material = mcdc.Material(element_composition={"H": 0.1})
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell(fill=material)])
+    simulation.set_sources([mcdc.Source(particle_type="electron", energy=1.0)])
+
+    simulation.compile()
+
+    assert "Loading electron data [1/1]: H.h5" in capsys.readouterr().out
+
+
 def test_local_multigroup_grids_pack_hybrid(prepare_simulation):
     material_a = mcdc.Material.multigroup(capture=[0.1], energy_grid=[1.0, 2.0])
     material_b = mcdc.Material.multigroup(capture=[0.2], energy_grid=[2.0, 3.0])
@@ -213,18 +274,54 @@ def test_mcdc_object_compiles_object_members_and_lists():
     assert ignored.compile_ID == 0
 
 
+def test_polymorphic_sub_ids_are_sequential_and_reset():
+    simulation = mcdc.Simulation()
+    simulation.compile_ID = 1
+
+    first_polynomial = DataPolynomial(np.array([1.0]))
+    table = DataTable(np.array([0.0, 1.0]), np.array([1.0, 2.0]), 1)
+    second_polynomial = DataPolynomial(np.array([2.0]))
+
+    for data in [first_polynomial, table, second_polynomial]:
+        data._compile_into_simulation(simulation)
+
+    assert [data.ID for data in simulation.data] == [0, 1, 2]
+    assert first_polynomial.sub_ID == 0
+    assert table.sub_ID == 0
+    assert second_polynomial.sub_ID == 1
+
+    simulation._reset_model()
+    simulation.compile_ID = 2
+    second_polynomial._compile_into_simulation(simulation)
+
+    assert second_polynomial.ID == 0
+    assert second_polynomial.sub_ID == 0
+
+
 def test_simulation_compiles_objects_owned_by_embedded_configuration():
     mesh = mcdc.MeshUniform()
     weight_windows = np.ones((3,))
     simulation = mcdc.Simulation()
     simulation.set_model([mcdc.Cell()])
     simulation.technique.weight_windows(weight_windows, mesh=mesh)
-
+    simulation.set_sources([mcdc.Source()])
     simulation.compile()
 
     assert simulation.meshes == [mesh]
     assert simulation.technique.compile_ID == simulation.compile_ID
-    assert simulation.technique.weight_windows.compile_ID == simulation.compile_ID
+    assert (
+        simulation.technique.neutron_weight_windows.compile_ID == simulation.compile_ID
+    )
+
+
+def test_simulation_weight_windows_for_non_transported_particle_type():
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell()])
+    weight_windows = np.ones((3,))
+    simulation.technique.weight_windows(weight_windows, particle_type="electron")
+    simulation.set_sources([mcdc.Source(particle_type="neutron")])
+    with pytest.raises(SystemExit):
+        simulation.compile()
 
 
 def test_embedded_compile_id_prevents_cycles_and_supports_recompilation():
@@ -287,6 +384,7 @@ def test_simulation_compilation_finalizes_model_wide_state():
     simulation.compile()
 
     assert np.allclose([source_a.probability, source_b.probability], [0.25, 0.75])
+    np.testing.assert_allclose(simulation.source_cdf, [0.0, 0.25, 1.0])
     assert simulation.k_eff == 1.25
     assert not simulation.cycle_active
     assert simulation.k_cycle.shape == (4,)

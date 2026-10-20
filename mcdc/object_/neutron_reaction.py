@@ -366,11 +366,9 @@ def set_energy_distribution(h5_group):
         energy = h5_group[f"temperature_energy_grid"][()] * 1e6  # MeV to eV
         temperature = h5_group[f"temperature"][()] * 1e6  # MeV to eV
         restriction_energy = h5_group[f"restriction_energy"][()] * 1e6  # MeV to eV
-        interpolations = [
-            encode_interpolation(x.decode("utf-8"))
-            for x in h5_group[f"temperature_interpolations"][()]
-        ]
-        interpolation_boundaries = h5_group["interpolation_boundaries"][()]
+        interpolations, interpolation_boundaries = _load_temperature_interpolation(
+            h5_group
+        )
 
         energy_spectrum = DistributionEvaporation(
             energy,
@@ -384,11 +382,9 @@ def set_energy_distribution(h5_group):
         energy = h5_group[f"temperature_energy_grid"][()] * 1e6  # MeV to eV
         temperature = h5_group[f"temperature"][()] * 1e6  # MeV to eV
         restriction_energy = h5_group[f"restriction_energy"][()] * 1e6  # MeV to eV
-        interpolations = [
-            encode_interpolation(x.decode("utf-8"))
-            for x in h5_group[f"temperature_interpolations"][()]
-        ]
-        interpolation_boundaries = h5_group["interpolation_boundaries"][()]
+        interpolations, interpolation_boundaries = _load_temperature_interpolation(
+            h5_group
+        )
 
         energy_spectrum = DistributionMaxwellian(
             energy,
@@ -437,3 +433,25 @@ def set_energy_distribution(h5_group):
         print_error(f"Unsupported energy spectrum of type {spectrum_type}")
 
     return energy_spectrum
+
+
+def _load_temperature_interpolation(h5_group):
+    """Load an explicit or implicit temperature-table interpolation rule."""
+    # Older generated libraries used the singular dataset name for Maxwellian
+    # spectra.  Accept it so those libraries remain usable.
+    dataset_name = "temperature_interpolations"
+    if dataset_name not in h5_group:
+        dataset_name = "temperature_interpolation"
+
+    interpolation_names = h5_group[dataset_name][()]
+
+    # ACE uses zero interpolation regions for its default linear-linear rule.
+    # Return the scalar form so DataTable supplies the full-table boundary.
+    if len(interpolation_names) == 0:
+        return encode_interpolation("linear"), None
+
+    interpolations = [
+        encode_interpolation(name.decode("utf-8")) for name in interpolation_names
+    ]
+    interpolation_boundaries = h5_group["interpolation_boundaries"][()]
+    return interpolations, interpolation_boundaries
