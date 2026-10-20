@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
+- Adopt Coveralls for unit test coverage reporting, from [@nglaser3]
 - Add cone surfaces with a half-angle interface in degrees, specialized transport kernels for all cone orientations, and a specialized arbitrary-axis cylinder kernel, from [@ilhamv]
 - Add proton transport with nuclear reactions and secondary-particle production, continuous slowing down, energy-loss straggling, and multiple Coulomb scattering, from [@ethan-lame]
 - Add developer documentation on particle transport architecture, covering particle steps, event handling, interaction data, and tally scoring triggers, from [@ilhamv]
@@ -57,6 +58,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Fix delayed neutron data preparation, from [@hansenkyle]
 - Preserve very low particle energies when converting from speed by avoiding floating-point cancellation in the relativistic kinetic-energy calculation, from [@ilhamv]
 - Prevent particles from becoming trapped at zero-distance crossings of quadratic surfaces, from [@ilhamv]
 - Fix tallies not applying their particle-type filter during scoring, from [@melekderman]
@@ -269,3 +271,4 @@ The pre-refactor implementation remains available in the `cement` branch as a re
 [@steps-re]: https://github.com/steps-re
 [@braxtoncuneo]: https://github.com/braxtoncuneo
 [@ethan-lame]: https://github.com/ethan-lame
+[@hansenkyle]: https://github.com/hansenkyle
