@@ -305,6 +305,8 @@ def sample_coherent_scattering_cosine(particle_container, element, simulation, d
             return mu
 
     # Every attempt rejected: fall back to forward scattering (see the cap above).
+    # TODO: Replace capped rejection with an unbiased sampler efficient for
+    # sharply forward-peaked form factors; this fallback adds artificial mass at mu=1.
     return 1.0
 
 
