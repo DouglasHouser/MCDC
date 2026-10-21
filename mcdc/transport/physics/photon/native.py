@@ -17,8 +17,8 @@ from mcdc.constant import (
     ELECTRON_MASS,
     LIGHT_SPEED,
     PHOTON_CUTOFF_ENERGY,
-    PHOTON_REACTION_COHERENT,
-    PHOTON_REACTION_INCOHERENT,
+    PHOTON_REACTION_COHERENT_SCATTERING,
+    PHOTON_REACTION_INCOHERENT_SCATTERING,
     PHOTON_REACTION_PAIR_PRODUCTION,
     PHOTON_REACTION_PHOTOELECTRIC,
     PHOTON_REACTION_TOTAL,
@@ -127,10 +127,10 @@ def _total_micro_xs(reaction_type, E, idx, E0, E1, element, data):
     if reaction_type == PHOTON_REACTION_TOTAL:
         xs0 = mcdc_get.element.photon_total_xs(idx, element, data)
         xs1 = mcdc_get.element.photon_total_xs(idx + 1, element, data)
-    elif reaction_type == PHOTON_REACTION_COHERENT:
+    elif reaction_type == PHOTON_REACTION_COHERENT_SCATTERING:
         xs0 = mcdc_get.element.photon_coherent_xs(idx, element, data)
         xs1 = mcdc_get.element.photon_coherent_xs(idx + 1, element, data)
-    elif reaction_type == PHOTON_REACTION_INCOHERENT:
+    elif reaction_type == PHOTON_REACTION_INCOHERENT_SCATTERING:
         xs0 = mcdc_get.element.photon_incoherent_xs(idx, element, data)
         xs1 = mcdc_get.element.photon_incoherent_xs(idx + 1, element, data)
     elif reaction_type == PHOTON_REACTION_PHOTOELECTRIC:
@@ -218,10 +218,10 @@ def collision(particle_container, interaction_data_container, program, data):
     # ==================================================================================
 
     sigma_coherent = _total_micro_xs(
-        PHOTON_REACTION_COHERENT, E, idx, E0, E1, element, data
+        PHOTON_REACTION_COHERENT_SCATTERING, E, idx, E0, E1, element, data
     )
     sigma_incoherent = _total_micro_xs(
-        PHOTON_REACTION_INCOHERENT, E, idx, E0, E1, element, data
+        PHOTON_REACTION_INCOHERENT_SCATTERING, E, idx, E0, E1, element, data
     )
     sigma_photoelectric = _total_micro_xs(
         PHOTON_REACTION_PHOTOELECTRIC, E, idx, E0, E1, element, data
@@ -297,15 +297,19 @@ def sample_coherent_scattering_cosine(particle_container, element, simulation, d
     particle = particle_container[0]
     E = particle["E"]
 
-    N_reaction = element["N_photon_coherent_reaction"]
+    N_reaction = element["N_photon_coherent_scattering_reaction"]
     if N_reaction == 0:
         return 1.0
 
     # The ID list holds base-array indices; the base record carries sub_ID into
     # the concrete subtype array.
-    reaction_ID = int(mcdc_get.element.photon_coherent_reaction_IDs(0, element, data))
+    reaction_ID = int(
+        mcdc_get.element.photon_coherent_scattering_reaction_IDs(0, element, data)
+    )
     reaction_base = simulation["photon_reactions"][reaction_ID]
-    reaction = simulation["photon_coherent_reactions"][reaction_base["sub_ID"]]
+    reaction = simulation["photon_coherent_scattering_reactions"][
+        reaction_base["sub_ID"]
+    ]
     form_factor = simulation["data"][reaction["form_factor_ID"]]
 
     # Wavenumber in inverse angstroms, matching the tabulated q grid.

@@ -377,10 +377,10 @@ element = into_dtype([
     ('photon_photoelectric_xs_length', int64),
     ('photon_pair_production_xs_offset', int64),
     ('photon_pair_production_xs_length', int64),
-    ('N_photon_coherent_reaction', int64),
-    ('photon_coherent_reaction_IDs_offset', int64),
-    ('N_photon_incoherent_reaction', int64),
-    ('photon_incoherent_reaction_IDs_offset', int64),
+    ('N_photon_coherent_scattering_reaction', int64),
+    ('photon_coherent_scattering_reaction_IDs_offset', int64),
+    ('N_photon_incoherent_scattering_reaction', int64),
+    ('photon_incoherent_scattering_reaction_IDs_offset', int64),
     ('N_photon_photoelectric_reaction', int64),
     ('photon_photoelectric_reaction_IDs_offset', int64),
     ('N_photon_pair_production_reaction', int64),
@@ -404,13 +404,13 @@ element = into_dtype([
     ('ID', int64),
 ])
 
-photon_coherent_reaction = into_dtype([
+photon_coherent_scattering_reaction = into_dtype([
     ('form_factor_ID', int64),
     ('ID', int64),
     ('base_ID', int64),
 ])
 
-photon_incoherent_reaction = into_dtype([
+photon_incoherent_scattering_reaction = into_dtype([
     ('ID', int64),
     ('base_ID', int64),
 ])
@@ -977,10 +977,10 @@ def make_simulation_type(N: dict):
         ('N_proton_inelastic_scattering_reaction', int64),
         ('proton_reactions', proton_reaction, (N['proton_reaction'])),
         ('N_proton_reaction', int64),
-        ('photon_coherent_reactions', photon_coherent_reaction, (N['photon_coherent_reaction'])),
-        ('N_photon_coherent_reaction', int64),
-        ('photon_incoherent_reactions', photon_incoherent_reaction, (N['photon_incoherent_reaction'])),
-        ('N_photon_incoherent_reaction', int64),
+        ('photon_coherent_scattering_reactions', photon_coherent_scattering_reaction, (N['photon_coherent_scattering_reaction'])),
+        ('N_photon_coherent_scattering_reaction', int64),
+        ('photon_incoherent_scattering_reactions', photon_incoherent_scattering_reaction, (N['photon_incoherent_scattering_reaction'])),
+        ('N_photon_incoherent_scattering_reaction', int64),
         ('photon_pair_production_reactions', photon_pair_production_reaction, (N['photon_pair_production_reaction'])),
         ('N_photon_pair_production_reaction', int64),
         ('photon_photoelectric_reactions', photon_photoelectric_reaction, (N['photon_photoelectric_reaction'])),

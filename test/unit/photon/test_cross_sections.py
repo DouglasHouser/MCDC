@@ -11,8 +11,8 @@ import mcdc.transport.physics.photon.native as native
 import mcdc.transport.physics.photon as photon
 
 from mcdc.constant import (
-    PHOTON_REACTION_COHERENT,
-    PHOTON_REACTION_INCOHERENT,
+    PHOTON_REACTION_COHERENT_SCATTERING,
+    PHOTON_REACTION_INCOHERENT_SCATTERING,
     PHOTON_REACTION_PAIR_PRODUCTION,
     PHOTON_REACTION_PHOTOELECTRIC,
     PHOTON_REACTION_TOTAL,
@@ -40,8 +40,8 @@ def test_total_is_sum_of_four_channels(photon_model):
     channels = sum(
         _macro(simulation, data, reaction_type, E_ALL_OPEN)
         for reaction_type in (
-            PHOTON_REACTION_COHERENT,
-            PHOTON_REACTION_INCOHERENT,
+            PHOTON_REACTION_COHERENT_SCATTERING,
+            PHOTON_REACTION_INCOHERENT_SCATTERING,
             PHOTON_REACTION_PHOTOELECTRIC,
             PHOTON_REACTION_PAIR_PRODUCTION,
         )
@@ -55,12 +55,12 @@ def test_total_includes_coherent(photon_model):
     simulation, data = photon_model(coherent=3.0)
     total = _macro(simulation, data, PHOTON_REACTION_TOTAL, E_ALL_OPEN)
     without_coherent = total - _macro(
-        simulation, data, PHOTON_REACTION_COHERENT, E_ALL_OPEN
+        simulation, data, PHOTON_REACTION_COHERENT_SCATTERING, E_ALL_OPEN
     )
     assert total > without_coherent
-    assert _macro(simulation, data, PHOTON_REACTION_COHERENT, E_ALL_OPEN) == (
-        pytest.approx(3.0)
-    )
+    assert _macro(
+        simulation, data, PHOTON_REACTION_COHERENT_SCATTERING, E_ALL_OPEN
+    ) == (pytest.approx(3.0))
 
 
 def test_channels_match_the_library_values(photon_model):
@@ -70,8 +70,8 @@ def test_channels_match_the_library_values(photon_model):
         coherent=1.5, incoherent=2.5, photoelectric=3.5, pair=4.5
     )
     expected = {
-        PHOTON_REACTION_COHERENT: 1.5,
-        PHOTON_REACTION_INCOHERENT: 2.5,
+        PHOTON_REACTION_COHERENT_SCATTERING: 1.5,
+        PHOTON_REACTION_INCOHERENT_SCATTERING: 2.5,
         PHOTON_REACTION_PHOTOELECTRIC: 3.5,
         PHOTON_REACTION_PAIR_PRODUCTION: 4.5,
     }
@@ -83,9 +83,9 @@ def test_channels_match_the_library_values(photon_model):
 
 def test_density_scales_the_macroscopic_cross_section(photon_model):
     simulation, data = photon_model(density=0.25, incoherent=2.0)
-    assert _macro(simulation, data, PHOTON_REACTION_INCOHERENT, E_ALL_OPEN) == (
-        pytest.approx(0.5)
-    )
+    assert _macro(
+        simulation, data, PHOTON_REACTION_INCOHERENT_SCATTERING, E_ALL_OPEN
+    ) == (pytest.approx(0.5))
 
 
 def test_pair_is_zero_below_threshold(photon_model):

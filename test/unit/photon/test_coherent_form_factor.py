@@ -54,11 +54,13 @@ def test_form_factor_forward_value_equals_z(photon_model, Z):
         np.asarray(
             __import__(
                 "mcdc.mcdc_get", fromlist=["element"]
-            ).element.photon_coherent_reaction_IDs(0, element, data)
+            ).element.photon_coherent_scattering_reaction_IDs(0, element, data)
         )
     )
     reaction_base = simulation["photon_reactions"][reaction_ID]
-    reaction = simulation["photon_coherent_reactions"][reaction_base["sub_ID"]]
+    reaction = simulation["photon_coherent_scattering_reactions"][
+        reaction_base["sub_ID"]
+    ]
     form_factor = simulation["data"][reaction["form_factor_ID"]]
 
     assert evaluate_data(0.0, form_factor, simulation, data) == pytest.approx(float(Z))
@@ -155,4 +157,4 @@ def test_element_without_coherent_data_does_not_deflect(photon_model):
     # channel must not be sampled for an angle it has no data for.
     simulation, data = photon_model()
     element = _element(simulation)
-    assert element["N_photon_coherent_reaction"] == 1
+    assert element["N_photon_coherent_scattering_reaction"] == 1
