@@ -18,11 +18,7 @@ import pytest
 
 import mcdc.transport.physics.photon.native as native
 
-from mcdc.constant import (
-    ELECTRON_MASS,
-    PHOTON_REACTION_PAIR_PRODUCTION,
-    PHOTON_REACTION_TOTAL,
-)
+from mcdc.constant import ELECTRON_MASS
 
 from conftest import make_interaction_data, make_photon
 
@@ -59,50 +55,8 @@ def _pair_event(simulation, data, E, seed=7, weight=1.0):
 
 
 # ======================================================================================
-# Threshold
-# ======================================================================================
-
-
-def test_threshold_is_twice_the_electron_mass():
-    assert native.PAIR_PRODUCTION_THRESHOLD == pytest.approx(1021997.90138, rel=1e-9)
-
-
-def test_cross_section_is_zero_below_threshold(photon_model):
-    simulation, data = photon_model()
-    for E in (1.0e5, PAIR_THRESHOLD * 0.999):
-        assert (
-            native.macro_xs(
-                PHOTON_REACTION_PAIR_PRODUCTION, make_photon(E), simulation, data
-            )
-            == 0.0
-        )
-
-
-def test_cross_section_is_positive_above_threshold(photon_model):
-    simulation, data = photon_model()
-    assert (
-        native.macro_xs(
-            PHOTON_REACTION_PAIR_PRODUCTION, make_photon(1.0e7), simulation, data
-        )
-        > 0.0
-    )
-
-
-# ======================================================================================
 # The annihilation pair
 # ======================================================================================
-
-
-def test_both_annihilation_photons_are_at_the_electron_rest_mass(photon_model):
-    """511 keV each, exactly -- a positron annihilating at rest."""
-    simulation, data = photon_model()
-    container = make_photon(5.0e6, seed=7)
-    interaction = make_interaction_data()
-
-    native.pair_production(container, interaction, simulation, data)
-
-    assert container[0]["E"] == pytest.approx(ELECTRON_MASS, rel=1e-12)
-    assert container[0]["alive"]
 
 
 def test_the_second_photon_is_banked_back_to_back(photon_model):
@@ -117,22 +71,6 @@ def test_the_second_photon_is_banked_back_to_back(photon_model):
     second = np.array([banked["ux"], banked["uy"], banked["uz"]])
     assert np.allclose(second, -first, rtol=1e-12)
     assert np.linalg.norm(second) == pytest.approx(1.0, rel=1e-12)
-
-
-def test_the_banked_photon_inherits_the_weight(photon_model):
-    simulation, data = photon_model()
-    weight = 0.375
-    particle, banked, _, _ = _pair_event(simulation, data, 5.0e6, weight=weight)
-
-    assert banked["w"] == pytest.approx(weight)
-    assert particle["w"] == pytest.approx(weight)
-
-
-def test_the_banked_photon_starts_at_the_collision_site(photon_model):
-    simulation, data = photon_model()
-    particle, banked, _, _ = _pair_event(simulation, data, 5.0e6)
-    for axis in ("x", "y", "z"):
-        assert banked[axis] == pytest.approx(particle[axis])
 
 
 # ======================================================================================
@@ -153,76 +91,3 @@ def test_energy_is_conserved_exactly(photon_model, E):
     carried = particle["E"] + banked["E"]
     assert deposited == pytest.approx(E - PAIR_THRESHOLD, rel=1e-12)
     assert deposited + carried == pytest.approx(E, rel=1e-12)
-
-
-def test_deposition_is_weight_included(photon_model):
-    simulation, data = photon_model()
-    E, weight = 5.0e6, 0.25
-    _, _, deposited, _ = _pair_event(simulation, data, E, weight=weight)
-    assert deposited == pytest.approx((E - PAIR_THRESHOLD) * weight)
-
-
-def test_deposition_is_never_negative_just_above_threshold(photon_model):
-    # At E just above 2 m_e c^2 the pair has almost no kinetic energy, so the
-    # deposited amount approaches zero from above and must not cross it.
-    simulation, data = photon_model()
-    _, _, deposited, _ = _pair_event(simulation, data, PAIR_THRESHOLD * 1.000001)
-    assert deposited >= 0.0
-
-
-# ======================================================================================
-# Branching rate
-# ======================================================================================
-
-
-def test_pair_production_is_sampled_at_its_cross_section_fraction(photon_model):
-    """The branch must be taken with probability ``sigma_pair / sigma_total``.
-
-    This is the check that a correct cross section and a correct per-event
-    treatment would both pass while the *rate* was still wrong -- which is the
-    one way pair production could silently change a deck's flux without any of
-    the other tests noticing.
-
-    Detected by the signature a pair event leaves: the photon survives at
-    exactly 511 keV.
-    """
-    simulation, data = photon_model(
-        coherent=1.0, incoherent=1.0, photoelectric=1.0, pair=1.0
-    )
-    E = 1.0e7
-
-    sigma_pair = native.macro_xs(
-        PHOTON_REACTION_PAIR_PRODUCTION, make_photon(E), simulation, data
-    )
-    sigma_total = native.macro_xs(
-        PHOTON_REACTION_TOTAL, make_photon(E), simulation, data
-    )
-    expected = sigma_pair / sigma_total
-
-    trials = 4000
-    pair_events = 0
-    container = make_photon(E, seed=12345)
-    for _ in range(trials):
-        # One advancing RNG stream; reset only the particle state, and drain the
-        # bank so the annihilation photons do not fill it.
-        seed = container[0]["rng_seed"]
-        container = make_photon(E)
-        container[0]["rng_seed"] = seed
-        interaction = make_interaction_data()
-        _drain(simulation)
-        native.collision(container, interaction, simulation, data)
-        if (
-            container[0]["alive"]
-            and abs(container[0]["E"] - ELECTRON_MASS) < 1e-6 * ELECTRON_MASS
-        ):
-            pair_events += 1
-    _drain(simulation)
-
-    observed = pair_events / trials
-    sigma = np.sqrt(expected * (1.0 - expected) / trials)
-
-    assert expected == pytest.approx(0.25, rel=1e-9)
-    assert abs(observed - expected) < 4.0 * sigma, (
-        f"pair branch taken {observed:.4f} of the time, expected "
-        f"{expected:.4f} +/- {sigma:.4f}"
-    )

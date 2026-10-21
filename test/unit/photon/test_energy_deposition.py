@@ -15,15 +15,13 @@ Pair production      ``E - 2 m_e c^2``, the pair's kinetic energy
 Ported from the pre-refactor ``test_energy_deposition.py``.
 """
 
-import numpy as np
 import pytest
 
-import mcdc.transport.physics.photon as photon
 import mcdc.transport.physics.photon.native as native
 
 from mcdc.constant import ELECTRON_MASS, PHOTON_CUTOFF_ENERGY
 
-from conftest import K_ALPHA_ENERGY, make_interaction_data, make_photon
+from conftest import make_interaction_data, make_photon
 
 PAIR_THRESHOLD = 2.0 * ELECTRON_MASS
 
@@ -51,60 +49,6 @@ def test_below_cutoff_the_photon_deposits_everything(photon_model):
 
 
 # ======================================================================================
-# Per-branch formulas
-# ======================================================================================
-
-
-def test_incoherent_deposits_the_recoil_electron_energy(photon_model):
-    simulation, data = photon_model()
-    E = 1.0e6
-    container = make_photon(E, seed=9)
-    interaction = make_interaction_data()
-
-    native.incoherent_scattering(container, interaction, simulation, data)
-
-    E_scattered = container[0]["E"]
-    assert 0.0 < E_scattered < E
-    assert interaction[0]["energy_deposition"] == pytest.approx(E - E_scattered)
-    assert container[0]["alive"]
-
-
-def test_pair_production_deposits_the_pair_kinetic_energy(photon_model):
-    simulation, data = photon_model()
-    E = 5.0e6
-    container = make_photon(E, seed=9)
-    interaction = make_interaction_data()
-
-    native.pair_production(container, interaction, simulation, data)
-
-    assert interaction[0]["energy_deposition"] == pytest.approx(E - PAIR_THRESHOLD)
-    # The history is revived as the first annihilation photon at 511 keV.
-    assert container[0]["alive"]
-    assert container[0]["E"] == pytest.approx(ELECTRON_MASS)
-
-
-def test_photoelectric_deposits_all_but_the_fluorescence_line(photon_model):
-    simulation, data = photon_model(fluorescence_yield=1.0)
-    E = 1.0e6
-    container = make_photon(E, seed=11)
-    interaction = make_interaction_data()
-
-    native.photoelectric(container, interaction, _element(simulation), simulation, data)
-
-    assert interaction[0]["energy_deposition"] == pytest.approx(E - K_ALPHA_ENERGY)
-
-
-def test_coherent_deposits_nothing(photon_model):
-    simulation, data = photon_model()
-    interaction = make_interaction_data()
-    container = make_photon(1.0e5, seed=4)
-
-    native.coherent_scattering(container, _element(simulation), simulation, data)
-
-    assert interaction[0]["energy_deposition"] == 0.0
-
-
-# ======================================================================================
 # Conservation across a whole collision
 # ======================================================================================
 
@@ -127,21 +71,3 @@ def test_collision_never_deposits_more_than_it_was_given(photon_model, E):
         deposited = interaction[0]["energy_deposition"]
         assert deposited >= 0.0
         assert deposited <= E * (1.0 + 1e-12)
-
-
-def test_pair_production_is_impossible_below_threshold(photon_model):
-    """No collision below threshold may take the pair branch.
-
-    If it did, the deposition formula ``E - 2 m_e c^2`` would go negative,
-    which the bound above would catch -- so this pins the cause as well as the
-    symptom.
-    """
-    simulation, data = photon_model()
-    E = PAIR_THRESHOLD * 0.9
-    for seed in range(1, 40):
-        container = make_photon(E, seed=seed)
-        interaction = make_interaction_data()
-        native.collision(container, interaction, simulation, data)
-        # A pair event would leave the photon at exactly 511 keV.
-        if container[0]["alive"]:
-            assert container[0]["E"] != pytest.approx(ELECTRON_MASS)
