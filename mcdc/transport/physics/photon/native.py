@@ -1,7 +1,5 @@
 import math
 
-import numpy as np
-
 from numba import njit
 
 ####
@@ -492,7 +490,7 @@ def photoelectric(
     # Bank the cascade line as a new active particle from the same site,
     # inheriting the current weight and emitted in its own direction.
     ux, uy, uz = sample_isotropic_direction(particle_container)
-    particle_container_new = np.zeros(1, type_.particle_data)
+    particle_container_new = util.local_array(1, type_.particle_data)
     particle_module.copy_as_child(particle_container_new, particle_container)
     particle_new = particle_container_new[0]
     particle_new["E"] = E_cascade
@@ -687,7 +685,7 @@ def pair_production(particle_container, interaction_data_container, program, dat
 
     # Bank the second annihilation photon, emitted back to back with the first
     # and inheriting the current weight.
-    particle_container_new = np.zeros(1, type_.particle_data)
+    particle_container_new = util.local_array(1, type_.particle_data)
     particle_module.copy_as_child(particle_container_new, particle_container)
     particle_new = particle_container_new[0]
     particle_new["E"] = ELECTRON_MASS
