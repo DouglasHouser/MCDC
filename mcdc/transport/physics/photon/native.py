@@ -24,6 +24,7 @@ from mcdc.constant import (
 )
 from mcdc.transport.data import evaluate_data
 from mcdc.transport.distribution import sample_isotropic_direction
+from mcdc.transport.util import linear_interpolation
 from mcdc.transport.physics.util import (
     evaluate_photon_xs_energy_grid,
     scatter_direction,
@@ -62,33 +63,16 @@ def particle_speed(particle_container):
 
 
 @njit
-def log_log_interpolation(x, x0, x1, y0, y1):
-    """Log-log interpolate, falling back to linear across a non-positive ordinate.
+def interpolate_xs(E, E0, E1, xs0, xs1):
+    """Linearly interpolate a cross section, as EPDL declares (INT=2).
 
-    Photon cross sections are tabulated on a log-spaced grid spanning 1 eV to
-    100 GeV, where log-log interpolation is what the data is validated against
-    and linear interpolation is visibly wrong near absorption edges. This is the
-    one place photon departs from the electron and proton templates, which both
-    interpolate linearly.
-
-    Two guards are required by the data itself, not added defensively:
-
-    * A **non-positive ordinate**, because subshell photoelectric cross sections
-      are identically zero below their edge and pair production is zero below
-      threshold, and ``log(0)`` is undefined. Falls back to linear.
-    * A **zero-width bin**, because the library repeats each absorption-edge
-      energy twice so the discontinuity can be represented exactly -- aluminium
-      has five such pairs. ``log(x1 / x0)`` is then zero. The upper branch is
-      returned, which is the value on the high-energy side of the edge.
+    The library repeats each absorption-edge energy so the discontinuity is
+    represented exactly, which leaves a zero-width bin at every edge. The upper
+    value is returned there, which is the value on the high-energy side.
     """
-    if x1 <= x0:
-        return y1
-
-    if y0 <= 0.0 or y1 <= 0.0:
-        return y0 + (x - x0) / (x1 - x0) * (y1 - y0)
-
-    exponent = math.log(y1 / y0) / math.log(x1 / x0)
-    return y0 * (x / x0) ** exponent
+    if E1 <= E0:
+        return xs1
+    return linear_interpolation(E, E0, E1, xs0, xs1)
 
 
 # ======================================================================================
@@ -143,7 +127,7 @@ def _total_micro_xs(reaction_type, E, idx, E0, E1, element, data):
         # Should be unreachable
         return 0.0
 
-    return log_log_interpolation(E, E0, E1, xs0, xs1)
+    return interpolate_xs(E, E0, E1, xs0, xs1)
 
 
 # ======================================================================================

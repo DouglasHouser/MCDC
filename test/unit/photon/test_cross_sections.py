@@ -130,23 +130,16 @@ def test_unknown_reaction_type_returns_zero(photon_model):
 # ======================================================================================
 
 
-def test_log_log_interpolation_reproduces_a_power_law():
-    # Two points on y = x^2 must interpolate exactly under log-log.
-    value = native.log_log_interpolation(2.0, 1.0, 4.0, 1.0, 16.0)
-    assert value == pytest.approx(4.0, rel=1e-12)
+def test_interpolation_is_linear():
+    # EPDL declares lin-lin (INT=2) for every photon cross section.
+    value = native.interpolate_xs(2.0, 1.0, 4.0, 1.0, 16.0)
+    assert value == pytest.approx(6.0, rel=1e-12)
 
 
-def test_log_log_interpolation_falls_back_across_a_zero():
-    # A zero ordinate occurs below every absorption edge, where log is
-    # undefined, so the fallback is linear rather than a crash.
-    value = native.log_log_interpolation(1.5, 1.0, 2.0, 0.0, 10.0)
-    assert value == pytest.approx(5.0)
-
-
-def test_log_log_interpolation_handles_a_zero_width_bin():
+def test_interpolation_handles_a_zero_width_bin():
     # A repeated abscissa is how an absorption edge is written; the upper value
     # is the one on the high-energy side of the discontinuity.
-    value = native.log_log_interpolation(5.0, 5.0, 5.0, 1.0, 100.0)
+    value = native.interpolate_xs(5.0, 5.0, 5.0, 1.0, 100.0)
     assert value == 100.0
 
 
