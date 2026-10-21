@@ -84,9 +84,7 @@ material = into_dtype([
     ('temperature', float64),
     ('fissionable', bool_),
     ('has_neutron_multigroup', bool_),
-    ('has_photon_constant_xs', bool_),
     ('neutron_multigroup_ID', int64),
-    ('photon_constant_xs_ID', int64),
     ('N_nuclide', int64),
     ('nuclide_IDs_offset', int64),
     ('N_element', int64),
@@ -523,13 +521,6 @@ nuclide = into_dtype([
     ('N_neutron_fission_delayed_spectrum', int64),
     ('neutron_fission_delayed_spectrum_IDs_offset', int64),
     ('stopping_power_ID', int64),
-    ('ID', int64),
-])
-
-photon_constant_xs_data = into_dtype([
-    ('scatter', float64),
-    ('absorb', float64),
-    ('total', float64),
     ('ID', int64),
 ])
 
@@ -1004,8 +995,6 @@ def make_simulation_type(N: dict):
         ('N_material', int64),
         ('neutron_multigroup_data', neutron_multigroup_data, (N['neutron_multigroup_data'])),
         ('N_neutron_multigroup_data', int64),
-        ('photon_constant_xs_data', photon_constant_xs_data, (N['photon_constant_xs_data'])),
-        ('N_photon_constant_xs_data', int64),
         ('sources', source, (N['source'])),
         ('N_source', int64),
         ('secondary_products', secondary_product, (N['secondary_product'])),

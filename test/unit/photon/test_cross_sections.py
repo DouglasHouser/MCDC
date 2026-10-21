@@ -164,53 +164,11 @@ def test_cross_section_is_continuous_across_a_duplicated_edge(photon_model):
         assert value >= 0.0
 
 
-# ======================================================================================
-# Constant cross sections
-# ======================================================================================
-
-
-def test_constant_xs_is_energy_independent(constant_xs_model):
-    simulation, data = constant_xs_model(scatter=0.9, absorb=0.1)
-    values = [
-        photon.macro_xs(PHOTON_REACTION_TOTAL, make_photon(E), simulation, data)
-        for E in (1.0e2, 1.0e5, 1.0e8)
-    ]
-    assert values == pytest.approx([1.0, 1.0, 1.0])
-
-
-def test_constant_xs_channel_mapping(constant_xs_model):
-    simulation, data = constant_xs_model(scatter=0.7, absorb=0.3)
-    container = make_photon(E_ALL_OPEN)
-
-    def value(reaction_type):
-        return photon.macro_xs(reaction_type, container, simulation, data)
-
-    assert value(PHOTON_REACTION_TOTAL) == pytest.approx(1.0)
-    assert value(PHOTON_REACTION_INCOHERENT) == pytest.approx(0.7)
-    assert value(PHOTON_REACTION_PHOTOELECTRIC) == pytest.approx(0.3)
-    # Neither channel has an analogue in the constant-XS treatment.
-    assert value(PHOTON_REACTION_COHERENT) == 0.0
-    assert value(PHOTON_REACTION_PAIR_PRODUCTION) == 0.0
-
-
-def test_constant_xs_applicability_is_what_selects_the_treatment(
-    constant_xs_model, photon_model
-):
-    import mcdc.transport.physics.photon.constant_xs as constant_xs
-
-    simulation, data = constant_xs_model()
-    assert constant_xs.applicable(make_photon(E_ALL_OPEN), simulation, data)
-
-    simulation, data = photon_model()
-    assert not constant_xs.applicable(make_photon(E_ALL_OPEN), simulation, data)
-
-
-def test_photon_speed_is_the_speed_of_light(photon_model, constant_xs_model):
+def test_photon_speed_is_the_speed_of_light(photon_model):
     from mcdc.constant import LIGHT_SPEED
 
-    for build in (photon_model, constant_xs_model):
-        simulation, data = build()
-        for E in (1.0e2, 1.0e8):
-            assert photon.particle_speed(
-                make_photon(E), simulation, data
-            ) == pytest.approx(LIGHT_SPEED)
+    simulation, data = photon_model()
+    for E in (1.0e2, 1.0e8):
+        assert photon.particle_speed(make_photon(E), simulation, data) == pytest.approx(
+            LIGHT_SPEED
+        )

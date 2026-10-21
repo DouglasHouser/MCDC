@@ -4,4 +4,3 @@ from .interface import (
     collision,
 )
 import mcdc.transport.physics.photon.native as native
-import mcdc.transport.physics.photon.constant_xs as constant_xs

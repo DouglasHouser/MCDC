@@ -8,10 +8,7 @@ if TYPE_CHECKING:
     from mcdc.object_.element import Element
     from mcdc.object_.electron_reaction import ElectronReactionBase
     from mcdc.object_.material import Material
-    from mcdc.object_.transport_model_data import (
-        NeutronMultigroupData,
-        PhotonConstantXSData,
-    )
+    from mcdc.object_.transport_model_data import NeutronMultigroupData
     from mcdc.object_.nuclide import Nuclide
     from mcdc.object_.neutron_reaction import NeutronReactionBase
     from mcdc.object_.photon_reaction import PhotonReactionBase
@@ -132,7 +129,6 @@ class Simulation(MCDCBase):
     elements: list[Element]
     materials: list[Material]
     neutron_multigroup_data: list[NeutronMultigroupData]
-    photon_constant_xs_data: list[PhotonConstantXSData]
     sources: list[Source]
     source_cdf: NDArray[float64]
     secondary_products: list[SecondaryProduct]
@@ -330,7 +326,6 @@ class Simulation(MCDCBase):
         self.elements = []
         self.materials = []
         self.neutron_multigroup_data = []
-        self.photon_constant_xs_data = []
 
         # Geometry
         self.surfaces = []
