@@ -263,6 +263,13 @@ def coherent_scattering(particle_container, element, simulation, data):
     particle["uz"] = uz
 
 
+# Cap on the coherent-scattering rejection loop. At high energy F(q)^2 is
+# negligible outside a narrow forward cone, the acceptance rate collapses, and
+# exhausting the cap falls back to mu = 1. That fallback is a small forward bias,
+# to be replaced by direct inversion or a better envelope (tracked upstream).
+COHERENT_SCATTERING_MAX_REJECTION_ATTEMPTS = 1000
+
+
 @njit
 def sample_coherent_scattering_cosine(particle_container, element, simulation, data):
     """Sample ``mu`` from ``(1 + mu^2) F(q, Z)^2`` by rejection.
@@ -304,7 +311,7 @@ def sample_coherent_scattering_cosine(particle_container, element, simulation, d
         return 1.0
 
     # Rejection on F(q)^2 and on the Thomson factor together.
-    for _ in range(1000):
+    for _ in range(COHERENT_SCATTERING_MAX_REJECTION_ATTEMPTS):
         mu = 2.0 * rng.lcg(particle_container) - 1.0
         q = q_max * math.sqrt(0.5 * (1.0 - mu))
         form_factor_value = evaluate_data(q, form_factor, simulation, data)
@@ -313,8 +320,7 @@ def sample_coherent_scattering_cosine(particle_container, element, simulation, d
         if rng.lcg(particle_container) <= weight:
             return mu
 
-    # Degenerate low-energy limit: the accessible q range carries no weight,
-    # which is forward scattering.
+    # Every attempt rejected: fall back to forward scattering (see the cap above).
     return 1.0
 
 
