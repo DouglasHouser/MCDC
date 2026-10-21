@@ -146,22 +146,6 @@ def _total_micro_xs(reaction_type, E, idx, E0, E1, element, data):
     return log_log_interpolation(E, E0, E1, xs0, xs1)
 
 
-@njit
-def reaction_micro_xs(E, reaction_base, element, data):
-    idx, E0, E1 = evaluate_photon_xs_energy_grid(E, element, data)
-
-    # Apply offset
-    offset = reaction_base["xs_offset_"]
-    if idx < offset:
-        return 0.0
-    else:
-        idx -= offset
-
-    xs0 = mcdc_get.photon_reaction.xs(idx, reaction_base, data)
-    xs1 = mcdc_get.photon_reaction.xs(idx + 1, reaction_base, data)
-    return log_log_interpolation(E, E0, E1, xs0, xs1)
-
-
 # ======================================================================================
 # Collision
 # ======================================================================================
