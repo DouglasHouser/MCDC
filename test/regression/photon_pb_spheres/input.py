@@ -1,7 +1,7 @@
 """10 MeV photon point source in lead, track-length flux by shell.
 
-A monoenergetic isotropic 10 MeV photon point source sits at the origin of an
-aluminium medium. A 40 cm sphere is divided into twenty 2 cm concentric
+A monoenergetic isotropic 10 MeV photon point source sits at the origin of a
+lead medium. A 40 cm sphere is divided into twenty 2 cm concentric
 regions, each carrying its own track-length (MCNP F4-style) flux tally.
 
 Migrated from
