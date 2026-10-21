@@ -497,59 +497,59 @@ def photon_pair_production_xs_chunk(start, length, element, data, value):
 
 
 @njit
-def photon_coherent_reaction_IDs(index, element, data, value):
-    offset = element["photon_coherent_reaction_IDs_offset"]
+def photon_coherent_scattering_reaction_IDs(index, element, data, value):
+    offset = element["photon_coherent_scattering_reaction_IDs_offset"]
     data[offset + index] = value
 
 
 @njit
-def photon_coherent_reaction_IDs_all(element, data, value):
-    start = element["photon_coherent_reaction_IDs_offset"]
-    size = element["N_photon_coherent_reaction"]
+def photon_coherent_scattering_reaction_IDs_all(element, data, value):
+    start = element["photon_coherent_scattering_reaction_IDs_offset"]
+    size = element["N_photon_coherent_scattering_reaction"]
     end = start + size
     data[start:end] = value
 
 
 @njit
-def photon_coherent_reaction_IDs_last(element, data, value):
-    start = element["photon_coherent_reaction_IDs_offset"]
-    size = element["N_photon_coherent_reaction"]
+def photon_coherent_scattering_reaction_IDs_last(element, data, value):
+    start = element["photon_coherent_scattering_reaction_IDs_offset"]
+    size = element["N_photon_coherent_scattering_reaction"]
     end = start + size
     data[end - 1] = value
 
 
 @njit
-def photon_coherent_reaction_IDs_chunk(start, length, element, data, value):
-    start += element["photon_coherent_reaction_IDs_offset"]
+def photon_coherent_scattering_reaction_IDs_chunk(start, length, element, data, value):
+    start += element["photon_coherent_scattering_reaction_IDs_offset"]
     end = start + length
     data[start:end] = value
 
 
 @njit
-def photon_incoherent_reaction_IDs(index, element, data, value):
-    offset = element["photon_incoherent_reaction_IDs_offset"]
+def photon_incoherent_scattering_reaction_IDs(index, element, data, value):
+    offset = element["photon_incoherent_scattering_reaction_IDs_offset"]
     data[offset + index] = value
 
 
 @njit
-def photon_incoherent_reaction_IDs_all(element, data, value):
-    start = element["photon_incoherent_reaction_IDs_offset"]
-    size = element["N_photon_incoherent_reaction"]
+def photon_incoherent_scattering_reaction_IDs_all(element, data, value):
+    start = element["photon_incoherent_scattering_reaction_IDs_offset"]
+    size = element["N_photon_incoherent_scattering_reaction"]
     end = start + size
     data[start:end] = value
 
 
 @njit
-def photon_incoherent_reaction_IDs_last(element, data, value):
-    start = element["photon_incoherent_reaction_IDs_offset"]
-    size = element["N_photon_incoherent_reaction"]
+def photon_incoherent_scattering_reaction_IDs_last(element, data, value):
+    start = element["photon_incoherent_scattering_reaction_IDs_offset"]
+    size = element["N_photon_incoherent_scattering_reaction"]
     end = start + size
     data[end - 1] = value
 
 
 @njit
-def photon_incoherent_reaction_IDs_chunk(start, length, element, data, value):
-    start += element["photon_incoherent_reaction_IDs_offset"]
+def photon_incoherent_scattering_reaction_IDs_chunk(start, length, element, data, value):
+    start += element["photon_incoherent_scattering_reaction_IDs_offset"]
     end = start + length
     data[start:end] = value
 

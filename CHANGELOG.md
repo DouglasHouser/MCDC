@@ -8,7 +8,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
-- Add photon transport with coherent and incoherent scattering, photoelectric absorption with atomic relaxation, and pair production, plus an energy-independent constant-cross-section treatment, from [@DouglasHouser]
+- Add photon transport with coherent and incoherent scattering, photoelectric absorption with atomic relaxation, and pair production, from [@DouglasHouser]
+- Adopt Coveralls for unit test coverage reporting, from [@nglaser3]
 - Add cone surfaces with a half-angle interface in degrees, specialized transport kernels for all cone orientations, and a specialized arbitrary-axis cylinder kernel, from [@ilhamv]
 - Add proton transport with nuclear reactions and secondary-particle production, continuous slowing down, energy-loss straggling, and multiple Coulomb scattering, from [@ethan-lame]
 - Add developer documentation on particle transport architecture, covering particle steps, event handling, interaction data, and tally scoring triggers, from [@ilhamv]
@@ -16,9 +17,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - Add a fissionable material and an outlet detector to the pulsed Kobayashi example, from [@ilhamv]
 - Add CI check requiring generated Numba support to match the rebuild script, from [@ilhamv]
 - Add piece-wise linear spatial distribution for source definition, from [@ilhamv]
+- Add piecewise-linear emission-time distributions to source definitions, from [@ilhamv]
+- Add scalar and piecewise-linear polar-cosine and azimuthal source distributions, from [@ilhamv]
+- Add deterministic and conditionally distributed source energy correlated with a tabulated polar-cosine distribution, reusing scattering-law multi-table sampling, from [@ilhamv]
 - Add overriding option N_active, from [@ilhamv]
 - Add MC/DC-VVP project documentation with verification case narratives, published results, and VVP result-generation and publication steps in the release checklist, from [@ilhamv]
 - Add GPU-compatible functions for 3D cross products and vector normalization, from [@braxtoncuneo]
+- Add multiparticle support for weight windows, from [@nglaser3]
 
 ### Changed
 
@@ -54,6 +59,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Fix delayed neutron data preparation, from [@hansenkyle]
 - Preserve very low particle energies when converting from speed by avoiding floating-point cancellation in the relativistic kinetic-energy calculation, from [@ilhamv]
 - Prevent particles from becoming trapped at zero-distance crossings of quadratic surfaces, from [@ilhamv]
 - Fix tallies not applying their particle-type filter during scoring, from [@melekderman]
@@ -267,3 +273,4 @@ The pre-refactor implementation remains available in the `cement` branch as a re
 [@braxtoncuneo]: https://github.com/braxtoncuneo
 [@ethan-lame]: https://github.com/ethan-lame
 [@DouglasHouser]: https://github.com/DouglasHouser
+[@hansenkyle]: https://github.com/hansenkyle

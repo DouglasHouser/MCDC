@@ -437,39 +437,6 @@ def interpolate(x, x_table, y_table, laws=None, boundaries=None):
     return np.where(closed, 0.0, result)
 
 
-def log_log_interpolate(x, x_table, y_table):
-    """Deprecated alias retained for callers that assumed log-log."""
-    x = np.asarray(x, dtype=np.float64)
-    result = np.zeros_like(x)
-
-    index = np.searchsorted(x_table, x, side="right") - 1
-    index = np.clip(index, 0, len(x_table) - 2)
-
-    x0 = x_table[index]
-    x1 = x_table[index + 1]
-    y0 = y_table[index]
-    y1 = y_table[index + 1]
-
-    linear = (x1 <= x0) | (y0 <= 0.0) | (y1 <= 0.0)
-
-    # Log-log branch
-    with np.errstate(divide="ignore", invalid="ignore"):
-        exponent = np.log(np.where(linear, 1.0, y1 / y0)) / np.log(
-            np.where(linear, 2.0, x1 / x0)
-        )
-        result = np.where(linear, 0.0, y0 * (x / np.where(linear, 1.0, x0)) ** exponent)
-
-    # Linear branch, including the zero-width bins where the upper value wins
-    width = np.where(x1 > x0, x1 - x0, 1.0)
-    linear_value = np.where(x1 > x0, y0 + (x - x0) / width * (y1 - y0), y1)
-    result = np.where(linear, linear_value, result)
-
-    # Below the table, the channel is closed.
-    result = np.where(x < x_table[0], 0.0, result)
-
-    return result
-
-
 def grid_offset(grid, threshold):
     """Return the index in ``grid`` where a channel beginning at ``threshold`` starts.
 
@@ -559,7 +526,6 @@ __all__ = [
     "endf_float",
     "grid_offset",
     "interpolate",
-    "log_log_interpolate",
     "print_error",
     "print_msg",
     "project_onto_grid",

@@ -84,9 +84,7 @@ material = into_dtype([
     ('temperature', float64),
     ('fissionable', bool_),
     ('has_neutron_multigroup', bool_),
-    ('has_photon_constant_xs', bool_),
     ('neutron_multigroup_ID', int64),
-    ('photon_constant_xs_ID', int64),
     ('N_nuclide', int64),
     ('nuclide_IDs_offset', int64),
     ('N_element', int64),
@@ -379,10 +377,10 @@ element = into_dtype([
     ('photon_photoelectric_xs_length', int64),
     ('photon_pair_production_xs_offset', int64),
     ('photon_pair_production_xs_length', int64),
-    ('N_photon_coherent_reaction', int64),
-    ('photon_coherent_reaction_IDs_offset', int64),
-    ('N_photon_incoherent_reaction', int64),
-    ('photon_incoherent_reaction_IDs_offset', int64),
+    ('N_photon_coherent_scattering_reaction', int64),
+    ('photon_coherent_scattering_reaction_IDs_offset', int64),
+    ('N_photon_incoherent_scattering_reaction', int64),
+    ('photon_incoherent_scattering_reaction_IDs_offset', int64),
     ('N_photon_photoelectric_reaction', int64),
     ('photon_photoelectric_reaction_IDs_offset', int64),
     ('N_photon_pair_production_reaction', int64),
@@ -406,13 +404,13 @@ element = into_dtype([
     ('ID', int64),
 ])
 
-photon_coherent_reaction = into_dtype([
+photon_coherent_scattering_reaction = into_dtype([
     ('form_factor_ID', int64),
     ('ID', int64),
     ('base_ID', int64),
 ])
 
-photon_incoherent_reaction = into_dtype([
+photon_incoherent_scattering_reaction = into_dtype([
     ('ID', int64),
     ('base_ID', int64),
 ])
@@ -523,13 +521,6 @@ nuclide = into_dtype([
     ('N_neutron_fission_delayed_spectrum', int64),
     ('neutron_fission_delayed_spectrum_IDs_offset', int64),
     ('stopping_power_ID', int64),
-    ('ID', int64),
-])
-
-photon_constant_xs_data = into_dtype([
-    ('scatter', float64),
-    ('absorb', float64),
-    ('total', float64),
     ('ID', int64),
 ])
 
@@ -750,6 +741,7 @@ global_weight_roulette = into_dtype([
 
 weight_windows = into_dtype([
     ('active', bool_),
+    ('ptype', int64),
     ('time_bounds_offset', int64),
     ('time_bounds_length', int64),
     ('Nt', int64),
@@ -780,7 +772,10 @@ technique = into_dtype([
     ('implicit_capture', implicit_capture),
     ('weighted_emission', weighted_emission),
     ('global_weight_roulette', global_weight_roulette),
-    ('weight_windows', weight_windows),
+    ('neutron_weight_windows', weight_windows),
+    ('electron_weight_windows', weight_windows),
+    ('proton_weight_windows', weight_windows),
+    ('photon_weight_windows', weight_windows),
     ('population_control', population_control),
 ])
 
@@ -801,16 +796,27 @@ source = into_dtype([
     ('mono_direction', bool_),
     ('white_direction', bool_),
     ('direction', float64, (3,)),
+    ('uniform_polar_cosine', bool_),
+    ('uniform_azimuthal', bool_),
     ('polar_cosine', float64, (2,)),
     ('azimuthal', float64, (2,)),
+    ('polar_cosine_pdf_ID', int64),
+    ('azimuthal_pdf_ID', int64),
     ('mono_energetic', bool_),
     ('discrete_energy', bool_),
+    ('energy_at_polar_cosine_active', bool_),
+    ('energy_at_polar_cosine_is_distribution', bool_),
     ('energy', float64),
     ('energy_pdf_ID', int64),
     ('energy_pmf_ID', int64),
+    ('energy_at_polar_cosine_offset', int64),
+    ('energy_at_polar_cosine_length', int64),
+    ('energy_at_polar_cosine_distribution_ID', int64),
     ('discrete_time', bool_),
+    ('uniform_time', bool_),
     ('time', float64),
     ('time_range', float64, (2,)),
+    ('time_pdf_ID', int64),
     ('particle_type', int64),
     ('probability', float64),
     ('moving', bool_),
@@ -986,10 +992,10 @@ def make_simulation_type(N: dict):
         ('N_proton_inelastic_scattering_reaction', int64),
         ('proton_reactions', proton_reaction, (N['proton_reaction'])),
         ('N_proton_reaction', int64),
-        ('photon_coherent_reactions', photon_coherent_reaction, (N['photon_coherent_reaction'])),
-        ('N_photon_coherent_reaction', int64),
-        ('photon_incoherent_reactions', photon_incoherent_reaction, (N['photon_incoherent_reaction'])),
-        ('N_photon_incoherent_reaction', int64),
+        ('photon_coherent_scattering_reactions', photon_coherent_scattering_reaction, (N['photon_coherent_scattering_reaction'])),
+        ('N_photon_coherent_scattering_reaction', int64),
+        ('photon_incoherent_scattering_reactions', photon_incoherent_scattering_reaction, (N['photon_incoherent_scattering_reaction'])),
+        ('N_photon_incoherent_scattering_reaction', int64),
         ('photon_pair_production_reactions', photon_pair_production_reaction, (N['photon_pair_production_reaction'])),
         ('N_photon_pair_production_reaction', int64),
         ('photon_photoelectric_reactions', photon_photoelectric_reaction, (N['photon_photoelectric_reaction'])),
@@ -1004,8 +1010,6 @@ def make_simulation_type(N: dict):
         ('N_material', int64),
         ('neutron_multigroup_data', neutron_multigroup_data, (N['neutron_multigroup_data'])),
         ('N_neutron_multigroup_data', int64),
-        ('photon_constant_xs_data', photon_constant_xs_data, (N['photon_constant_xs_data'])),
-        ('N_photon_constant_xs_data', int64),
         ('sources', source, (N['source'])),
         ('N_source', int64),
         ('secondary_products', secondary_product, (N['secondary_product'])),

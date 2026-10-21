@@ -136,6 +136,14 @@ def test_standard_multigroup_accepts_integer_group_coordinates(source):
             mcdc.Source(energy=([0.0, 1.0], [1.0, 1.0])),
             "requires neutron sources to use a scalar energy or discrete_energy",
         ),
+        (
+            mcdc.Source(
+                direction=[0.0, 0.0, 1.0],
+                polar_cosine=([0.0, 1.0], [1.0, 1.0]),
+                energy_at_polar_cosine=[1.0, 2.0],
+            ),
+            "requires neutron sources to use a scalar energy or discrete_energy",
+        ),
     ],
 )
 def test_standard_multigroup_rejects_invalid_source_energy(
@@ -324,12 +332,24 @@ def test_simulation_compiles_objects_owned_by_embedded_configuration():
     simulation = mcdc.Simulation()
     simulation.set_model([mcdc.Cell()])
     simulation.technique.weight_windows(weight_windows, mesh=mesh)
-
+    simulation.set_sources([mcdc.Source()])
     simulation.compile()
 
     assert simulation.meshes == [mesh]
     assert simulation.technique.compile_ID == simulation.compile_ID
-    assert simulation.technique.weight_windows.compile_ID == simulation.compile_ID
+    assert (
+        simulation.technique.neutron_weight_windows.compile_ID == simulation.compile_ID
+    )
+
+
+def test_simulation_weight_windows_for_non_transported_particle_type():
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell()])
+    weight_windows = np.ones((3,))
+    simulation.technique.weight_windows(weight_windows, particle_type="electron")
+    simulation.set_sources([mcdc.Source(particle_type="neutron")])
+    with pytest.raises(SystemExit):
+        simulation.compile()
 
 
 def test_embedded_compile_id_prevents_cycles_and_supports_recompilation():

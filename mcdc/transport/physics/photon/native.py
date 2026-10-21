@@ -1,7 +1,5 @@
 import math
 
-import numpy as np
-
 from numba import njit
 
 ####
@@ -17,8 +15,8 @@ from mcdc.constant import (
     ELECTRON_MASS,
     LIGHT_SPEED,
     PHOTON_CUTOFF_ENERGY,
-    PHOTON_REACTION_COHERENT,
-    PHOTON_REACTION_INCOHERENT,
+    PHOTON_REACTION_COHERENT_SCATTERING,
+    PHOTON_REACTION_INCOHERENT_SCATTERING,
     PHOTON_REACTION_PAIR_PRODUCTION,
     PHOTON_REACTION_PHOTOELECTRIC,
     PHOTON_REACTION_TOTAL,
@@ -26,6 +24,7 @@ from mcdc.constant import (
 )
 from mcdc.transport.data import evaluate_data
 from mcdc.transport.distribution import sample_isotropic_direction
+from mcdc.transport.util import linear_interpolation
 from mcdc.transport.physics.util import (
     evaluate_photon_xs_energy_grid,
     scatter_direction,
@@ -64,33 +63,16 @@ def particle_speed(particle_container):
 
 
 @njit
-def log_log_interpolation(x, x0, x1, y0, y1):
-    """Log-log interpolate, falling back to linear across a non-positive ordinate.
+def interpolate_xs(E, E0, E1, xs0, xs1):
+    """Linearly interpolate a cross section, as EPDL declares (INT=2).
 
-    Photon cross sections are tabulated on a log-spaced grid spanning 1 eV to
-    100 GeV, where log-log interpolation is what the data is validated against
-    and linear interpolation is visibly wrong near absorption edges. This is the
-    one place photon departs from the electron and proton templates, which both
-    interpolate linearly.
-
-    Two guards are required by the data itself, not added defensively:
-
-    * A **non-positive ordinate**, because subshell photoelectric cross sections
-      are identically zero below their edge and pair production is zero below
-      threshold, and ``log(0)`` is undefined. Falls back to linear.
-    * A **zero-width bin**, because the library repeats each absorption-edge
-      energy twice so the discontinuity can be represented exactly -- aluminium
-      has five such pairs. ``log(x1 / x0)`` is then zero. The upper branch is
-      returned, which is the value on the high-energy side of the edge.
+    The library repeats each absorption-edge energy so the discontinuity is
+    represented exactly, which leaves a zero-width bin at every edge. The upper
+    value is returned there, which is the value on the high-energy side.
     """
-    if x1 <= x0:
-        return y1
-
-    if y0 <= 0.0 or y1 <= 0.0:
-        return y0 + (x - x0) / (x1 - x0) * (y1 - y0)
-
-    exponent = math.log(y1 / y0) / math.log(x1 / x0)
-    return y0 * (x / x0) ** exponent
+    if E1 <= E0:
+        return xs1
+    return linear_interpolation(E, E0, E1, xs0, xs1)
 
 
 # ======================================================================================
@@ -127,10 +109,10 @@ def _total_micro_xs(reaction_type, E, idx, E0, E1, element, data):
     if reaction_type == PHOTON_REACTION_TOTAL:
         xs0 = mcdc_get.element.photon_total_xs(idx, element, data)
         xs1 = mcdc_get.element.photon_total_xs(idx + 1, element, data)
-    elif reaction_type == PHOTON_REACTION_COHERENT:
+    elif reaction_type == PHOTON_REACTION_COHERENT_SCATTERING:
         xs0 = mcdc_get.element.photon_coherent_xs(idx, element, data)
         xs1 = mcdc_get.element.photon_coherent_xs(idx + 1, element, data)
-    elif reaction_type == PHOTON_REACTION_INCOHERENT:
+    elif reaction_type == PHOTON_REACTION_INCOHERENT_SCATTERING:
         xs0 = mcdc_get.element.photon_incoherent_xs(idx, element, data)
         xs1 = mcdc_get.element.photon_incoherent_xs(idx + 1, element, data)
     elif reaction_type == PHOTON_REACTION_PHOTOELECTRIC:
@@ -145,23 +127,7 @@ def _total_micro_xs(reaction_type, E, idx, E0, E1, element, data):
         # Should be unreachable
         return 0.0
 
-    return log_log_interpolation(E, E0, E1, xs0, xs1)
-
-
-@njit
-def reaction_micro_xs(E, reaction_base, element, data):
-    idx, E0, E1 = evaluate_photon_xs_energy_grid(E, element, data)
-
-    # Apply offset
-    offset = reaction_base["xs_offset_"]
-    if idx < offset:
-        return 0.0
-    else:
-        idx -= offset
-
-    xs0 = mcdc_get.photon_reaction.xs(idx, reaction_base, data)
-    xs1 = mcdc_get.photon_reaction.xs(idx + 1, reaction_base, data)
-    return log_log_interpolation(E, E0, E1, xs0, xs1)
+    return interpolate_xs(E, E0, E1, xs0, xs1)
 
 
 # ======================================================================================
@@ -218,10 +184,10 @@ def collision(particle_container, interaction_data_container, program, data):
     # ==================================================================================
 
     sigma_coherent = _total_micro_xs(
-        PHOTON_REACTION_COHERENT, E, idx, E0, E1, element, data
+        PHOTON_REACTION_COHERENT_SCATTERING, E, idx, E0, E1, element, data
     )
     sigma_incoherent = _total_micro_xs(
-        PHOTON_REACTION_INCOHERENT, E, idx, E0, E1, element, data
+        PHOTON_REACTION_INCOHERENT_SCATTERING, E, idx, E0, E1, element, data
     )
     sigma_photoelectric = _total_micro_xs(
         PHOTON_REACTION_PHOTOELECTRIC, E, idx, E0, E1, element, data
@@ -281,6 +247,13 @@ def coherent_scattering(particle_container, element, simulation, data):
     particle["uz"] = uz
 
 
+# Cap on the coherent-scattering rejection loop. At high energy F(q)^2 is
+# negligible outside a narrow forward cone, the acceptance rate collapses, and
+# exhausting the cap falls back to mu = 1. That fallback is a small forward bias,
+# to be replaced by direct inversion or a better envelope (tracked upstream).
+COHERENT_SCATTERING_MAX_REJECTION_ATTEMPTS = 1000
+
+
 @njit
 def sample_coherent_scattering_cosine(particle_container, element, simulation, data):
     """Sample ``mu`` from ``(1 + mu^2) F(q, Z)^2`` by rejection.
@@ -297,15 +270,19 @@ def sample_coherent_scattering_cosine(particle_container, element, simulation, d
     particle = particle_container[0]
     E = particle["E"]
 
-    N_reaction = element["N_photon_coherent_reaction"]
+    N_reaction = element["N_photon_coherent_scattering_reaction"]
     if N_reaction == 0:
         return 1.0
 
     # The ID list holds base-array indices; the base record carries sub_ID into
     # the concrete subtype array.
-    reaction_ID = int(mcdc_get.element.photon_coherent_reaction_IDs(0, element, data))
+    reaction_ID = int(
+        mcdc_get.element.photon_coherent_scattering_reaction_IDs(0, element, data)
+    )
     reaction_base = simulation["photon_reactions"][reaction_ID]
-    reaction = simulation["photon_coherent_reactions"][reaction_base["sub_ID"]]
+    reaction = simulation["photon_coherent_scattering_reactions"][
+        reaction_base["sub_ID"]
+    ]
     form_factor = simulation["data"][reaction["form_factor_ID"]]
 
     # Wavenumber in inverse angstroms, matching the tabulated q grid.
@@ -318,7 +295,7 @@ def sample_coherent_scattering_cosine(particle_container, element, simulation, d
         return 1.0
 
     # Rejection on F(q)^2 and on the Thomson factor together.
-    for _ in range(1000):
+    for _ in range(COHERENT_SCATTERING_MAX_REJECTION_ATTEMPTS):
         mu = 2.0 * rng.lcg(particle_container) - 1.0
         q = q_max * math.sqrt(0.5 * (1.0 - mu))
         form_factor_value = evaluate_data(q, form_factor, simulation, data)
@@ -327,8 +304,7 @@ def sample_coherent_scattering_cosine(particle_container, element, simulation, d
         if rng.lcg(particle_container) <= weight:
             return mu
 
-    # Degenerate low-energy limit: the accessible q range carries no weight,
-    # which is forward scattering.
+    # Every attempt rejected: fall back to forward scattering (see the cap above).
     return 1.0
 
 
@@ -488,7 +464,7 @@ def photoelectric(
     # Bank the cascade line as a new active particle from the same site,
     # inheriting the current weight and emitted in its own direction.
     ux, uy, uz = sample_isotropic_direction(particle_container)
-    particle_container_new = np.zeros(1, type_.particle_data)
+    particle_container_new = util.local_array(1, type_.particle_data)
     particle_module.copy_as_child(particle_container_new, particle_container)
     particle_new = particle_container_new[0]
     particle_new["E"] = E_cascade
@@ -683,7 +659,7 @@ def pair_production(particle_container, interaction_data_container, program, dat
 
     # Bank the second annihilation photon, emitted back to back with the first
     # and inheriting the current weight.
-    particle_container_new = np.zeros(1, type_.particle_data)
+    particle_container_new = util.local_array(1, type_.particle_data)
     particle_module.copy_as_child(particle_container_new, particle_container)
     particle_new = particle_container_new[0]
     particle_new["E"] = ELECTRON_MASS

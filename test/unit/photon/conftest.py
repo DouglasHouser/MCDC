@@ -226,27 +226,6 @@ def photon_model(tmp_path, monkeypatch, prepare_simulation):
     return build
 
 
-@pytest.fixture
-def constant_xs_model(prepare_simulation):
-    """A material carrying energy-independent photon cross sections."""
-
-    def build(scatter=0.9, absorb=0.1):
-        material = mcdc.Material(
-            photon_constant_xs=mcdc.PhotonConstantXSData(scatter=scatter, absorb=absorb)
-        )
-        cell = mcdc.Cell(fill=material)
-
-        def configure(simulation):
-            simulation.settings.photon_transport.active = True
-
-        simulation_container, data = prepare_simulation(
-            cells=[cell], configure=configure
-        )
-        return simulation_container[0], data
-
-    return build
-
-
 def make_photon(E, seed=1, weight=1.0):
     """A live photon container at energy ``E`` travelling along +z."""
     container = np.zeros(1, dtype=type_.particle)

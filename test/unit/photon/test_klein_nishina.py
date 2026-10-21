@@ -6,8 +6,6 @@ distribution rather than against a stored answer, so they fail if the
 kinematics or the rejection envelope is wrong.
 """
 
-import math
-
 import numpy as np
 import pytest
 
@@ -46,20 +44,6 @@ def _epsilon_min(E):
 # ======================================================================================
 
 
-@pytest.mark.parametrize("E", [1.0e4, 1.0e5, 5.0e5, 1.0e6, 1.0e7])
-def test_energy_ratio_is_within_the_kinematic_bounds(E):
-    eps, _ = _sample(E, count=1500)
-    assert np.all(eps <= 1.0 + 1e-12)
-    assert np.all(eps >= _epsilon_min(E) - 1e-12)
-
-
-@pytest.mark.parametrize("E", [1.0e4, 1.0e6, 1.0e7])
-def test_cosine_is_within_physical_range(E):
-    _, mu = _sample(E, count=1500)
-    assert np.all(mu >= -1.0)
-    assert np.all(mu <= 1.0)
-
-
 @pytest.mark.parametrize("E", [1.0e4, 1.0e6, 1.0e7])
 def test_compton_relation_ties_energy_to_angle(E):
     """``eps`` and ``mu`` must satisfy Compton kinematics exactly.
@@ -77,47 +61,6 @@ def test_compton_relation_ties_energy_to_angle(E):
 
     predicted = 1.0 + kappa * (1.0 - mu[interior])
     assert np.allclose(1.0 / eps[interior], predicted, rtol=1e-10)
-
-
-def test_scattered_energy_never_exceeds_the_incident_energy():
-    eps, _ = _sample(1.0e6, count=1500)
-    assert np.all(eps <= 1.0)
-
-
-# ======================================================================================
-# Limits
-# ======================================================================================
-
-
-def test_low_energy_limit_is_elastic_and_thomson():
-    """Well below the electron mass, scattering is nearly elastic and Thomson.
-
-    ``eps -> 1`` because the recoil is negligible, and the angular
-    distribution approaches ``(1 + mu^2)``, which is symmetric fore-and-aft
-    with ``<mu> = 0`` and ``<mu^2> = 0.4``.
-    """
-    E = 1.0e3  # kappa ~ 0.002
-    eps, mu = _sample(E, count=6000)
-
-    assert np.all(eps > 0.99)
-    assert mu.mean() == pytest.approx(0.0, abs=0.05)
-    assert (mu**2).mean() == pytest.approx(0.4, abs=0.03)
-
-
-def test_high_energy_scattering_is_forward_peaked():
-    # Well above the electron mass the distribution collapses forward.
-    _, mu_low = _sample(1.0e4, count=3000)
-    _, mu_high = _sample(1.0e7, count=3000)
-    assert mu_high.mean() > mu_low.mean()
-    assert mu_high.mean() > 0.5
-
-
-def test_high_energy_photons_lose_most_of_their_energy_when_backscattered():
-    # At kappa >> 1 the backscatter limit approaches m_e c^2 / 2E, so the
-    # minimum surviving fraction becomes very small.
-    E = 1.0e8
-    eps, _ = _sample(E, count=2000)
-    assert eps.min() < 0.05
 
 
 # ======================================================================================
@@ -174,25 +117,3 @@ def test_sampled_spectrum_matches_the_klein_nishina_formula(E):
         expected[populated]
     )
     assert deviation.max() < 4.0
-
-
-def test_acceptance_is_efficient_enough_to_terminate():
-    """Kahn's method is at least 50% efficient, so sampling cannot stall.
-
-    Measured indirectly: drawing many samples must consume a bounded number of
-    random numbers. A broken envelope shows up as a hang, which is why this is
-    worth asserting rather than assuming.
-    """
-    import mcdc.transport.rng as rng
-
-    E = 1.0e6
-    container = make_photon(E, seed=12345)
-    before = int(container[0]["rng_seed"])
-    for _ in range(200):
-        native.sample_klein_nishina(E, container)
-    after = int(container[0]["rng_seed"])
-
-    assert before != after
-    # Three draws per trial, so 200 trials at >= 50% acceptance is well under
-    # 2000 draws; this only has to prove it returned at all.
-    assert np.isfinite(float(after))

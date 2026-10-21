@@ -5,8 +5,8 @@ from numpy.typing import NDArray
 
 from mcdc.constant import (
     INTERPOLATION_LINEAR,
-    PHOTON_REACTION_COHERENT,
-    PHOTON_REACTION_INCOHERENT,
+    PHOTON_REACTION_COHERENT_SCATTERING,
+    PHOTON_REACTION_INCOHERENT_SCATTERING,
     PHOTON_REACTION_PAIR_PRODUCTION,
     PHOTON_REACTION_PHOTOELECTRIC,
     REFERENCE_FRAME_COM,
@@ -63,9 +63,9 @@ class PhotonReactionBase(MCDCPolymorphic):
 def decode_type(type_):
     """Return the display name for a packed photon reaction code."""
 
-    if type_ == PHOTON_REACTION_COHERENT:
+    if type_ == PHOTON_REACTION_COHERENT_SCATTERING:
         return "Photon coherent (Rayleigh) scattering"
-    elif type_ == PHOTON_REACTION_INCOHERENT:
+    elif type_ == PHOTON_REACTION_INCOHERENT_SCATTERING:
         return "Photon incoherent (Compton) scattering"
     elif type_ == PHOTON_REACTION_PHOTOELECTRIC:
         return "Photon photoelectric absorption"
@@ -87,7 +87,7 @@ def decode_reference_frame(type_):
 # ======================================================================================
 
 
-class PhotonReactionCoherent(PhotonReactionBase):
+class PhotonReactionCoherentScattering(PhotonReactionBase):
     """Coherent scattering with the tabulated atomic form factor F(q, Z).
 
     Elastic: the photon energy is unchanged and only the direction is deflected.
@@ -96,8 +96,8 @@ class PhotonReactionCoherent(PhotonReactionBase):
     """
 
     # MC/DC framework metadata
-    label = "photon_coherent_reaction"
-    sub_type = PHOTON_REACTION_COHERENT
+    label = "photon_coherent_scattering_reaction"
+    sub_type = PHOTON_REACTION_COHERENT_SCATTERING
 
     form_factor: DataBase
 
@@ -132,7 +132,7 @@ class PhotonReactionCoherent(PhotonReactionBase):
 # ======================================================================================
 
 
-class PhotonReactionIncoherent(PhotonReactionBase):
+class PhotonReactionIncoherentScattering(PhotonReactionBase):
     """Incoherent scattering, sampled with Klein-Nishina kinematics.
 
     The tabulated cross section sets the interaction probability; the outgoing
@@ -142,8 +142,8 @@ class PhotonReactionIncoherent(PhotonReactionBase):
     """
 
     # MC/DC framework metadata
-    label = "photon_incoherent_reaction"
-    sub_type = PHOTON_REACTION_INCOHERENT
+    label = "photon_incoherent_scattering_reaction"
+    sub_type = PHOTON_REACTION_INCOHERENT_SCATTERING
 
     @classmethod
     def from_h5_group(cls, h5_group):

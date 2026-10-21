@@ -8,10 +8,7 @@ if TYPE_CHECKING:
     from mcdc.object_.element import Element
     from mcdc.object_.electron_reaction import ElectronReactionBase
     from mcdc.object_.material import Material
-    from mcdc.object_.transport_model_data import (
-        NeutronMultigroupData,
-        PhotonConstantXSData,
-    )
+    from mcdc.object_.transport_model_data import NeutronMultigroupData
     from mcdc.object_.nuclide import Nuclide
     from mcdc.object_.neutron_reaction import NeutronReactionBase
     from mcdc.object_.photon_reaction import PhotonReactionBase
@@ -39,6 +36,7 @@ from mcdc.constant import (
     PARTICLE_ELECTRON,
     PARTICLE_PROTON,
     PARTICLE_PHOTON,
+    PARTICLE_TYPE_BY_NAME,
 )
 from mcdc.object_.base import MCDCBase
 from mcdc.object_.data import DataBase
@@ -132,7 +130,6 @@ class Simulation(MCDCBase):
     elements: list[Element]
     materials: list[Material]
     neutron_multigroup_data: list[NeutronMultigroupData]
-    photon_constant_xs_data: list[PhotonConstantXSData]
     sources: list[Source]
     source_cdf: NDArray[float64]
     secondary_products: list[SecondaryProduct]
@@ -330,7 +327,6 @@ class Simulation(MCDCBase):
         self.elements = []
         self.materials = []
         self.neutron_multigroup_data = []
-        self.photon_constant_xs_data = []
 
         # Geometry
         self.surfaces = []
@@ -379,6 +375,18 @@ class Simulation(MCDCBase):
                 settings.proton_transport.active = True
             elif source.particle_type == PARTICLE_PHOTON:
                 settings.photon_transport.active = True
+
+        # Check that specified weight windows will actually trigger
+        active_ww = lambda pname: getattr(
+            self.technique, f"{pname}_weight_windows"
+        ).active
+        active_particle = lambda pname: getattr(settings, f"{pname}_transport").active
+        for pname in PARTICLE_TYPE_BY_NAME:
+            if active_ww(pname) and not active_particle(pname):
+                print_error(
+                    "Weight windows have been specified for particle type: "
+                    f"{pname}, however {pname} transport is not active."
+                )
 
         # Censuses split histories; GPU closeout aggregates them.
         # Both require batch samples for fixed-source uncertainty estimates.

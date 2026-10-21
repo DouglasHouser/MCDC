@@ -55,7 +55,7 @@ simulation.set_tallies([tally])
 # ======================================================================================
 
 # Settings
-simulation.settings.N_particle = 60
+simulation.settings.N_particle = 10
 simulation.settings.N_batch = 2
 
 # Run

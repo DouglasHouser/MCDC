@@ -16,8 +16,8 @@ from mcdc.object_.electron_reaction import (
     read_energy,
 )
 from mcdc.object_.photon_reaction import (
-    PhotonReactionCoherent,
-    PhotonReactionIncoherent,
+    PhotonReactionCoherentScattering,
+    PhotonReactionIncoherentScattering,
     PhotonReactionPairProduction,
     PhotonReactionPhotoelectric,
 )
@@ -69,8 +69,8 @@ class Element(MCDCObject):
     photon_photoelectric_xs: NDArray[float64]
     photon_pair_production_xs: NDArray[float64]
     #
-    photon_coherent_reactions: list[PhotonReactionCoherent]
-    photon_incoherent_reactions: list[PhotonReactionIncoherent]
+    photon_coherent_scattering_reactions: list[PhotonReactionCoherentScattering]
+    photon_incoherent_scattering_reactions: list[PhotonReactionIncoherentScattering]
     photon_photoelectric_reactions: list[PhotonReactionPhotoelectric]
     photon_pair_production_reactions: list[PhotonReactionPairProduction]
     #
@@ -122,8 +122,8 @@ class Element(MCDCObject):
         self.photon_photoelectric_xs = np.zeros(0)
         self.photon_pair_production_xs = np.zeros(0)
 
-        self.photon_coherent_reactions = []
-        self.photon_incoherent_reactions = []
+        self.photon_coherent_scattering_reactions = []
+        self.photon_incoherent_scattering_reactions = []
         self.photon_photoelectric_reactions = []
         self.photon_pair_production_reactions = []
 
@@ -335,20 +335,20 @@ class Element(MCDCObject):
         # The reactions
         # ==========================================================================
 
-        self.photon_coherent_reactions = []
-        self.photon_incoherent_reactions = []
+        self.photon_coherent_scattering_reactions = []
+        self.photon_incoherent_scattering_reactions = []
         self.photon_photoelectric_reactions = []
         self.photon_pair_production_reactions = []
 
         rx_containers = [
-            self.photon_coherent_reactions,
-            self.photon_incoherent_reactions,
+            self.photon_coherent_scattering_reactions,
+            self.photon_incoherent_scattering_reactions,
             self.photon_photoelectric_reactions,
             self.photon_pair_production_reactions,
         ]
         rx_classes = [
-            PhotonReactionCoherent,
-            PhotonReactionIncoherent,
+            PhotonReactionCoherentScattering,
+            PhotonReactionIncoherentScattering,
             PhotonReactionPhotoelectric,
             PhotonReactionPairProduction,
         ]
