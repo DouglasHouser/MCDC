@@ -36,6 +36,16 @@ PARTICLE_ELECTRON = 1
 PARTICLE_PROTON = 2
 PARTICLE_PHOTON = 3
 PARTICLE_ANY = 100
+# Helpers
+PARTICLE_TYPE_BY_NAME = {
+    "neutron": PARTICLE_NEUTRON,
+    "electron": PARTICLE_ELECTRON,
+    "proton": PARTICLE_PROTON,
+    "photon": PARTICLE_PHOTON,
+}
+PARTICLE_TYPE_NAME_PAIRS = tuple(
+    (code, name) for name, code in PARTICLE_TYPE_BY_NAME.items()
+)
 
 # Neutron multigroup energy representation
 NEUTRON_MULTIGROUP_ENERGY_MIDPOINT = 0

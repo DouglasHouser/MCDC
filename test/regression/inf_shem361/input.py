@@ -59,7 +59,7 @@ tally = mcdc.Tally(scores=["flux"], energy="all")
 simulation.set_tallies([tally])
 
 # Settings
-simulation.settings.N_particle = 25
+simulation.settings.N_particle = 12
 simulation.settings.N_batch = 2
 simulation.settings.active_bank_buffer = 1000
 

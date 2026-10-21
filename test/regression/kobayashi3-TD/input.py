@@ -78,7 +78,7 @@ simulation.set_tallies(
 )
 
 # Settings
-simulation.settings.N_particle = 25
+simulation.settings.N_particle = 12
 
 # Techniques
 simulation.technique.implicit_capture()
