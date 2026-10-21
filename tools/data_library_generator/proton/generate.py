@@ -48,28 +48,246 @@ from tqdm import tqdm
 T_KELVIN = 0.0
 
 ELEMENT_SYMBOLS = (  # index 0 -> Z=1
-    "H", "He", "Li", "Be", "B", "C", "N", "O", "F", "Ne", "Na", "Mg", "Al", "Si", "P",
-    "S", "Cl", "Ar", "K", "Ca", "Sc", "Ti", "V", "Cr", "Mn", "Fe", "Co", "Ni", "Cu",
-    "Zn", "Ga", "Ge", "As", "Se", "Br", "Kr", "Rb", "Sr", "Y", "Zr", "Nb", "Mo", "Tc",
-    "Ru", "Rh", "Pd", "Ag", "Cd", "In", "Sn", "Sb", "Te", "I", "Xe", "Cs", "Ba", "La",
-    "Ce", "Pr", "Nd", "Pm", "Sm", "Eu", "Gd", "Tb", "Dy", "Ho", "Er", "Tm", "Yb", "Lu",
-    "Hf", "Ta", "W", "Re", "Os", "Ir", "Pt", "Au", "Hg", "Tl", "Pb", "Bi", "Po", "At",
-    "Rn", "Fr", "Ra", "Ac", "Th", "Pa", "U", "Np", "Pu", "Am", "Cm", "Bk", "Cf", "Es",
-    "Fm", "Md", "No", "Lr", "Rf", "Db", "Sg", "Bh", "Hs", "Mt", "Ds", "Rg", "Cn", "Nh",
-    "Fl", "Mc", "Lv", "Ts", "Og",
+    "H",
+    "He",
+    "Li",
+    "Be",
+    "B",
+    "C",
+    "N",
+    "O",
+    "F",
+    "Ne",
+    "Na",
+    "Mg",
+    "Al",
+    "Si",
+    "P",
+    "S",
+    "Cl",
+    "Ar",
+    "K",
+    "Ca",
+    "Sc",
+    "Ti",
+    "V",
+    "Cr",
+    "Mn",
+    "Fe",
+    "Co",
+    "Ni",
+    "Cu",
+    "Zn",
+    "Ga",
+    "Ge",
+    "As",
+    "Se",
+    "Br",
+    "Kr",
+    "Rb",
+    "Sr",
+    "Y",
+    "Zr",
+    "Nb",
+    "Mo",
+    "Tc",
+    "Ru",
+    "Rh",
+    "Pd",
+    "Ag",
+    "Cd",
+    "In",
+    "Sn",
+    "Sb",
+    "Te",
+    "I",
+    "Xe",
+    "Cs",
+    "Ba",
+    "La",
+    "Ce",
+    "Pr",
+    "Nd",
+    "Pm",
+    "Sm",
+    "Eu",
+    "Gd",
+    "Tb",
+    "Dy",
+    "Ho",
+    "Er",
+    "Tm",
+    "Yb",
+    "Lu",
+    "Hf",
+    "Ta",
+    "W",
+    "Re",
+    "Os",
+    "Ir",
+    "Pt",
+    "Au",
+    "Hg",
+    "Tl",
+    "Pb",
+    "Bi",
+    "Po",
+    "At",
+    "Rn",
+    "Fr",
+    "Ra",
+    "Ac",
+    "Th",
+    "Pa",
+    "U",
+    "Np",
+    "Pu",
+    "Am",
+    "Cm",
+    "Bk",
+    "Cf",
+    "Es",
+    "Fm",
+    "Md",
+    "No",
+    "Lr",
+    "Rf",
+    "Db",
+    "Sg",
+    "Bh",
+    "Hs",
+    "Mt",
+    "Ds",
+    "Rg",
+    "Cn",
+    "Nh",
+    "Fl",
+    "Mc",
+    "Lv",
+    "Ts",
+    "Og",
 )
 
 # Radiation length [g/cm2] for Z = 1..118 (same order as ELEMENT_SYMBOLS)
 RADIATION_LENGTH = (
-    63.04, 94.32, 82.77, 65.19, 52.68, 42.70, 37.99, 34.24, 32.93, 28.93, 27.74, 25.03,
-    24.01, 21.82, 21.21, 19.50, 19.28, 19.55, 17.32, 16.14, 16.55, 16.16, 15.84, 14.94,
-    14.64, 13.84, 13.62, 12.68, 12.86, 12.43, 12.47, 12.25, 11.94, 11.91, 11.42, 11.37,
-    11.03, 10.76, 10.41, 10.20, 9.92, 9.80, 9.58, 9.48, 9.27, 9.20, 8.97, 9.00, 8.85,
-    8.82, 8.73, 8.83, 8.48, 8.48, 8.31, 8.31, 8.14, 7.96, 7.76, 7.71, 7.51, 7.57, 7.44,
-    7.48, 7.36, 7.32, 7.23, 7.14, 7.03, 7.02, 6.92, 6.89, 6.82, 6.76, 6.69, 6.68, 6.59,
-    6.54, 6.46, 6.44, 6.42, 6.37, 6.29, 6.16, 6.07, 6.28, 6.19, 6.15, 6.06, 6.07, 5.93,
-    6.00, 5.87, 5.93, 5.80, 5.79, 5.69, 5.68, 5.61, 5.62, 5.55, 5.48, 5.45, 5.47, 5.40,
-    5.34, 5.27, 5.17, 5.26, 5.24, 5.18, 5.16, 5.10, 5.08, 5.01, 5.00, 4.95, 4.88,
+    63.04,
+    94.32,
+    82.77,
+    65.19,
+    52.68,
+    42.70,
+    37.99,
+    34.24,
+    32.93,
+    28.93,
+    27.74,
+    25.03,
+    24.01,
+    21.82,
+    21.21,
+    19.50,
+    19.28,
+    19.55,
+    17.32,
+    16.14,
+    16.55,
+    16.16,
+    15.84,
+    14.94,
+    14.64,
+    13.84,
+    13.62,
+    12.68,
+    12.86,
+    12.43,
+    12.47,
+    12.25,
+    11.94,
+    11.91,
+    11.42,
+    11.37,
+    11.03,
+    10.76,
+    10.41,
+    10.20,
+    9.92,
+    9.80,
+    9.58,
+    9.48,
+    9.27,
+    9.20,
+    8.97,
+    9.00,
+    8.85,
+    8.82,
+    8.73,
+    8.83,
+    8.48,
+    8.48,
+    8.31,
+    8.31,
+    8.14,
+    7.96,
+    7.76,
+    7.71,
+    7.51,
+    7.57,
+    7.44,
+    7.48,
+    7.36,
+    7.32,
+    7.23,
+    7.14,
+    7.03,
+    7.02,
+    6.92,
+    6.89,
+    6.82,
+    6.76,
+    6.69,
+    6.68,
+    6.59,
+    6.54,
+    6.46,
+    6.44,
+    6.42,
+    6.37,
+    6.29,
+    6.16,
+    6.07,
+    6.28,
+    6.19,
+    6.15,
+    6.06,
+    6.07,
+    5.93,
+    6.00,
+    5.87,
+    5.93,
+    5.80,
+    5.79,
+    5.69,
+    5.68,
+    5.61,
+    5.62,
+    5.55,
+    5.48,
+    5.45,
+    5.47,
+    5.40,
+    5.34,
+    5.27,
+    5.17,
+    5.26,
+    5.24,
+    5.18,
+    5.16,
+    5.10,
+    5.08,
+    5.01,
+    5.00,
+    4.95,
+    4.88,
 )
 
 SYMBOL_TO_Z = {symbol: z for z, symbol in enumerate(ELEMENT_SYMBOLS, start=1)}
@@ -229,7 +447,9 @@ def read_tabulated_yield(data, what):
     energy = np.array(data.energies, dtype=np.float64)
     value = np.array(data.multiplicities, dtype=np.float64)
     if len(energy) != len(value) or len(energy) < 2:
-        fail(f"{what}: malformed yield table ({len(energy)} energies, {len(value)} values)")
+        fail(
+            f"{what}: malformed yield table ({len(energy)} energies, {len(value)} values)"
+        )
     if np.any(np.diff(energy) < 0.0):
         fail(f"{what}: yield energies are not non-decreasing")
     if np.any(value < 0.0):
@@ -426,13 +646,17 @@ def write_secondary_product(
     write_yield_table(product, "yield", yield_energy, yield_value)
 
     is_kalbach_mann = isinstance(energy, C.KalbachMannDistributionData)
-    energy_group = product.create_group("kalbach_mann" if is_kalbach_mann else "energy_spectrum")
+    energy_group = product.create_group(
+        "kalbach_mann" if is_kalbach_mann else "energy_spectrum"
+    )
     write_energy_distribution(energy, energy_group)
 
     angle_group = product.create_group("angular_cosine_distribution")
     angle_in_energy_block = not write_cosine_distribution(angle, angle_group)
     if angle_in_energy_block and not is_kalbach_mann:
-        fail(f"{parent.name}/{name}: angle 'given elsewhere' but the spectrum is not Kalbach-Mann")
+        fail(
+            f"{parent.name}/{name}: angle 'given elsewhere' but the spectrum is not Kalbach-Mann"
+        )
     return product
 
 
@@ -463,7 +687,9 @@ def write_secondary_particles(table, reaction_groups, skipped_MTs, verbose=False
         if ace_id not in ACE_PARTICLE_TO_PRODUCT:
             fail(f"Unknown ACE secondary-particle id {ace_id}")
         if ace_id == 9:
-            fail("Proton listed as a secondary particle type; protons are the primary here")
+            fail(
+                "Proton listed as a secondary particle type; protons are the primary here"
+            )
         name, zap = ACE_PARTICLE_TO_PRODUCT[ace_id]
 
         n_rx = table.NTRO.NP(p)
@@ -485,7 +711,9 @@ def write_secondary_particles(table, reaction_groups, skipped_MTs, verbose=False
             if yield_data.MT != MT:
                 fail(f"{what}: SIGH entry is for MT-{yield_data.MT:03}, not MT-{MT:03}")
             if yield_data.MFTYPE != 12:
-                fail(f"{what}: SIGH MFTYPE {yield_data.MFTYPE} (only 12, a yield, is supported)")
+                fail(
+                    f"{what}: SIGH MFTYPE {yield_data.MFTYPE} (only 12, a yield, is supported)"
+                )
             group = _products_group(MT, reaction_groups, skipped_MTs, what, verbose)
             if group is None:
                 continue
@@ -500,7 +728,9 @@ def write_secondary_particles(table, reaction_groups, skipped_MTs, verbose=False
             )  # fmt: skip
             written += 1
             if verbose:
-                print(f"      MT-{MT:03} {name}: yield {y_value.min():g}..{y_value.max():g}")
+                print(
+                    f"      MT-{MT:03} {name}: yield {y_value.min():g}..{y_value.max():g}"
+                )
 
     # ---- Photons (separate blocks MTRP / SIGP / DLWP / ANDP) ------------------
     n_photon = table.NTRP
@@ -519,9 +749,13 @@ def write_secondary_particles(table, reaction_groups, skipped_MTs, verbose=False
             what = f"{name} from MT-{MT:03}"
             yield_data = sigp.data[k - 1]
             if not isinstance(yield_data, C.TabulatedSecondaryParticleMultiplicity):
-                fail(f"{what}: SIGP entry is a {type(yield_data).__name__}, not a yield table")
+                fail(
+                    f"{what}: SIGP entry is a {type(yield_data).__name__}, not a yield table"
+                )
             if yield_data.MT != MT or yield_data.MFTYPE not in (12, 16):
-                fail(f"{what}: unexpected SIGP entry (MT={yield_data.MT}, MFTYPE={yield_data.MFTYPE})")
+                fail(
+                    f"{what}: unexpected SIGP entry (MT={yield_data.MT}, MFTYPE={yield_data.MFTYPE})"
+                )
             group = _products_group(MT, reaction_groups, skipped_MTs, what, verbose)
             if group is None:
                 continue
@@ -539,7 +773,9 @@ def write_secondary_particles(table, reaction_groups, skipped_MTs, verbose=False
             )  # fmt: skip
             written += 1
             if verbose:
-                print(f"      MT-{MT:03} {name}: yield {y_value.min():g}..{y_value.max():g}")
+                print(
+                    f"      MT-{MT:03} {name}: yield {y_value.min():g}..{y_value.max():g}"
+                )
     return written
 
 
@@ -554,7 +790,9 @@ class Reaction:
     index: int  # 1-based position in the MTR / TYR / LQR / SIG blocks
     group: str  # "capture" (no outgoing proton) or "inelastic_scattering"
     multiplicity: int = 0  # fixed number of outgoing protons
-    proton_yield: tuple = None  # (energy, value) when the proton yield depends on energy
+    proton_yield: tuple = (
+        None  # (energy, value) when the proton yield depends on energy
+    )
 
 
 def classify_reactions(table):
@@ -579,7 +817,10 @@ def classify_reactions(table):
             skipped.add(sum_MT)
     skipped |= {MT for MT in present if MT > MAX_MT}
 
-    if present.intersection((18, 19, 20, 21, 38)) or table.fission_multiplicity_block is not None:
+    if (
+        present.intersection((18, 19, 20, 21, 38))
+        or table.fission_multiplicity_block is not None
+    ):
         fail("Fission data in a proton ACE file are not supported by this converter")
 
     reactions = []
@@ -595,7 +836,9 @@ def classify_reactions(table):
                 fail(f"MT-{MT:03}: energy-dependent multiplicity but no DLW entry")
             data = dlw.multiplicity_data(i)
             if not isinstance(data, ACEtk.continuous.TabulatedMultiplicity):
-                fail(f"MT-{MT:03}: TYR={raw} but multiplicity data is {type(data).__name__}")
+                fail(
+                    f"MT-{MT:03}: TYR={raw} but multiplicity data is {type(data).__name__}"
+                )
             reactions.append(
                 Reaction(MT, i, "inelastic_scattering",
                          proton_yield=read_tabulated_yield(data, f"proton yield of MT-{MT:03}"))
@@ -609,7 +852,9 @@ def write_primary_spectra(group, data):
     """Outgoing-proton energy spectra with their probability weights."""
     C = ACEtk.continuous
     if not isinstance(data, C.MultiDistributionData):
-        write_array(group, "spectrum_probability_grid", [0.0, SPECTRUM_GRID_MAX_MEV], unit="MeV")
+        write_array(
+            group, "spectrum_probability_grid", [0.0, SPECTRUM_GRID_MAX_MEV], unit="MeV"
+        )
         group.create_dataset("spectrum_probability", data=np.array([[1.0]]))
         write_energy_distribution(data, group.create_group("energy_spectrum-1"))
         return
@@ -634,7 +879,9 @@ def write_primary_spectra(group, data):
     write_array(group, "spectrum_probability_grid", prob_grid, unit="MeV")
     group.create_dataset("spectrum_probability", data=prob)
     for k in range(n_dist):
-        write_energy_distribution(data.distribution(k + 1), group.create_group(f"energy_spectrum-{k + 1}"))
+        write_energy_distribution(
+            data.distribution(k + 1), group.create_group(f"energy_spectrum-{k + 1}")
+        )
 
 
 def write_reaction(group, table, rx, verbose):
@@ -645,8 +892,16 @@ def write_reaction(group, table, rx, verbose):
 
     xs = write_array(group, "xs", xs_block.cross_sections(rx.index), unit="barns")
     xs.attrs["offset"] = xs_block.energy_index(rx.index) - 1
-    write_array(group, "Q-value", table.reaction_qvalue_block.q_value(rx.index), unit="MeV", dtype=float)
-    group.create_dataset("reference_frame", data=frame_name(tyr.reference_frame(rx.index)))
+    write_array(
+        group,
+        "Q-value",
+        table.reaction_qvalue_block.q_value(rx.index),
+        unit="MeV",
+        dtype=float,
+    )
+    group.create_dataset(
+        "reference_frame", data=frame_name(tyr.reference_frame(rx.index))
+    )
 
     if rx.group == "capture":
         return
@@ -685,8 +940,12 @@ def write_nuclide(h5, table, nuclide, Z, A, S, pstar_dir, verbose):
     h5.create_dataset("atomic_number", data=table.atom_number)
     h5.create_dataset("mass_number", data=table.mass_number)
     h5.create_dataset("atomic_weight_ratio", data=table.atomic_weight_ratio)
-    write_array(h5, "radiation_length", radiation_length(Z, A), unit="g/cm2", dtype=float)
-    h5.create_dataset("fissionable", data=False)  # fission is rejected in classify_reactions
+    write_array(
+        h5, "radiation_length", radiation_length(Z, A), unit="g/cm2", dtype=float
+    )
+    h5.create_dataset(
+        "fissionable", data=False
+    )  # fission is rejected in classify_reactions
     if pstar_dir is not None:
         write_stopping_power(h5, pstar_dir, ELEMENT_SYMBOLS[Z - 1], verbose=verbose)
 
@@ -703,7 +962,12 @@ def write_nuclide(h5, table, nuclide, Z, A, S, pstar_dir, verbose):
     write_array(elastic, "Q-value", 0.0, unit="MeV", dtype=float)
     elastic.create_dataset("reference_frame", data="COM")
     angle = table.angular_distribution_block.angular_distribution_data(0)
-    if not write_cosine_distribution(angle, elastic.create_group("angular_cosine_distribution")) and verbose:
+    if (
+        not write_cosine_distribution(
+            angle, elastic.create_group("angular_cosine_distribution")
+        )
+        and verbose
+    ):
         note("MT-002 angular distribution is given in the energy block")
 
     reaction_groups = {}
@@ -712,11 +976,18 @@ def write_nuclide(h5, table, nuclide, Z, A, S, pstar_dir, verbose):
         write_reaction(group, table, rx, verbose)
         reaction_groups[rx.MT] = group
     if verbose:
-        by_group = {g: [r.MT for r in reactions if r.group == g] for g in ("capture", "inelastic_scattering")}
-        print(f"  Capture: {by_group['capture']}\n  Inelastic: {by_group['inelastic_scattering']}")
+        by_group = {
+            g: [r.MT for r in reactions if r.group == g]
+            for g in ("capture", "inelastic_scattering")
+        }
+        print(
+            f"  Capture: {by_group['capture']}\n  Inelastic: {by_group['inelastic_scattering']}"
+        )
         print(f"  Not written (redundant sums / MT > {MAX_MT}): {sorted(skipped)}")
 
-    n_products = write_secondary_particles(table, reaction_groups, skipped, verbose=verbose)
+    n_products = write_secondary_particles(
+        table, reaction_groups, skipped, verbose=verbose
+    )
     if verbose:
         print(f"  Secondary products written: {n_products}")
 
@@ -736,7 +1007,9 @@ def process_ace_file(ace_path, output_dir, pstar_dir=None, verbose=False):
     out_path = os.path.join(output_dir, out_name)
     tmp_path = out_path + ".partial"
     if verbose:
-        print(f"\n{'=' * 80}\n  {os.path.basename(ace_path)}  ->  {out_name}  (Z={Z} A={A} S={S})")
+        print(
+            f"\n{'=' * 80}\n  {os.path.basename(ace_path)}  ->  {out_name}  (Z={Z} A={A} S={S})"
+        )
 
     # Write to a temporary name: a failed conversion must not leave a half-written
     # file that a later (non --rewrite) run would mistake for a finished one.
@@ -775,7 +1048,13 @@ def process_pstar_only_file(symbol, A, awr, output_dir, pstar_dir, verbose=False
             h5.create_dataset("atomic_number", data=Z)
             h5.create_dataset("mass_number", data=A)
             h5.create_dataset("atomic_weight_ratio", data=awr)
-            write_array(h5, "radiation_length", radiation_length(Z, A), unit="g/cm2", dtype=float)
+            write_array(
+                h5,
+                "radiation_length",
+                radiation_length(Z, A),
+                unit="g/cm2",
+                dtype=float,
+            )
             h5.create_dataset("fissionable", data=False)
             write_stopping_power(h5, pstar_dir, symbol, verbose=verbose)
         os.replace(tmp_path, out_path)
@@ -809,16 +1088,25 @@ def require_env(name):
 
 def main():
     parser = argparse.ArgumentParser(description="MC/DC proton data generator")
-    parser.add_argument("--rewrite", action="store_true", help="regenerate existing files")
+    parser.add_argument(
+        "--rewrite", action="store_true", help="regenerate existing files"
+    )
     parser.add_argument("--verbose", action="store_true")
-    parser.add_argument("--only", nargs="+", metavar="ACE_FILE", help="convert only these ACE file names")
+    parser.add_argument(
+        "--only",
+        nargs="+",
+        metavar="ACE_FILE",
+        help="convert only these ACE file names",
+    )
     args = parser.parse_args()
 
     ace_dir = require_env("MCDC_ACELIB_PROTON")
     pstar_dir = require_env("MCDC_PSTAR_LIB")
     output_dir = require_env("MCDC_LIB_PROTON")
     os.makedirs(output_dir, exist_ok=True)
-    print(f"\nACE directory   : {ace_dir}\nPSTAR directory : {pstar_dir}\nOutput directory: {output_dir}\n")
+    print(
+        f"\nACE directory   : {ace_dir}\nPSTAR directory : {pstar_dir}\nOutput directory: {output_dir}\n"
+    )
 
     ace_files = sorted(f for f in os.listdir(ace_dir) if f.endswith(".ace"))
     if args.only:
@@ -840,11 +1128,17 @@ def main():
         except Exception:
             targets.append(name)  # unreadable header: let the conversion report it
 
-    bar = tqdm(targets, disable=args.verbose, bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} {postfix}")
+    bar = tqdm(
+        targets,
+        disable=args.verbose,
+        bar_format="{l_bar}{bar}| {n_fmt}/{total_fmt} {postfix}",
+    )
     for name in bar:
         bar.set_postfix_str(name)
         try:
-            out = process_ace_file(os.path.join(ace_dir, name), output_dir, pstar_dir, args.verbose)
+            out = process_ace_file(
+                os.path.join(ace_dir, name), output_dir, pstar_dir, args.verbose
+            )
             if args.verbose:
                 print(f"  -> wrote {out}")
         except Exception as exc:
@@ -860,7 +1154,9 @@ def main():
         if not args.rewrite and f"{nuclide}-{T_KELVIN}K.h5" in existing:
             continue
         try:
-            out = process_pstar_only_file(symbol, A, awr, output_dir, pstar_dir, args.verbose)
+            out = process_pstar_only_file(
+                symbol, A, awr, output_dir, pstar_dir, args.verbose
+            )
             if out is None:
                 if args.verbose:
                     print(f"  [skip] No PSTAR data for {nuclide}")

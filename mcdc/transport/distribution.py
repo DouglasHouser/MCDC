@@ -284,14 +284,10 @@ def _sample_ace_law4(E, rng_state, law4, data, scale):
 
     start = mcdc_get.ace_law4_distribution.offset(table_index, law4, data)
     if table_index + 1 < n_tables:
-        end = mcdc_get.ace_law4_distribution.offset(
-            table_index + 1, law4, data
-        )
+        end = mcdc_get.ace_law4_distribution.offset(table_index + 1, law4, data)
     else:
         end = law4["value_length"]
-    n_discrete = mcdc_get.ace_law4_distribution.n_discrete(
-        table_index, law4, data
-    )
+    n_discrete = mcdc_get.ace_law4_distribution.n_discrete(table_index, law4, data)
 
     xi = rng.lcg(rng_state)
     for index in range(start, start + n_discrete):
@@ -335,12 +331,8 @@ def _sample_ace_law4(E, rng_state, law4, data, scale):
 def _scale_ace_law4_continuum(
     sample, selected_index, interval_index, fraction, law4, data
 ):
-    lower_start = mcdc_get.ace_law4_distribution.offset(
-        interval_index, law4, data
-    )
-    upper_start = mcdc_get.ace_law4_distribution.offset(
-        interval_index + 1, law4, data
-    )
+    lower_start = mcdc_get.ace_law4_distribution.offset(interval_index, law4, data)
+    upper_start = mcdc_get.ace_law4_distribution.offset(interval_index + 1, law4, data)
     lower_discrete = mcdc_get.ace_law4_distribution.n_discrete(
         interval_index, law4, data
     )
@@ -363,9 +355,7 @@ def _scale_ace_law4_continuum(
     ):
         return sample
 
-    selected_start = mcdc_get.ace_law4_distribution.offset(
-        selected_index, law4, data
-    )
+    selected_start = mcdc_get.ace_law4_distribution.offset(selected_index, law4, data)
     selected_discrete = mcdc_get.ace_law4_distribution.n_discrete(
         selected_index, law4, data
     )
@@ -377,9 +367,7 @@ def _scale_ace_law4_continuum(
     selected_min = mcdc_get.ace_law4_distribution.value(
         selected_start + selected_discrete, law4, data
     )
-    selected_max = mcdc_get.ace_law4_distribution.value(
-        selected_end - 1, law4, data
-    )
+    selected_max = mcdc_get.ace_law4_distribution.value(selected_end - 1, law4, data)
     if selected_max <= selected_min:
         return sample
 
