@@ -35,9 +35,9 @@ class Material(MCDCObject):
     composition : dict of str to float, optional
         Nuclide or element names and atomic densities in atoms/(barn cm).
     nuclide_composition : dict of str to float, optional
-        Nuclide names and atomic densities in atoms/(barn cm). Alias for composition
+        Nuclide names and atomic densities in atoms/(barn cm). Alias for composition.
     element_composition : dict of str to float, optional
-        Element symbols and atomic densities in atoms/(barn cm). Alias for composition
+        Element symbols and atomic densities in atoms/(barn cm). Alias for composition.
     temperature : float, optional
         Material temperature in kelvin. Each nuclide uses the closest
         temperature available in the data library (elements do not have temperature).
@@ -64,14 +64,18 @@ class Material(MCDCObject):
 
     ``composition`` allows nuclides and elements to be mixed in a single dict.
     ``element_composition`` and ``nuclide_composition`` are aliases for
-    ``composition``. Specify only one of the three, they all have the same behavior.
+    ``composition``. Specify only one of the three; they all have the same behavior.
 
     Atomic symbols ("U", "Si") are interpreted as elements, and atomic symbols with
     mass numbers ("U235", "O16") are interpreted as nuclides. For neutrons, elements
     are expanded into nuclides using their natural abundance; for photons and
     electrons, element data is used. If a nuclide is specified in a problem with
-    photons or electrons, the element is inferred from the nuclide (i.e. "Al27"
+    photons or electrons, the element is inferred from the nuclide (e.g. "Al27"
     uses the electron data for "Al").
+
+    Element/nuclide legality checking is not performed by Material.__init__, this is
+    done by ``Nuclide._compile_into_simulation`` and ``Element._compile_into_simulation``
+    (in case of custom data defined by the user).
 
     If an element and an isotope of that element (e.g. "U" and "U235") are both
     specified, the densities are summed (the provided density for U235 is added
