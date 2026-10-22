@@ -90,9 +90,9 @@ class Material(MCDCObject):
     photons or electrons, the element is inferred from the nuclide (e.g. "Al27"
     uses the electron data for "Al").
 
-    Element/nuclide legality checking is not performed by Material.__init__, this is
-    done by ``Nuclide._compile_into_simulation`` and ``Element._compile_into_simulation``
-    (in case of custom data defined by the user).
+    Element/nuclide names are not checked when the Material is created, so custom
+    elements or nuclides can be used; a name missing from the data library raises
+    an error when the simulation is compiled.
 
     If an element and an isotope of that element (e.g. "U" and "U235") are both
     specified, the densities are summed (the provided density for U235 is added
@@ -128,7 +128,7 @@ class Material(MCDCObject):
     ...     density=10.09,
     ... )
 
-    Define the same material from per-isotope/per-element mass densities
+    Define the same material from per-isotope/per-element mass densities:
 
     >>> fuel = mcdc.Material(
     ...     name="UO2",

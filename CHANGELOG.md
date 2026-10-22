@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Added
 
-- Add 'number_density' in Material.__init__ and allow isotopes & elements to be mixed in material definition, from [@hansenkyle]
+- Add 'mass_density', 'mass_fraction', and 'number_density' to Material.__init__, each of which allows mixing elements and nuclides, from [@hansenkyle]
 - Add photon transport with coherent and incoherent scattering, photoelectric absorption with atomic relaxation, and pair production, from [@DouglasHouser]
 - Adopt Coveralls for unit test coverage reporting, from [@nglaser3]
 - Add cone surfaces with a half-angle interface in degrees, specialized transport kernels for all cone orientations, and a specialized arbitrary-axis cylinder kernel, from [@ilhamv]

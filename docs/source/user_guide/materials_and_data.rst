@@ -19,8 +19,11 @@ In MC/DC, *native* refers to data-library-backed transport physics derived from 
 The composition identifies the physical constituents whose library records provide the interaction data.
 Continuous-energy transport physics data are read from a library that uses MC/DC's internal cross-section format.
 Material data is loaded by listing either isotopes (e.g. :code:`U235`) or elements (e.g. :code:`C`), which uses that element's natural isotopic abundance for neutron transport, or that element's data for electron and photon transport.
-Material composition is given by the atom densities (``number_density``) in atoms/(barn cm).
+Material composition is given by the atom densities (``number_density``) in atoms/(barn cm), mass densities (``mass_density``) in g/cc, or mass fractions (``mass_fraction``) combined with total material ``density`` in g/cc.
+
 If both an element and one or more of its isotopes are specified, the densities are summed.
+Element/nuclide names are not checked when the Material is created, so custom elements or nuclides can be used; 
+a name missing from the data library raises an error when the simulation is compiled.
 Material temperature is specified in K:
 
 .. code-block:: python
@@ -34,6 +37,16 @@ Material temperature is specified in K:
        },
        temperature=293.6,
    )
+
+The same material can be specified using mass fractions:
+
+.. code-block:: python
+
+    fuel = mcdc.Material(
+        name="UO2",
+        mass_fractions={"U235": 0.0193, "U238": 0.862, "O": 0.1184},
+        density=10.09,
+    )
 
 Note that :code:`h5`-formatted cross sections must be available for these nuclides or elements at the directory defined by the environment variable :code:`MCDC_LIB` (see :ref:`install-data-library` for instructions on generating data libraries). 
 These files contain a table of energies and cross sections for each reaction.

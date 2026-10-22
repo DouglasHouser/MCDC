@@ -21,7 +21,7 @@ Each nuclide file (e.g., ``U235-293.6K.h5``) contains:
 - Delayed neutron precursor data (fractions, decay constants, and energy spectra).
 
 Supported temperature points are 0.1, 233.15, 273.15, 293.6, 600.0, 900.0, 1200.0, and 2500.0 K.
-MC/DC selects the nearest available temperature for each nuclide. Note that non-neutron or proton transport does not depend on temperature.
+MC/DC selects the nearest available temperature for each nuclide. Note that electron and photon data are store per element and have no temperature.
 
 Cross Section Evaluation
 ------------------------
