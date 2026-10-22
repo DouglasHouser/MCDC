@@ -1,13 +1,23 @@
+import doctest
 import pytest
 from types import SimpleNamespace
 
 import mcdc
 from mcdc.constant import FILL_MATERIAL
 from mcdc.object_.base import MCDCObject, MCDCPolymorphic
-from mcdc.object_.material import Material, set_elements_from_nuclides
+from mcdc.object_.material import (
+    Material,
+    set_elements_from_nuclides,
+    set_nuclides_from_elements,
+)
 from mcdc.object_.nuclide import Nuclide
 from mcdc.object_.element import Element
-from mcdc.object_.util import element_symbol_from_nuclide_name
+from mcdc.object_.util import (
+    element_symbol_from_nuclide_name,
+    ISOTOPIC_ABUNDANCE,
+    is_nuclide_name,
+)
+from mcdc.mcdc_get import material as get_material
 
 
 def test_material_is_the_only_public_non_polymorphic_material_type():
@@ -184,9 +194,6 @@ def test_elements_from_nuclides_do_not_merge_prefix_symbols(monkeypatch):
 
 # Mixed nuclide and element compositions
 # --------------------------------------
-
-from mcdc.object_.material import set_nuclides_from_elements
-from mcdc.object_.util import ISOTOPIC_ABUNDANCE
 
 
 @pytest.fixture
@@ -581,11 +588,6 @@ def test_mass_inputs_survive_electron_simulation_compilation(compile_without_dat
 
 # Additional coverage
 # -------------------
-
-import doctest
-
-from mcdc.mcdc_get import material as get_material
-from mcdc.object_.util import is_nuclide_name
 
 
 @pytest.mark.parametrize(
