@@ -226,7 +226,7 @@ def element_view(material):
 
 
 def test_mixed_composition_nuclide_view_expands_only_the_elements(native_simulation):
-    material = Material(composition={"U235": 0.1, "O": 0.2})
+    material = Material(number_density={"U235": 0.1, "O": 0.2})
 
     set_nuclides_from_elements(material, native_simulation)
 
@@ -238,7 +238,7 @@ def test_mixed_composition_nuclide_view_expands_only_the_elements(native_simulat
 
 
 def test_mixed_composition_element_view_collapses_only_the_nuclides(native_simulation):
-    material = Material(composition={"U235": 0.1, "U238": 0.3, "O": 0.2})
+    material = Material(number_density={"U235": 0.1, "U238": 0.3, "O": 0.2})
 
     set_elements_from_nuclides(material, native_simulation)
 
@@ -248,7 +248,7 @@ def test_mixed_composition_element_view_collapses_only_the_nuclides(native_simul
 
 
 def test_views_are_derived_from_the_input_not_from_each_other(native_simulation):
-    material = Material(composition={"U235": 0.1, "O": 0.2})
+    material = Material(number_density={"U235": 0.1, "O": 0.2})
 
     set_nuclides_from_elements(material, native_simulation)
     set_elements_from_nuclides(material, native_simulation)
@@ -259,7 +259,7 @@ def test_views_are_derived_from_the_input_not_from_each_other(native_simulation)
 
 
 def test_derivations_are_idempotent(native_simulation):
-    material = Material(composition={"U235": 0.1, "O": 0.2})
+    material = Material(number_density={"U235": 0.1, "O": 0.2})
 
     set_nuclides_from_elements(material, native_simulation)
     set_elements_from_nuclides(material, native_simulation)
@@ -272,7 +272,7 @@ def test_derivations_are_idempotent(native_simulation):
 
 
 def test_repeated_nuclides_are_summed(native_simulation):
-    material = Material(composition={"O16": 1.0, "O": 2.0})
+    material = Material(number_density={"O16": 1.0, "O": 2.0})
 
     set_nuclides_from_elements(material, native_simulation)
 
@@ -283,7 +283,7 @@ def test_repeated_nuclides_are_summed(native_simulation):
 
 
 def test_element_only_composition_expands_to_natural_isotopes(native_simulation):
-    material = Material(composition={"H": 0.1, "O": 0.2})
+    material = Material(number_density={"H": 0.1, "O": 0.2})
 
     set_nuclides_from_elements(material, native_simulation)
 
@@ -297,8 +297,8 @@ def test_element_only_composition_expands_to_natural_isotopes(native_simulation)
 def test_single_kind_compositions_are_left_alone_by_the_other_derivation(
     native_simulation,
 ):
-    nuclides = Material(composition={"H1": 0.1})
-    elements = Material(composition={"H": 0.1})
+    nuclides = Material(number_density={"H1": 0.1})
+    elements = Material(number_density={"H": 0.1})
     nuclide_before = nuclide_view(nuclides)
     element_before = element_view(elements)
 
@@ -320,7 +320,7 @@ def test_multigroup_only_material_is_left_alone_by_both_derivations(native_simul
 
 
 def test_element_without_abundance_data_is_rejected(native_simulation, capsys):
-    material = Material(composition={"Xx": 0.1})
+    material = Material(number_density={"Xx": 0.1})
 
     with pytest.raises(SystemExit):
         set_nuclides_from_elements(material, native_simulation)

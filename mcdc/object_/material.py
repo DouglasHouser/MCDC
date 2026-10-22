@@ -32,12 +32,12 @@ class Material(MCDCObject):
     ----------
     name : str, optional
         User-facing material name.
-    composition : dict of str to float, optional
+    number_density : dict of str to float, optional
         Nuclide or element names and atomic densities in atoms/(barn cm).
     nuclide_composition : dict of str to float, optional
-        Nuclide names and atomic densities in atoms/(barn cm). Alias for composition.
+        Nuclide names and atomic densities in atoms/(barn cm). Alias for number_density.
     element_composition : dict of str to float, optional
-        Element symbols and atomic densities in atoms/(barn cm). Alias for composition.
+        Element symbols and atomic densities in atoms/(barn cm). Alias for number_density.
     temperature : float, optional
         Material temperature in kelvin. Each nuclide uses the closest
         temperature available in the data library (elements do not have temperature).
@@ -62,9 +62,9 @@ class Material(MCDCObject):
     their macroscopic interaction, production, and timing data. It can be used
     alone or alongside a native composition.
 
-    ``composition`` allows nuclides and elements to be mixed in a single dict.
+    ``number_density`` allows nuclides and elements to be mixed in a single dict.
     ``element_composition`` and ``nuclide_composition`` are aliases for
-    ``composition``. Specify only one of the three; they all have the same behavior.
+    ``number_density``. Specify only one of the three; they all have the same behavior.
 
     Atomic symbols ("U", "Si") are interpreted as elements, and atomic symbols with
     mass numbers ("U235", "O16") are interpreted as nuclides. For neutrons, elements
@@ -88,7 +88,7 @@ class Material(MCDCObject):
     >>> import mcdc
     >>> fuel = mcdc.Material(
     ...     name="UO2",
-    ...     composition={
+    ...     number_density={
     ...         "U235": 5.0e-4,
     ...         "U238": 2.2e-2,
     ...         "O": 4.5e-2  # natural O abundance
@@ -107,7 +107,7 @@ class Material(MCDCObject):
 
     >>> hybrid_fuel = mcdc.Material(
     ...     name="Hybrid fuel",
-    ...     composition={"U235": 5.0e-4, "U238": 2.2e-2},
+    ...     number_density={"U235": 5.0e-4, "U238": 2.2e-2},
     ...     neutron_multigroup=mcdc.NeutronMultigroupData(
     ...         capture=np.array([0.10]),
     ...         fission=np.array([0.20]),
@@ -119,14 +119,14 @@ class Material(MCDCObject):
 
     # MC/DC framework metadata
     label = "material"
-    non_numba = ["composition", "nuclide_composition", "element_composition"]
+    non_numba = ["number_density", "nuclide_composition", "element_composition"]
 
     name: str
     temperature: float
     fissionable: bool
     has_neutron_multigroup: bool
 
-    composition: dict[str, float]  # Non-Numba
+    number_density: dict[str, float]  # Non-Numba
     nuclide_composition: dict[Nuclide, float]  # Non-Numba
     element_composition: dict[Element, float]  # Non-Numba
     neutron_multigroup: NeutronMultigroupData
@@ -145,7 +145,7 @@ class Material(MCDCObject):
     def __init__(
         self,
         name: str = "",
-        composition: dict[str, float] | NoneType = None,
+        number_density: dict[str, float] | NoneType = None,
         nuclide_composition: dict[str, float] | NoneType = None,
         element_composition: dict[str, float] | NoneType = None,
         temperature: float = 293.6,
@@ -154,25 +154,25 @@ class Material(MCDCObject):
         super().__init__()
 
         # Normalize optional compositions without mutable argument defaults
-        composition = composition or {}
+        number_density = number_density or {}
         nuclide_composition = nuclide_composition or {}
         element_composition = element_composition or {}
 
         # Require one valid material-data representation
         if (
-            bool(nuclide_composition) + bool(element_composition) + bool(composition)
+            bool(nuclide_composition) + bool(element_composition) + bool(number_density)
         ) > 1:
             print_error(
-                "Cannot specify more than one of nuclide_composition, element_composition, or composition."
+                "Cannot specify more than one of nuclide_composition, element_composition, or number_density."
             )
         if (
             not nuclide_composition
             and not element_composition
-            and not composition
+            and not number_density
             and neutron_multigroup is None
         ):
             print_error(
-                "Material requires nuclide_composition, element_composition, composition, "
+                "Material requires nuclide_composition, element_composition, number_density, "
                 "or neutron_multigroup."
             )
         if neutron_multigroup is not None and not isinstance(
@@ -184,7 +184,7 @@ class Material(MCDCObject):
                 "Material neutron_multigroup must define at least one energy group."
             )
         if (
-            (nuclide_composition or element_composition or composition)
+            (nuclide_composition or element_composition or number_density)
             and neutron_multigroup is not None
             and neutron_multigroup.G > 0
             and not np.any(neutron_multigroup.energy_grid)
@@ -207,24 +207,24 @@ class Material(MCDCObject):
         self.fissionable = self.neutron_multigroup.fissionable
 
         if nuclide_composition:
-            composition = nuclide_composition
+            number_density = nuclide_composition
         if element_composition:
-            composition = element_composition
+            number_density = element_composition
 
         # Create lightweight native-composition objects without loading data
         nearest_temperature = _get_supported_temperature(self.temperature)
         self.nuclide_composition = {
             Nuclide(name, nearest_temperature): float(density)
-            for name, density in composition.items()
+            for name, density in number_density.items()
             if is_nuclide_name(name)
         }
         self.element_composition = {
             Element(name): float(density)
-            for name, density in composition.items()
+            for name, density in number_density.items()
             if not is_nuclide_name(name)
         }
-        self.composition = {
-            name: float(density) for name, density in composition.items()
+        self.number_density = {
+            name: float(density) for name, density in number_density.items()
         }
 
         # Initialize the packed native-composition representation
@@ -388,7 +388,7 @@ TEMPERATURES = [0.0, 0.1, 233.15, 273.15, 293.6, 600.0, 900.0, 1200.0, 2500.0]
 def set_nuclides_from_elements(material, simulation):
     """Build the nuclide view: explicit nuclides plus natural isotopes of elements."""
     # return early if no elements
-    if all(is_nuclide_name(name) for name in material.composition):
+    if all(is_nuclide_name(name) for name in material.number_density):
         return
 
     # Select the nearest supported native-data temperature
@@ -396,7 +396,7 @@ def set_nuclides_from_elements(material, simulation):
 
     # Collect (nuclide name, density) pairs in input order
     pairs = []
-    for name, density in material.composition.items():
+    for name, density in material.number_density.items():
         if is_nuclide_name(name):
             pairs.append((name, density))
             continue
@@ -429,12 +429,12 @@ def set_nuclides_from_elements(material, simulation):
 def set_elements_from_nuclides(material, simulation):
     """Build the element view: explicit elements plus the elements of nuclides."""
     # Nothing to collapse without nuclides
-    if not any(is_nuclide_name(name) for name in material.composition):
+    if not any(is_nuclide_name(name) for name in material.number_density):
         return
 
     # Accumulate densities by exact element symbol (e.g., C12 -> C, Cr52 -> Cr)
     element_densities = {}
-    for name, density in material.composition.items():
+    for name, density in material.number_density.items():
         element_name = (
             element_symbol_from_nuclide_name(name) if is_nuclide_name(name) else name
         )

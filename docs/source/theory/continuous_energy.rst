@@ -118,7 +118,7 @@ Once the library is generated, set the ``MCDC_LIB`` environment variable and def
 
    # Define nuclides and/or elements with atom densities (atoms/barn-cm)
    fuel = mcdc.Material(
-       composition={
+       number_density={
          "U235": 5.58e-4,
          "U238": 2.24e-2,
          "O": 4.583e-2

@@ -19,7 +19,7 @@ In MC/DC, *native* refers to data-library-backed transport physics derived from 
 The composition identifies the physical constituents whose library records provide the interaction data.
 Continuous-energy transport physics data are read from a library that uses MC/DC's internal cross-section format.
 Material data is loaded by listing either isotopes (e.g. :code:`U235`) or elements (e.g. :code:`C`), which uses that element's natural isotopic abundance for neutron transport, or that element's data for electron and photon transport.
-Material composition is determined by the specified atom densities in atoms/(barn cm).
+Material composition is given by the atom densities (``number_density``) in atoms/(barn cm).
 If both an element and one or more of its isotopes are specified, the densities are summed.
 Material temperature is specified in K:
 
@@ -27,7 +27,7 @@ Material temperature is specified in K:
 
    fuel = mcdc.Material(
        name="UO2",
-       composition={
+       number_density={
            "U235": 5.0e-4,
            "U238": 2.2e-2,
            "O": 4.5e-2, # natural oxygen isotopic abundance
@@ -68,7 +68,7 @@ Construct :class:`mcdc.NeutronMultigroupData` directly when attaching it to a ma
 
    hybrid_fuel = mcdc.Material(
        name="Hybrid fuel",
-       composition={"U235": 5.0e-4, "U238": 2.2e-2},
+       number_density={"U235": 5.0e-4, "U238": 2.2e-2},
        neutron_multigroup=mcdc.NeutronMultigroupData(
            capture=np.array([0.10]),
            fission=np.array([0.20]),
