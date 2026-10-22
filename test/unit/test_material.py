@@ -328,3 +328,250 @@ def test_element_without_abundance_data_is_rejected(native_simulation, capsys):
     assert (
         "No natural isotopic abundance data for element Xx" in capsys.readouterr().out
     )
+
+
+# Mass density and mass fractions
+# -------------------------------
+
+AWR = {  # neutron-mass atomic weight ratios, as stored in the data library
+    "H1": 0.999167,
+    "H2": 1.99626,
+    "O16": 15.8575,
+    "O17": 16.8531,
+    "O18": 17.8445,
+    "U235": 233.025,
+    "U238": 236.006,
+}
+N_A_BARN_CM = 0.602214076
+AMU = 1.00866491595
+
+
+@pytest.fixture
+def weighted_simulation(monkeypatch):
+    # Provide atomic weights without reading the data library
+    def compile_nuclide(nuclide, simulation):
+        nuclide.fissionable = False
+        nuclide.atomic_weight_ratio = AWR[nuclide.name]
+        return MCDCObject._compile_into_simulation(nuclide, simulation)
+
+    def compile_element(element, simulation):
+        return MCDCObject._compile_into_simulation(element, simulation)
+
+    monkeypatch.setattr(Nuclide, "_compile_into_simulation", compile_nuclide)
+    monkeypatch.setattr(Element, "_compile_into_simulation", compile_element)
+
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell()])
+    simulation.compile()
+    return simulation
+
+
+def atoms(rho, awr):
+    return rho * N_A_BARN_CM / (awr * AMU)
+
+
+def element_weight(element):
+    abundances = ISOTOPIC_ABUNDANCE[element]
+    weighted = sum(a * AWR[isotope] * AMU for isotope, a in abundances.items())
+    return weighted / sum(abundances.values())
+
+
+def test_mass_density_is_stored_with_placeholder_atomic_densities():
+    material = Material(mass_density={"U235": 0.2, "O": 1.0})
+
+    assert material.mass_density == {"U235": 0.2, "O": 1.0}
+    assert [n.name for n in material.nuclides] == ["U235"]
+    assert [e.name for e in material.elements] == ["O"]
+    assert material.number_density == {"U235": 0.0, "O": 0.0}
+
+
+def test_materials_without_mass_inputs_have_no_mass_density():
+    assert Material(number_density={"H1": 0.1}).mass_density == {}
+
+
+def test_nuclide_mass_density_is_converted_at_compile(weighted_simulation):
+    material = Material(mass_density={"U235": 0.195, "U238": 8.7})
+
+    material._compile_into_simulation(weighted_simulation)
+
+    expected = [atoms(0.195, AWR["U235"]), atoms(8.7, AWR["U238"])]
+    assert material.nuclide_densities == pytest.approx(expected)
+    assert list(nuclide_view(material).values()) == pytest.approx(expected)
+    assert list(material.number_density.values()) == pytest.approx(expected)
+    assert list(material.number_density) == ["U235", "U238"]
+
+
+def test_element_mass_density_uses_the_abundance_weighted_weight(weighted_simulation):
+    material = Material(mass_density={"O": 1.195})
+
+    material._compile_into_simulation(weighted_simulation)
+
+    expected = 1.195 * N_A_BARN_CM / element_weight("O")
+    assert material.element_densities == pytest.approx([expected])
+    assert material.number_density["O"] == pytest.approx(expected)
+
+
+def test_converted_element_expands_to_the_same_total_density(weighted_simulation):
+    material = Material(mass_density={"O": 1.195})
+    material._compile_into_simulation(weighted_simulation)
+
+    set_nuclides_from_elements(material, weighted_simulation)
+
+    # The isotopes carry the element's converted atomic density
+    assert sum(material.nuclide_densities) == pytest.approx(
+        material.number_density["O"]
+    )
+    assert list(nuclide_view(material)) == list(natural("O", 1.0))
+
+
+def test_mixed_mass_density_converts_each_name_by_its_kind(weighted_simulation):
+    material = Material(mass_density={"U235": 0.2, "O": 1.0, "H1": 0.1})
+
+    material._compile_into_simulation(weighted_simulation)
+
+    assert material.number_density == pytest.approx(
+        {
+            "U235": atoms(0.2, AWR["U235"]),
+            "O": 1.0 * N_A_BARN_CM / element_weight("O"),
+            "H1": atoms(0.1, AWR["H1"]),
+        }
+    )
+
+
+def test_mass_fractions_scale_the_density(weighted_simulation):
+    by_fraction = Material(
+        density=10.0, mass_fractions={"U235": 0.02, "U238": 0.86, "O16": 0.12}
+    )
+    by_density = Material(mass_density={"U235": 0.2, "U238": 8.6, "O16": 1.2})
+
+    by_fraction._compile_into_simulation(weighted_simulation)
+    by_density._compile_into_simulation(weighted_simulation)
+
+    assert by_fraction.mass_density == pytest.approx(by_density.mass_density)
+    assert by_fraction.nuclide_densities == pytest.approx(by_density.nuclide_densities)
+
+
+def test_mass_fractions_are_normalized_and_warn_when_far_from_one(capsys):
+    material = Material(density=10.0, mass_fractions={"H1": 0.5, "O16": 1.5})
+
+    assert material.mass_density == pytest.approx({"H1": 2.5, "O16": 7.5})
+    assert "normalized" in capsys.readouterr().out
+
+
+def test_mass_fractions_close_to_one_are_normalized_without_a_warning(capsys):
+    # Rounded fractions such as 0.0193 + 0.862 + 0.1184 = 0.9997 are routine
+    material = Material(
+        density=10.09, mass_fractions={"U235": 0.0193, "U238": 0.862, "O16": 0.1184}
+    )
+
+    assert sum(material.mass_density.values()) == pytest.approx(10.09)
+    assert "normalized" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "kwargs, expected_message",
+    [
+        (
+            {"mass_density": {"H1": 1.0}, "number_density": {"H1": 0.1}},
+            "Cannot specify more than one of",
+        ),
+        (
+            {"mass_density": {"H1": 1.0}, "nuclide_composition": {"H1": 0.1}},
+            "Cannot specify more than one of",
+        ),
+        (
+            {"mass_density": {"H1": 1.0}, "mass_fractions": {"H1": 1.0}},
+            "Cannot specify more than one of",
+        ),
+        ({"mass_fractions": {"H1": 1.0}}, "must be specified together"),
+        ({"density": 1.0}, "must be specified together"),
+        ({"density": 0.0, "mass_fractions": {"H1": 1.0}}, "density must be positive"),
+        ({"mass_density": {"H1": -1.0}}, "must be non-negative"),
+        (
+            {"density": 1.0, "mass_fractions": {"H1": -0.5, "O16": 1.5}},
+            "must be non-negative",
+        ),
+        (
+            {"density": 1.0, "mass_fractions": {"H1": 0.0}},
+            "must have a positive sum",
+        ),
+        (
+            {
+                "mass_density": {"H1": 1.0},
+                "neutron_multigroup": mcdc.NeutronMultigroupData(capture=[0.2]),
+            },
+            "requires an explicit neutron multigroup energy_grid",
+        ),
+    ],
+)
+def test_mass_inputs_are_validated(kwargs, expected_message, capsys):
+    with pytest.raises(SystemExit):
+        Material(**kwargs)
+
+    assert expected_message in capsys.readouterr().out
+
+
+def test_mass_density_of_an_element_without_abundance_data_is_rejected(
+    weighted_simulation, capsys
+):
+    material = Material(mass_density={"Xx": 1.0})
+
+    with pytest.raises(SystemExit):
+        material._compile_into_simulation(weighted_simulation)
+
+    assert (
+        "No natural isotopic abundance data for element Xx" in capsys.readouterr().out
+    )
+
+
+@pytest.fixture
+def compile_without_data(monkeypatch):
+    # Full simulation compilation without reading data-library files
+    def compile_nuclide(nuclide, simulation):
+        nuclide.fissionable = False
+        nuclide.mass_number = 1
+        nuclide.radiation_length = 1.0
+        nuclide.atomic_weight_ratio = AWR[nuclide.name]
+        return MCDCObject._compile_into_simulation(nuclide, simulation)
+
+    def compile_element(element, simulation):
+        element.atomic_number = 1
+        element.atomic_weight_ratio = 1.0
+        return MCDCObject._compile_into_simulation(element, simulation)
+
+    monkeypatch.setattr(Nuclide, "_compile_into_simulation", compile_nuclide)
+    monkeypatch.setattr(Nuclide, "set_neutron_data", lambda self, simulation: None)
+    monkeypatch.setattr(Element, "_compile_into_simulation", compile_element)
+    monkeypatch.setattr(Element, "set_electron_data", lambda self, simulation: None)
+
+
+def test_mass_inputs_survive_neutron_simulation_compilation(compile_without_data):
+    material = Material(mass_density={"U235": 0.2, "O": 1.0})
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell(fill=material)])
+    simulation.set_sources([mcdc.Source(particle_type="neutron", energy=1.0)])
+
+    simulation.compile()
+
+    # The element is expanded into isotopes carrying its converted density
+    oxygen = 1.0 * N_A_BARN_CM / element_weight("O")
+    expected = {"U235": atoms(0.2, AWR["U235"]), **natural("O", oxygen)}
+    assert nuclide_view(material) == pytest.approx(expected)
+    assert list(material.number_density) == ["U235", "O"]
+
+
+def test_mass_inputs_survive_electron_simulation_compilation(compile_without_data):
+    material = Material(mass_density={"U235": 0.2, "U238": 8.6, "H1": 0.1})
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell(fill=material)])
+    simulation.set_sources([mcdc.Source(particle_type="electron", energy=1.0)])
+
+    simulation.compile()
+
+    # Nuclides collapse into elements using their converted atomic densities
+    assert element_view(material) == pytest.approx(
+        {
+            "U": atoms(0.2, AWR["U235"]) + atoms(8.6, AWR["U238"]),
+            "H": atoms(0.1, AWR["H1"]),
+        }
+    )
