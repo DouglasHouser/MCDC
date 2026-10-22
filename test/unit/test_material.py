@@ -65,7 +65,7 @@ def test_material_accepts_native_multigroup_and_hybrid_data():
                 "nuclide_composition": {"H1": 0.1},
                 "element_composition": {"H": 0.1},
             },
-            "Cannot specify both",
+            "Cannot specify more than one of",
         ),
         (
             {"neutron_multigroup": object()},
@@ -180,3 +180,151 @@ def test_elements_from_nuclides_do_not_merge_prefix_symbols(monkeypatch):
 
     densities = {e.name: d for e, d in material.element_composition.items()}
     assert densities == {"C": 1.0, "Cr": 10.0, "H": 100.0, "He": 1000.0}
+
+
+# Mixed nuclide and element compositions
+# --------------------------------------
+
+from mcdc.object_.material import set_nuclides_from_elements
+from mcdc.object_.util import ISOTOPIC_ABUNDANCE
+
+
+@pytest.fixture
+def native_simulation(monkeypatch):
+    # Isolate object registration from native data-library loading
+    def compile_nuclide(nuclide, simulation):
+        nuclide.fissionable = False
+        return MCDCObject._compile_into_simulation(nuclide, simulation)
+
+    def compile_element(element, simulation):
+        return MCDCObject._compile_into_simulation(element, simulation)
+
+    monkeypatch.setattr(Nuclide, "_compile_into_simulation", compile_nuclide)
+    monkeypatch.setattr(Element, "_compile_into_simulation", compile_element)
+
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell()])
+    simulation.compile()
+    return simulation
+
+
+def natural(element, density):
+    # Natural isotope densities of an element, in table order
+    norm = sum(ISOTOPIC_ABUNDANCE[element].values())
+    return {
+        name: density * abundance / norm
+        for name, abundance in ISOTOPIC_ABUNDANCE[element].items()
+    }
+
+
+def nuclide_view(material):
+    return {n.name: d for n, d in material.nuclide_composition.items()}
+
+
+def element_view(material):
+    return {e.name: d for e, d in material.element_composition.items()}
+
+
+def test_mixed_composition_nuclide_view_expands_only_the_elements(native_simulation):
+    material = Material(composition={"U235": 0.1, "O": 0.2})
+
+    set_nuclides_from_elements(material, native_simulation)
+
+    expected = {"U235": 0.1, **natural("O", 0.2)}
+    assert nuclide_view(material) == pytest.approx(expected)
+    assert list(nuclide_view(material)) == list(expected)
+    assert material.nuclide_densities == pytest.approx(list(expected.values()))
+    assert [n.name for n in material.nuclides] == list(expected)
+
+
+def test_mixed_composition_element_view_collapses_only_the_nuclides(native_simulation):
+    material = Material(composition={"U235": 0.1, "U238": 0.3, "O": 0.2})
+
+    set_elements_from_nuclides(material, native_simulation)
+
+    assert element_view(material) == pytest.approx({"U": 0.4, "O": 0.2})
+    assert material.element_densities == pytest.approx([0.4, 0.2])
+    assert [e.name for e in material.elements] == ["U", "O"]
+
+
+def test_views_are_derived_from_the_input_not_from_each_other(native_simulation):
+    material = Material(composition={"U235": 0.1, "O": 0.2})
+
+    set_nuclides_from_elements(material, native_simulation)
+    set_elements_from_nuclides(material, native_simulation)
+
+    # Collapsing must not re-count the isotopes expanded from O
+    assert element_view(material) == pytest.approx({"U": 0.1, "O": 0.2})
+    assert nuclide_view(material) == pytest.approx({"U235": 0.1, **natural("O", 0.2)})
+
+
+def test_derivations_are_idempotent(native_simulation):
+    material = Material(composition={"U235": 0.1, "O": 0.2})
+
+    set_nuclides_from_elements(material, native_simulation)
+    set_elements_from_nuclides(material, native_simulation)
+    nuclides, elements = nuclide_view(material), element_view(material)
+    set_nuclides_from_elements(material, native_simulation)
+    set_elements_from_nuclides(material, native_simulation)
+
+    assert nuclide_view(material) == nuclides
+    assert element_view(material) == elements
+
+
+def test_repeated_nuclides_are_summed(native_simulation):
+    material = Material(composition={"O16": 1.0, "O": 2.0})
+
+    set_nuclides_from_elements(material, native_simulation)
+
+    expected = natural("O", 2.0)
+    expected["O16"] += 1.0
+    assert nuclide_view(material) == pytest.approx(expected)
+    assert len(material.nuclides) == len(expected)
+
+
+def test_element_only_composition_expands_to_natural_isotopes(native_simulation):
+    material = Material(composition={"H": 0.1, "O": 0.2})
+
+    set_nuclides_from_elements(material, native_simulation)
+
+    expected = {**natural("H", 0.1), **natural("O", 0.2)}
+    assert list(nuclide_view(material)) == list(expected)
+    assert nuclide_view(material) == pytest.approx(expected)
+    # The user's elements are left as given
+    assert [e.name for e in material.elements] == ["H", "O"]
+
+
+def test_single_kind_compositions_are_left_alone_by_the_other_derivation(
+    native_simulation,
+):
+    nuclides = Material(composition={"H1": 0.1})
+    elements = Material(composition={"H": 0.1})
+    nuclide_before = nuclide_view(nuclides)
+    element_before = element_view(elements)
+
+    set_nuclides_from_elements(nuclides, native_simulation)
+    set_elements_from_nuclides(elements, native_simulation)
+
+    assert nuclide_view(nuclides) == nuclide_before
+    assert element_view(elements) == element_before
+
+
+def test_multigroup_only_material_is_left_alone_by_both_derivations(native_simulation):
+    material = Material.multigroup(capture=[1.0])
+
+    set_nuclides_from_elements(material, native_simulation)
+    set_elements_from_nuclides(material, native_simulation)
+
+    assert material.nuclides == []
+    assert material.elements == []
+
+
+def test_element_without_abundance_data_is_rejected(native_simulation, capsys):
+    material = Material(composition={"Xx": 0.1})
+
+    with pytest.raises(SystemExit):
+        set_nuclides_from_elements(material, native_simulation)
+
+    assert (
+        "No natural isotopic abundance data for element Xx" in capsys.readouterr().out
+    )
