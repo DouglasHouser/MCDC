@@ -529,7 +529,9 @@ def compile_without_data(monkeypatch):
     # Full simulation compilation without reading data-library files
     def compile_nuclide(nuclide, simulation):
         nuclide.fissionable = False
+        nuclide.atomic_number = 1
         nuclide.mass_number = 1
+        nuclide.excitation_level = 0
         nuclide.radiation_length = 1.0
         nuclide.atomic_weight_ratio = AWR[nuclide.name]
         return MCDCObject._compile_into_simulation(nuclide, simulation)
@@ -575,3 +577,128 @@ def test_mass_inputs_survive_electron_simulation_compilation(compile_without_dat
             "H": atoms(0.1, AWR["H1"]),
         }
     )
+
+
+# Additional coverage
+# -------------------
+
+import doctest
+
+from mcdc.mcdc_get import material as get_material
+from mcdc.object_.util import is_nuclide_name
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        ("U235", True),
+        ("Cr52", True),
+        ("H1", True),
+        ("Am242m1", True),
+        ("U", False),
+        ("Cr", False),
+        ("u235", False),
+        ("235U", False),
+        ("U235x", False),
+        ("U-235", False),
+        ("", False),
+    ],
+)
+def test_is_nuclide_name(name, expected):
+    assert is_nuclide_name(name) is expected
+
+
+def test_number_density_cannot_be_combined_with_an_alias(capsys):
+    with pytest.raises(SystemExit):
+        Material(number_density={"H1": 0.1}, nuclide_composition={"H1": 0.1})
+
+    assert "Cannot specify more than one of" in capsys.readouterr().out
+
+
+def test_mass_inputs_are_packed_as_atomic_densities(
+    compile_without_data, prepare_simulation
+):
+    material = Material(mass_density={"U235": 0.2, "H1": 0.1})
+    source = mcdc.Source(particle_type="neutron", energy=1.0)
+
+    simulation_container, data = prepare_simulation(
+        cells=[mcdc.Cell(fill=material)], sources=[source]
+    )
+    packed = simulation_container[0]["materials"][0]
+
+    # Transport must see atoms/(barn cm), not the g/cm^3 the user supplied
+    assert get_material.nuclide_densities_all(packed, data) == pytest.approx(
+        [atoms(0.2, AWR["U235"]), atoms(0.1, AWR["H1"])]
+    )
+
+
+def test_mass_inputs_with_neutron_and_electron_transport_together(
+    compile_without_data,
+):
+    material = Material(mass_density={"U235": 0.2, "O": 1.0})
+    simulation = mcdc.Simulation()
+    simulation.set_model([mcdc.Cell(fill=material)])
+    simulation.set_sources(
+        [
+            mcdc.Source(particle_type="neutron", energy=1.0),
+            mcdc.Source(particle_type="electron", energy=1.0),
+        ]
+    )
+
+    simulation.compile()
+
+    oxygen = 1.0 * N_A_BARN_CM / element_weight("O")
+    uranium = atoms(0.2, AWR["U235"])
+    # Each view is built from the converted input, so neither re-counts the other
+    assert nuclide_view(material) == pytest.approx(
+        {"U235": uranium, **natural("O", oxygen)}
+    )
+    assert element_view(material) == pytest.approx({"U": uranium, "O": oxygen})
+
+
+def test_mass_inputs_compile_identically_into_separate_simulations(
+    weighted_simulation, compile_without_data
+):
+    material = Material(mass_density={"U235": 0.2, "O": 1.0})
+    material._compile_into_simulation(weighted_simulation)
+    first = dict(material.number_density)
+
+    other = mcdc.Simulation()
+    other.set_model([mcdc.Cell()])
+    other.compile()
+    material._compile_into_simulation(other)
+
+    assert material.number_density == pytest.approx(first)
+    assert material.mass_density == {"U235": 0.2, "O": 1.0}
+
+
+def test_mass_inputs_combine_with_hybrid_multigroup_data(weighted_simulation):
+    material = Material(
+        mass_density={"H1": 0.1},
+        neutron_multigroup=mcdc.NeutronMultigroupData(
+            capture=[0.2], energy_grid=[1.0e-5, 20.0e6]
+        ),
+    )
+
+    material._compile_into_simulation(weighted_simulation)
+
+    assert material.has_neutron_multigroup
+    assert material.nuclide_densities == pytest.approx([atoms(0.1, AWR["H1"])])
+
+
+def test_element_isotopes_use_the_material_temperature(weighted_simulation):
+    material = Material(mass_density={"O": 1.0}, temperature=650.0)
+
+    material._compile_into_simulation(weighted_simulation)
+
+    # 650 K snaps to the nearest supported temperature, 600 K
+    assert {n.temperature for n in weighted_simulation.nuclides} == {600.0}
+    assert {n.name for n in weighted_simulation.nuclides} == set(natural("O", 1.0))
+
+
+def test_material_docstring_examples_are_valid_python():
+    examples = doctest.DocTestParser().get_examples(Material.__doc__)
+
+    assert len(examples) >= 5
+    for example in examples:
+        compile(example.source, "<Material docstring>", "exec")
