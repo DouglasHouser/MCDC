@@ -15,6 +15,7 @@ This document covers the physics of the coupling, the decisions already made, th
 | Positrons | **Not added.** No positron particle type. The positron's kinetic energy is deposited at the pair site, and its annihilation stays there too (two back-to-back 511 keV photons, as now). |
 | Electron-only runs | **Bit-for-bit unchanged.** When photon transport is inactive, every electron code path, including its RNG draws, stays exactly as it is today. All new electron-side behavior sits behind `settings["photon_transport"]["active"]`. |
 | Photon-only runs | Same rule in reverse: when electron transport is inactive, the photon physics, its RNG draws and the three `photon_*` regression answers (`photon_pb_spheres`, `photon_pb_cylinder_edep`, `photon_mm_spheres_spectrum`) stay unchanged. |
+| Refinements | **Do not implement any refinement unless the user specifically asks for that refinement by name.** That covers the Sauter photoelectron direction, sampled bremsstrahlung angles, the bremsstrahlung spectrum (§4.3), electron-impact relaxation (§4.4) and the triplet recoil electron (§3). They are documented for reference only. A bench3 gap or any other result is a reason to report back, not a reason to start one. |
 | PR scope | The coupling PR carries the coupling and nothing else: physics, its tests, one regression case, the architecture-doc paragraph and one CHANGELOG line. This plan, the bench3 verification script and its results stay out of it, on the fork's `dev`. That matches how upstream split AGENTS.md out of the photon PR. |
 | Bremsstrahlung | Use the bremsstrahlung reaction already in the electron module. When photons are active, the photon it already accounts for (`dE`) is banked as a transported photon instead of being dropped. No new library data is needed to start (see §4.3 for the spectral limit this leaves). |
 | Triplet production | No new cross sections and no new sampling functions (see §3). |
@@ -69,7 +70,7 @@ The recommended treatment is the one PENELOPE, EGSnrc's default and MCNP use: sa
 Energy is conserved either way, because the recoil electron's share (small on average) is simply folded into the pair.
 Since the positron is deposited locally, the only quantity coupling actually transports is the e⁻ energy from the Bethe–Heitler split, which is the same function for both fields.
 
-**Optional refinement, deferred:** pick MT-515 vs MT-517 by their reaction cross sections, using the same reaction loop the electron collision uses.
+**Refinement: do not implement unless specifically requested (§1).** Pick MT-515 vs MT-517 by their reaction cross sections, using the same reaction loop the electron collision uses.
 For MT-515, emit the recoil electron with an energy sampled from the triplet recoil distribution (Borsellino–Ghizzetti).
 This would add one function and no data.
 It only matters for depth-dose detail above a few MeV in low-Z media, so it waits until the verification in §5 passes.
@@ -114,7 +115,7 @@ It only matters for depth-dose detail above a few MeV in low-Z media, so it wait
 Every step below runs only when electron transport is active **and** T > `ELECTRON_CUTOFF_ENERGY`; otherwise the existing local deposit stands.
 
 1. **Compton recoil electron** (`incoherent_scattering`). T = E(1−ε). The direction comes from **p**_γ − **p**_γ′ using the already-sampled μ and azimuth, so no extra RNG draw is needed.
-2. **Photoelectron** (`photoelectric`). T = E − B_i for the sampled subshell. Start with an isotropic direction, then switch to Sauter sampling in its own commit so its effect on the answers can be seen separately.
+2. **Photoelectron** (`photoelectric`). T = E − B_i for the sampled subshell. Emit it isotropically. (Sauter sampling is a refinement: do not implement it unless specifically requested, §1.)
 3. **Pair electron** (`pair_production`). Sample ε from Bethe–Heitler, transport e⁻ with T⁻ = εE − mc², and deposit T⁺ locally. The annihilation photons are unchanged.
 4. **Auger electrons** (`relax_subshell`). Return the non-radiative transition energy and a kind flag instead of `0.0`. When electrons are active, bank the Auger electron isotropically.
    - This must not change the RNG sequence for photon-only runs. The transition draw already happens; only the banking is new.
@@ -124,11 +125,11 @@ Every step below runs only when electron transport is active **and** T > `ELECTR
 Only when photon transport is active:
 
 - Bank a photon of energy `dE` (the tabulated mean photon energy the electron already loses).
-- Its direction comes from the electron direction plus a sampled angle θ ≈ mc²/E, with 2BS or Tsai sampling as the refinement.
+- It is emitted along the electron's direction, as MCNP's TTB does. (Sampling an angle θ ≈ mc²/E, by 2BS or Tsai, is a refinement: do not implement it unless specifically requested, §1.)
 - Below `PHOTON_CUTOFF_ENERGY`, deposit `dE` locally instead.
 - When the electron itself falls below cutoff in this event, the current code deposits `E_out` and kills the electron. That stays, and the photon is still banked.
 
-### 4.3 Bremsstrahlung spectrum (deferred)
+### 4.3 Bremsstrahlung spectrum (refinement: do not implement unless specifically requested)
 
 Using the mean photon energy is correct on average for **energy**, but it emits one photon at a single energy for each incident energy, where the true spectrum is roughly 1/k.
 This shows up in:
@@ -137,11 +138,11 @@ This shows up in:
 - the shape of the flux spectrum.
 
 The EPRDATA14 ACE file carries the photon-energy distribution (BREMI/BREME blocks).
-If §5 shows a gap in the shell fluxes or the fluorescence yield, add those blocks to `tools/data_library_generator/electron/generate.py` and sample k from them, **only on the photon-active path**. That keeps electron-only runs unchanged.
+If §5 shows a gap in the shell fluxes or the fluorescence yield, report it; it does not authorize this work. Only if the user then asks for it: add those blocks to `tools/data_library_generator/electron/generate.py` and sample k from them, **only on the photon-active path**. That keeps electron-only runs unchanged.
 
-### 4.4 Electron-impact relaxation (after §5)
+### 4.4 Electron-impact relaxation (refinement: do not implement unless specifically requested)
 
-In `sample_ionization`, when photons are active, relax the vacancy in the sampled subshell with the photoelectric relaxation tables, matching subshells by EADL designator. Emit fluorescence X-rays, plus Auger electrons since electrons are active by construction.
+If requested: in `sample_ionization`, when photons are active, relax the vacancy in the sampled subshell with the photoelectric relaxation tables, matching subshells by EADL designator. Emit fluorescence X-rays, plus Auger electrons since electrons are active by construction.
 
 This is deliberately ordered **after** the bench3 check, for two reasons:
 - MCNP's TTB model produces no electron-impact X-rays ("electron x-rays 0" in bench3), so this physics has to be off for that comparison to be like for like.
@@ -236,10 +237,10 @@ The uncoupled MC/DC run has none of this, so it should sit visibly below bench3 
    - Annihilation tracks and energy and the pair loss agree within statistics. These don't depend on coupling, so they check the bookkeeping.
    - Bremsstrahlung energy plus the positron estimate is within about 10 % of 2.28 MeV.
    - Fluorescence counts and inner-shell F4 move from the baseline toward bench3, with the remaining gap explained by §5.3 items 1–2.
-5. **What comes next depends on the result.**
-   - If the bremsstrahlung energy agrees but counts, fluorescence or F4 shape do not → do §4.3.
-   - If the energy itself is off → check the bremsstrahlung cross section and BREML before anything else.
-   - Run `MODE P E` comparisons in MCNP (needed for §4.4, Sauter and triplet refinements) only after this rough check passes.
+5. **Report the result; don't start follow-up work on your own.**
+   - If the bremsstrahlung energy agrees but counts, fluorescence or F4 shape do not, say so and name §4.3 as the likely cause. Do not implement §4.3 unless it is specifically requested.
+   - If the energy itself is off, that is a bug in the coupling: check the bremsstrahlung cross section, BREML and the banking before anything else.
+   - New MCNP `MODE P E` runs are only relevant to the refinements, so they are not part of this plan unless a refinement is requested.
 
 ---
 
@@ -252,9 +253,13 @@ The uncoupled MC/DC run has none of this, so it should sit visibly below bench3 
 | 2 | Auger electrons from photoelectric relaxation | Photon-only regressions bit-identical |
 | 3 | Bremsstrahlung photon banking (mean `dE`) | Electron-only regressions bit-identical |
 | 4 | bench3 verification (§5) | Pass criteria in §5.4 |
+The plan ends at step 4. The rows below are refinements, listed for reference only: **do not implement any of them unless the user specifically asks for that one.**
+
+| # | Refinement (only on specific request) | Gate if requested |
+|---|---|---|
 | 5 | Sauter photoelectron direction; bremsstrahlung angle sampling | Re-run §5 |
-| 6 | Bremsstrahlung spectrum (BREMI/BREME), if §5 calls for it | Re-run §5; electron-only regressions unchanged |
-| 7 | Electron-impact relaxation; optional triplet recoil | New MCNP `MODE P E` runs |
+| 6 | Bremsstrahlung spectrum (BREMI/BREME) | Re-run §5; electron-only regressions unchanged |
+| 7 | Electron-impact relaxation; triplet recoil | New MCNP `MODE P E` runs |
 
 ---
 
@@ -271,7 +276,7 @@ These are estimates of added Python lines, comments and docstrings included. The
 | Photoelectron (isotropic) | `physics/photon/native.py` | ≈ 20 |
 | Bethe–Heitler split sampler + pair-electron banking | `physics/photon/native.py` | ≈ 75 |
 | Auger electrons (`relax_subshell` return + banking) | `physics/photon/native.py` | ≈ 30 |
-| Bremsstrahlung photon banking + simple angle | `physics/electron/native.py` | ≈ 35 |
+| Bremsstrahlung photon banking along the electron direction | `physics/electron/native.py` | ≈ 35 |
 | **Source subtotal** | | **≈ 205** |
 | Unit tests, one per behaviour | `test/unit/photon/test_coupling.py` | ≈ 150 |
 | Coupled regression deck | `test/regression/photon_pb_spheres_coupled/input.py` (+ binary `answer.h5`) | ≈ 85 |
@@ -280,13 +285,13 @@ These are estimates of added Python lines, comments and docstrings included. The
 
 Not in the PR: the bench3 production-ledger script (§5.4), about 150 lines, on the fork's `dev`.
 
-**Later refinements (steps 5–7), each a separate PR: about 400 more lines.**
+**Refinements (steps 5–7), only if specifically requested, each its own PR: about 400 more lines.**
 
 | Piece | Lines (source + test) |
 |---|---|
 | Sauter photoelectron direction, 2BS/Tsai bremsstrahlung angle | ≈ 65 + 30 |
-| Bremsstrahlung spectrum: generator BREMI/BREME, loader, sampler (only if §5 needs it) | ≈ 105 + 30 |
+| Bremsstrahlung spectrum: generator BREMI/BREME, loader, sampler | ≈ 105 + 30 |
 | Electron-impact relaxation: subshell designator map, cascade in `sample_ionization` | ≈ 70 + 40 |
 | Triplet recoil electron | ≈ 45 + 20 |
 
-**The full plan comes to about 800–900 lines**, roughly half of it in the first PR.
+**The planned work is the coupling PR, about 450 lines.** The refinements would bring the total to about 800–900 lines, but only if they are requested.
