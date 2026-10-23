@@ -494,14 +494,23 @@ def photoelectric(
         B = mcdc_get.element.photon_photoelectric_subshell_binding_energy(
             subshell, element, data
         )
+        # Line and Auger energies come from the relaxation tables and can
+        # slightly exceed this binding energy, so each electron takes at most
+        # what is left, keeping the local deposit non-negative.
+        E_left = E - E_primary - E_cascade
+        T = min(E - B, E_left)
         emit_isotropic_electron(
-            E - B, particle_container, interaction_data_container, program
+            T, particle_container, interaction_data_container, program
         )
+        E_left -= max(T, 0.0)
+        T = min(E_auger_primary, E_left)
         emit_isotropic_electron(
-            E_auger_primary, particle_container, interaction_data_container, program
+            T, particle_container, interaction_data_container, program
         )
+        E_left -= max(T, 0.0)
+        T = min(E_auger_cascade, E_left)
         emit_isotropic_electron(
-            E_auger_cascade, particle_container, interaction_data_container, program
+            T, particle_container, interaction_data_container, program
         )
 
     if E_primary <= 0.0:
