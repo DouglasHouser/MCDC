@@ -521,9 +521,10 @@ def write_cosine_distribution(data, group):
 
 
 def write_kalbach_mann(data, group):
-    """KalbachMannDistributionData -> flat arrays; offset[i] = start of table i."""
+    """KalbachMannDistributionData -> flat arrays; offset[i] = start of table i.
+    Kalbach-Mann Distribution has LAW = 44"""
     group.attrs["type"] = "kalbach-mann"
-    group.attrs["law"] = 44
+    group.attrs["LAW"] = int(data.LAW)
     write_array(group, "energy", data.incident_energies, unit="MeV")
 
     offset, energy_out, pdf, cdf, precompound, slope = [], [], [], [], [], []
@@ -546,7 +547,7 @@ def write_kalbach_mann(data, group):
 
 def write_tabulated_energy(data, group):
     """
-    Law 4 (OutgoingEnergyDistributionData) -> flat arrays in MC/DC's 'tabulated'
+    LAW 4 (OutgoingEnergyDistributionData) -> flat arrays in MC/DC's 'tabulated'
     layout: energy (incident), offset, value (outgoing energies), pdf.  cdf is also
     written.
 
@@ -559,15 +560,14 @@ def write_tabulated_energy(data, group):
     them and would treat the lines as continuum.
     """
     group.attrs["type"] = "tabulated"
-    group.attrs["law"] = 4
+    group.attrs["LAW"] = int(data.LAW)
     write_array(group, "energy", data.incident_energies, unit="MeV")
 
     offset, value, pdf, cdf, interpolation, n_discrete = [], [], [], [], [], []
     for i in range(1, data.number_incident_energies + 1):
         dist = data.distribution(i)
         # The first two words of a tabulated-energy table are INTT and NP. Check that
-        # reading them this way agrees with the table length, so a layout surprise
-        # fails loudly instead of silently writing wrong flags.
+        # reading them this way agrees with the table length.
         intt, n_points = int(dist.xss(1)), int(dist.xss(2))
         if n_points != len(dist.outgoing_energies):
             fail(
@@ -602,7 +602,7 @@ def write_energy_distribution(data, group):
         write_tabulated_energy(data, group)
     elif isinstance(data, C.LevelScatteringDistribution):
         group.attrs["type"] = "level-scattering"
-        group.attrs["law"] = 3
+        group.attrs["LAW"] = int(data.LAW)
         group.create_dataset("C1", data=data.C1)
         group.create_dataset("C2", data=data.C2)
     else:
