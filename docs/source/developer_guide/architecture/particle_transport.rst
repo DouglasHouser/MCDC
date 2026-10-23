@@ -68,7 +68,10 @@ Particle-specific reactions supply the available-energy deposition balance and h
 The shared function uses ``InteractionData.incident_particle`` for the incident state and the active particle's RNG stream for sampling.
 Products that are not transported leave their energy in the local deposition balance.
 Currently, proton inelastic reactions call this function for prompt, single-spectrum products, retaining the existing nuclear frame transformation and census routing.
-Photon reactions do not call it: their only transported products are photons, so photoelectric fluorescence lines and pair-production annihilation photons are banked directly by the photon physics as same-species products, and every charged product leaves its energy in the local deposition balance.
+Products whose energy and direction follow from the reaction kinematics rather than from a tabulated spectrum go through ``emit_cross_species`` instead, after the caller checks ``is_transported``; both paths share ``bank_cross_species`` for energy accounting and census routing.
+Photon reactions use it for the Compton recoil electron, the photoelectron and Auger electrons, and the pair-production electron, whose share is sampled from the Bethe-Heitler distribution; positrons are not transported, so the positron's kinetic energy always deposits locally.
+Electron bremsstrahlung uses it for the photon carrying the tabulated mean energy loss, emitted along the electron direction.
+Same-species products, such as fluorescence lines and annihilation photons, are still banked directly by the photon physics.
 
 Tally Triggers and Scoring
 --------------------------

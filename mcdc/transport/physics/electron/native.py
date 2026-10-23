@@ -22,9 +22,15 @@ from mcdc.constant import (
     ELECTRON_REACTION_TOTAL,
     INTERPOLATION_LINEAR,
     LIGHT_SPEED,
+    PARTICLE_PHOTON,
+    PHOTON_CUTOFF_ENERGY,
     PI,
 )
 from mcdc.transport.data import evaluate_data
+from mcdc.transport.physics.cross_species_production import (
+    emit_cross_species,
+    is_transported,
+)
 from mcdc.transport.distribution import invert_tabulated_segment, sample_distribution
 from mcdc.transport.physics.util import (
     evaluate_electron_xs_energy_grid,
@@ -243,7 +249,7 @@ def collision(particle_container, interaction_data_container, program, data):
                     reaction,
                     particle_container,
                     interaction_data_container,
-                    simulation,
+                    program,
                     data,
                 )
                 return
@@ -414,8 +420,15 @@ def evaluate_eloss(E, reaction, simulation, data):
 
 @njit
 def sample_bremsstrahlung(
-    reaction, particle_container, interaction_data_container, simulation, data
+    reaction, particle_container, interaction_data_container, program, data
 ):
+    """Lose the tabulated mean bremsstrahlung photon energy.
+
+    When photons are transported, that energy leaves as a photon along the
+    electron's direction (as in MCNP's thick-target bremsstrahlung model);
+    otherwise the photon is not tracked.
+    """
+    simulation = util.access_simulation(program)
     particle = particle_container[0]
     interaction_data = interaction_data_container[0]
 
@@ -428,6 +441,21 @@ def sample_bremsstrahlung(
     dE = evaluate_eloss(E, bremsstrahlung, simulation, data)
     E_out = E - dE
 
+    # The photon is available energy: banked when transported, else deposited.
+    if is_transported(PARTICLE_PHOTON, simulation["settings"]):
+        interaction_data["energy_deposition"] += dE * particle["w"]
+        if dE > PHOTON_CUTOFF_ENERGY:
+            emit_cross_species(
+                PARTICLE_PHOTON,
+                dE,
+                particle["ux"],
+                particle["uy"],
+                particle["uz"],
+                particle_container,
+                interaction_data_container,
+                program,
+            )
+
     # Check for cutoff
     if E_out <= ELECTRON_CUTOFF_ENERGY:
         interaction_data["energy_deposition"] += E_out * particle["w"]
@@ -435,7 +463,7 @@ def sample_bremsstrahlung(
         particle["alive"] = False
         return
 
-    # If above cutoff, allow photon to escape and update electron energy
+    # If above cutoff, update the electron energy
     particle["E"] = E_out
 
 
