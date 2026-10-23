@@ -1,8 +1,8 @@
 # Photon–Electron Coupling: Physics and Integration Plan
 
-Branch: `feature/photon-transport` · Drafted 2026-10-19
+Work branch: `feature/photon-electron-coupling`, cut from `mcdc-project/dev` at `645a7bc0` (the merge of photon transport, mcdc-project/mcdc#565) · Drafted 2026-10-19, revised 2026-10-22 after the photon merge
 
-Photons and electrons are both transported on this branch, but neither one creates the other.
+Photons and electrons are both transported in upstream `dev`, but neither one creates the other.
 Every electron a photon produces is deposited on the spot, and every bremsstrahlung photon an electron produces is dropped.
 This document covers the physics of the coupling, the decisions already made, the integration plan (built on the proton→neutron coupling already merged from upstream `mcdc-project/mcdc`), and a first verification against an existing MCNP run that needs no new MCNP jobs.
 
@@ -14,7 +14,8 @@ This document covers the physics of the coupling, the decisions already made, th
 |---|---|
 | Positrons | **Not added.** No positron particle type. The positron's kinetic energy is deposited at the pair site, and its annihilation stays there too (two back-to-back 511 keV photons, as now). |
 | Electron-only runs | **Bit-for-bit unchanged.** When photon transport is inactive, every electron code path, including its RNG draws, stays exactly as it is today. All new electron-side behavior sits behind `settings["photon_transport"]["active"]`. |
-| Photon-only runs | Same rule in reverse: when electron transport is inactive, the photon physics, its RNG draws and the 8 `photon_*` regression answers stay unchanged. |
+| Photon-only runs | Same rule in reverse: when electron transport is inactive, the photon physics, its RNG draws and the three `photon_*` regression answers (`photon_pb_spheres`, `photon_pb_cylinder_edep`, `photon_mm_spheres_spectrum`) stay unchanged. |
+| PR scope | The coupling PR carries the coupling and nothing else: physics, its tests, one regression case, the architecture-doc paragraph and one CHANGELOG line. This plan, the bench3 verification script and its results stay out of it, on the fork's `dev`. That matches how upstream split AGENTS.md out of the photon PR. |
 | Bremsstrahlung | Use the bremsstrahlung reaction already in the electron module. When photons are active, the photon it already accounts for (`dE`) is banked as a transported photon instead of being dropped. No new library data is needed to start (see §4.3 for the spectral limit this leaves). |
 | Triplet production | No new cross sections and no new sampling functions (see §3). |
 | Activation | Follow upstream: the second species is opt-in through `simulation.settings.electron_transport.active = True` (or `photon_transport`), the same way the proton→neutron coupling turns on neutrons. Sources still turn on their own species automatically. |
@@ -77,10 +78,17 @@ It only matters for depth-dose detail above a few MeV in low-Z media, so it wait
 
 ## 4. Integration plan
 
-### 4.0 Sync and shared helper
+### 4.0 Branch and shared helper
 
-1. **Merge upstream `dev`.** The branch is 20 commits behind `mcdc-project/dev`. The incoming work includes per-particle-type weight windows (#563) and the source upgrade (#564), which coupled γ/e⁻ problems will want.
-2. **Factor out the banking tail.** `physics/cross_species_production.py::produce_cross_species` combines two things:
+1. **Branch.** Work on `feature/photon-electron-coupling`, cut from `mcdc-project/dev`. That base already contains the photon merge, per-particle-type weight windows (#563) and the source upgrade (#564), so no sync step is left. If upstream `dev` moves before the PR opens, merge it into the branch. Do not rebase once the branch is pushed.
+2. **Code changes from the photon merge.** Write against the merged names:
+   - `PHOTON_REACTION_COHERENT_SCATTERING` and `PHOTON_REACTION_INCOHERENT_SCATTERING` (formerly `_COHERENT` / `_INCOHERENT`).
+   - `PhotonReactionCoherentScattering` / `PhotonReactionIncoherentScattering`, with `photon_*_scattering_reactions` on `Element` and the simulation.
+   - Cross sections interpolate lin-lin through `interpolate_xs` (no more log-log).
+   - `photon/constant_xs.py` is gone, so `photon/interface.py` always dispatches to `native`.
+   - Secondary containers use `util.local_array(1, type_.particle_data)`, not `np.zeros`; new banking code must do the same, for GPU.
+   - `cross_species_production.py` and the electron module are unchanged by the merge.
+3. **Factor out the banking tail.** `physics/cross_species_production.py::produce_cross_species` combines two things:
    - yield/spectrum sampling from library products (proton-specific);
    - a generic tail: activation check → `copy_as_child` → set phase space → subtract `E·w` from the deposit → census-or-active bank.
 
@@ -98,8 +106,8 @@ It only matters for depth-dose detail above a few MeV in low-Z media, so it wait
    ```
 
    `produce_cross_species` then calls this helper, with no behavior change; `lockwood` and `proton_beam` must stay bit-identical.
-3. **Fix the activation gap.** The activation check in `produce_cross_species` has no `PARTICLE_PHOTON` branch, so a photon product is currently always treated as inactive. Add the branch in the helper.
-4. Callers check activation **before** drawing any random number for the product's direction. This keeps uncoupled runs bit-identical (§1).
+4. **Fix the activation gap.** The activation check in `produce_cross_species` has no `PARTICLE_PHOTON` branch, so a photon product is currently always treated as inactive. Add the branch in the helper.
+5. Callers check activation **before** drawing any random number for the product's direction. This keeps uncoupled runs bit-identical (§1).
 
 ### 4.1 Photon → electron (`physics/photon/native.py`)
 
@@ -141,11 +149,17 @@ This is deliberately ordered **after** the bench3 check, for two reasons:
 
 ### 4.5 Tests
 
-- **Energy conservation per event** (unit tests, Python mode): incident E equals local deposit plus the sum of banked product energies, for Compton, photoelectric (with and without Auger), pair, and bremsstrahlung, each with the partner species on and off.
-- **Compton recoil spectrum:** a histogram of T reproduces the Klein–Nishina dσ/dT, including the Compton edge 2κE/(1+2κ).
-- **Kinematics:** the momentum sum is conserved for Compton (p_γ = p_γ′ + p_e).
-- **Isolation regressions:** with the partner species inactive, the `photon_*` regressions, `lockwood` and `proton_beam` match their answers bit for bit.
-- **New regression** `photon_pb_spheres_coupled`: the bench3 geometry with electrons active and few particles, like the existing decks.
+Upstream trimmed the photon unit tests to one per behaviour before merging (`test/unit/photon/`, six files), so coupling tests follow that density: one test per behaviour, not a matrix.
+
+- **Energy conservation** (`test/unit/photon/test_coupling.py`, Python mode): one test per producing event (Compton, photoelectric with Auger, pair, bremsstrahlung). Each checks that incident E equals local deposit plus banked product energy, with the partner species active.
+- **Compton kinematics:** one test that the recoil electron closes momentum, p_γ = p_γ′ + p_e, and stays within the Compton edge 2κE/(1+2κ).
+- **Isolation regressions:** with the partner species inactive, `photon_pb_spheres`, `photon_pb_cylinder_edep`, `photon_mm_spheres_spectrum`, `lockwood` and `proton_beam` match their answers bit for bit. This needs no new files; the existing suite is the test.
+- **New regression** `photon_pb_spheres_coupled`: the bench3 geometry with electrons active and few particles, sized like the trimmed decks (upstream cut regressions that ran too long in #574).
+
+### 4.6 Docs
+
+- `docs/source/developer_guide/architecture/particle_transport.rst`, Cross-Species Production section: replace the paragraph that begins "Photon reactions do not call it" with one describing `bank_cross_species` and the photon↔electron products.
+- `CHANGELOG.md`, Unreleased/Added: one line for photon–electron coupling.
 
 ---
 
@@ -217,7 +231,7 @@ The uncoupled MC/DC run has none of this, so it should sit visibly below bench3 
 
 1. **Baseline.** Run `photon_pb_spheres` uncoupled at a production particle count and record the shell F4 values and their ratio to bench3. This is the gap coupling should close.
 2. **Coupled run.** Run the same deck with `simulation.settings.electron_transport.active = True`.
-3. **Production ledger** (verification script only, Python mode, no production code). Wrap the bank calls to accumulate tracks and energy per source by creating mechanism (bremsstrahlung, annihilation, 1st/2nd fluorescence, and bremsstrahlung from pair electrons), so the results line up with the §5.1 table.
+3. **Production ledger** (verification script only, Python mode, no production code, kept on the fork's `dev` under `photon-transport-docs/`, not in the PR). Wrap the bank calls to accumulate tracks and energy per source by creating mechanism (bremsstrahlung, annihilation, 1st/2nd fluorescence, and bremsstrahlung from pair electrons), so the results line up with the §5.1 table.
 4. **Pass criteria (rough).**
    - Annihilation tracks and energy and the pair loss agree within statistics. These don't depend on coupling, so they check the bookkeeping.
    - Bremsstrahlung energy plus the positron estimate is within about 10 % of 2.28 MeV.
@@ -233,7 +247,7 @@ The uncoupled MC/DC run has none of this, so it should sit visibly below bench3 
 
 | # | Step | Gate |
 |---|---|---|
-| 0 | Merge upstream `dev`; add `bank_cross_species` and the photon activation branch | `lockwood`, `proton_beam`, `photon_*` bit-identical |
+| 0 | Add `bank_cross_species` and the photon activation branch on `feature/photon-electron-coupling` | `lockwood`, `proton_beam`, three `photon_*` bit-identical |
 | 1 | Compton recoil, photoelectron (isotropic), pair e⁻ | Energy-conservation and Compton-edge unit tests |
 | 2 | Auger electrons from photoelectric relaxation | Photon-only regressions bit-identical |
 | 3 | Bremsstrahlung photon banking (mean `dE`) | Electron-only regressions bit-identical |
@@ -241,3 +255,38 @@ The uncoupled MC/DC run has none of this, so it should sit visibly below bench3 
 | 5 | Sauter photoelectron direction; bremsstrahlung angle sampling | Re-run §5 |
 | 6 | Bremsstrahlung spectrum (BREMI/BREME), if §5 calls for it | Re-run §5; electron-only regressions unchanged |
 | 7 | Electron-impact relaxation; optional triplet recoil | New MCNP `MODE P E` runs |
+
+---
+
+## 7. Expected size
+
+These are estimates of added Python lines, comments and docstrings included. They assume the density of the merged photon module, where a 25-line function typically carries about 10 lines of docstring and comments. The uncertainty is about ±30 %.
+
+**The coupling PR (steps 0–4): about 450 lines.**
+
+| Piece | Where | Lines |
+|---|---|---|
+| `bank_cross_species` helper, `produce_cross_species` reduced to call it, photon activation branch | `physics/cross_species_production.py` | +50 / −30 (≈ +20 net) |
+| Compton recoil electron | `physics/photon/native.py` | ≈ 25 |
+| Photoelectron (isotropic) | `physics/photon/native.py` | ≈ 20 |
+| Bethe–Heitler split sampler + pair-electron banking | `physics/photon/native.py` | ≈ 75 |
+| Auger electrons (`relax_subshell` return + banking) | `physics/photon/native.py` | ≈ 30 |
+| Bremsstrahlung photon banking + simple angle | `physics/electron/native.py` | ≈ 35 |
+| **Source subtotal** | | **≈ 205** |
+| Unit tests, one per behaviour | `test/unit/photon/test_coupling.py` | ≈ 150 |
+| Coupled regression deck | `test/regression/photon_pb_spheres_coupled/input.py` (+ binary `answer.h5`) | ≈ 85 |
+| Architecture paragraph + CHANGELOG line | `docs/…/particle_transport.rst`, `CHANGELOG.md` | ≈ 8 |
+| **PR total** | | **≈ 450** |
+
+Not in the PR: the bench3 production-ledger script (§5.4), about 150 lines, on the fork's `dev`.
+
+**Later refinements (steps 5–7), each a separate PR: about 400 more lines.**
+
+| Piece | Lines (source + test) |
+|---|---|
+| Sauter photoelectron direction, 2BS/Tsai bremsstrahlung angle | ≈ 65 + 30 |
+| Bremsstrahlung spectrum: generator BREMI/BREME, loader, sampler (only if §5 needs it) | ≈ 105 + 30 |
+| Electron-impact relaxation: subshell designator map, cascade in `sample_ionization` | ≈ 70 + 40 |
+| Triplet recoil electron | ≈ 45 + 20 |
+
+**The full plan comes to about 800–900 lines**, roughly half of it in the first PR.
