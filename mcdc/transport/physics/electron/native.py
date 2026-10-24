@@ -13,6 +13,7 @@ import mcdc.transport.util as util
 
 from mcdc.constant import (
     BREMSSTRAHLUNG_PHOTON_CUTOFF_ENERGY,
+    DATA_TABLE,
     DISTRIBUTION_MULTITABLE,
     EVENT_TIME_CENSUS,
     ELECTRON_CUTOFF_ENERGY,
@@ -37,6 +38,7 @@ from mcdc.transport.physics.cross_species_production import (
 from mcdc.transport.distribution import (
     invert_tabulated_segment,
     sample_distribution,
+    sample_tabulated,
     sample_isotropic_direction,
 )
 from mcdc.transport.physics.util import (
@@ -359,9 +361,20 @@ def sample_elastic_scattering(
         # ---------------------------------------------------------------------
 
         mu_distribution = simulation["distributions"][elastic_scattering["mu_ID"]]
-        mu0 = sample_distribution(
-            E, mu_distribution, particle_container, simulation, data
-        )
+        mean_deflection = simulation["data"][elastic_scattering["mean_deflection_ID"]]
+        if mean_deflection["sub_type"] == DATA_TABLE:
+            mu0 = sample_scaled_cosine(
+                E,
+                mu_distribution,
+                mean_deflection,
+                particle_container,
+                simulation,
+                data,
+            )
+        else:
+            mu0 = sample_distribution(
+                E, mu_distribution, particle_container, simulation, data
+            )
 
     else:
         # ---------------------------------------------------------------------
@@ -396,6 +409,43 @@ def compute_scattering_eta(E, Z):
     rel = math.sqrt(tau / (tau + 1.0))
 
     return 0.25 * (r * r) * z_sq * bracket * rel
+
+
+@njit
+def sample_scaled_cosine(E, distribution, mean_deflection, rng_state, simulation, data):
+    """Sample the large-angle cosine at the table below E, rescaled to E.
+
+    EPRDATA14 tabulates the angular distribution at few incident energies
+    (none between 256 keV and 10 MeV), while the angular width falls roughly as
+    1 / p^2. The sampled ``1 - mu`` is scaled by the ratio of the mean
+    deflections, the transport over the elastic cross section, at E and at the
+    table energy. That keeps the screened-Rutherford shape, which is
+    self-similar in ``(1 - mu) / eta``, and reproduces the transport cross
+    section at every energy.
+    """
+    multi_table = simulation["multi_table_distributions"][distribution["sub_ID"]]
+    grid = mcdc_get.multi_table_distribution.grid_all(multi_table, data)
+
+    if E <= grid[0]:
+        idx = 0
+    elif E >= grid[-1]:
+        idx = len(grid) - 1
+    else:
+        idx = find_bin(E, grid)
+
+    ID = mcdc_get.multi_table_distribution.table_IDs(idx, multi_table, data)
+    table = simulation["tabulated_distributions"][
+        simulation["distributions"][ID]["sub_ID"]
+    ]
+    mu = sample_tabulated(table, rng_state, simulation, data)
+
+    if E <= grid[idx]:
+        return mu
+    mean_table = evaluate_data(grid[idx], mean_deflection, simulation, data)
+    if mean_table <= 0.0:
+        return mu
+    scale = evaluate_data(E, mean_deflection, simulation, data) / mean_table
+    return 1.0 - (1.0 - mu) * min(scale, 1.0)
 
 
 @njit
