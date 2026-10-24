@@ -16,6 +16,7 @@ from mcdc.constant import (
     ELECTRON_MASS,
     LIGHT_SPEED,
     PARTICLE_ELECTRON,
+    PARTICLE_POSITRON,
     PHOTON_CUTOFF_ENERGY,
     PHOTON_REACTION_COHERENT_SCATTERING,
     PHOTON_REACTION_INCOHERENT_SCATTERING,
@@ -726,13 +727,13 @@ def pair_production(
     """Convert the photon to an electron-positron pair.
 
     The pair's kinetic energy, ``E - 2 m_e c^2``, deposits at the collision site.
-    When electrons are transported, the electron's share, sampled from the
-    Bethe-Heitler distribution, is banked instead. Positrons are not
-    transported: the positron's share always deposits locally, and it
-    annihilates at rest into two 511 keV photons, which *are* transported: they
-    carry the deep-penetration buildup that treating pair production as pure
-    absorption would discard. Pair production in the electron field (triplet)
-    is sampled the same way.
+    When electrons are transported, the electron and positron are banked
+    instead, with the Bethe-Heitler split of that energy, and the positron
+    annihilates into two 511 keV photons where it stops. Otherwise the positron
+    annihilates at rest here; the annihilation photons are transported either
+    way, since they carry the deep-penetration buildup that treating pair
+    production as pure absorption would discard. Pair production in the
+    electron field (triplet) is sampled the same way.
     """
     simulation = util.access_simulation(program)
     particle = particle_container[0]
@@ -740,9 +741,9 @@ def pair_production(
 
     E = particle["E"]
 
-    # The pair's kinetic energy deposits locally, less the electron's share if
-    # it is banked; the two annihilation photons deposit their energy at their
-    # own later collision sites.
+    # The pair's kinetic energy deposits locally, less the shares that are
+    # banked; the two annihilation photons deposit their energy at their own
+    # later collision sites.
     interaction_data["energy_deposition"] += (E - PAIR_PRODUCTION_THRESHOLD) * particle[
         "w"
     ]
@@ -750,10 +751,10 @@ def pair_production(
     if is_transported(PARTICLE_ELECTRON, simulation["settings"]):
         eps = sample_bethe_heitler(E, element["atomic_number"], particle_container)
         T = eps * E - ELECTRON_MASS
+        azi = 2.0 * PI * rng.lcg(particle_container)
         if T > ELECTRON_CUTOFF_ENERGY:
             # Fixed polar angle 1/gamma about the photon direction, as in EGS4.
             mu = math.cos(ELECTRON_MASS / (T + ELECTRON_MASS))
-            azi = 2.0 * PI * rng.lcg(particle_container)
             ux, uy, uz = scatter_direction(
                 particle["ux"], particle["uy"], particle["uz"], mu, azi
             )
@@ -767,6 +768,28 @@ def pair_production(
                 interaction_data_container,
                 program,
             )
+
+        # The positron takes the rest, on the opposite azimuth, and annihilates
+        # where it stops.
+        T_positron = (1.0 - eps) * E - ELECTRON_MASS
+        if T_positron > ELECTRON_CUTOFF_ENERGY:
+            mu = math.cos(ELECTRON_MASS / (T_positron + ELECTRON_MASS))
+            ux, uy, uz = scatter_direction(
+                particle["ux"], particle["uy"], particle["uz"], mu, azi + PI
+            )
+            emit_cross_species(
+                PARTICLE_POSITRON,
+                T_positron,
+                ux,
+                uy,
+                uz,
+                particle_container,
+                interaction_data_container,
+                program,
+            )
+            particle["alive"] = False
+            particle["E"] = 0.0
+            return
 
     # Revive the current history in place as the first annihilation photon.
     ux, uy, uz = sample_isotropic_direction(particle_container)

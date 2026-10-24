@@ -289,6 +289,7 @@ electron_reaction = into_dtype([
 
 electron_bremsstrahlung_reaction = into_dtype([
     ('eloss_ID', int64),
+    ('photon_energy_ID', int64),
     ('ID', int64),
     ('base_ID', int64),
 ])

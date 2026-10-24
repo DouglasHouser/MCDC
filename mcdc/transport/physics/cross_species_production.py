@@ -16,6 +16,7 @@ from mcdc.constant import (
     PARTICLE_ELECTRON,
     PARTICLE_NEUTRON,
     PARTICLE_PHOTON,
+    PARTICLE_POSITRON,
     PARTICLE_PROTON,
     PI,
     REFERENCE_FRAME_COM,
@@ -144,7 +145,7 @@ def is_transported(particle_type, settings):
     """Whether products of ``particle_type`` are transported in this simulation."""
     if particle_type == PARTICLE_NEUTRON:
         return settings["neutron_transport"]["active"]
-    elif particle_type == PARTICLE_ELECTRON:
+    elif particle_type == PARTICLE_ELECTRON or particle_type == PARTICLE_POSITRON:
         return settings["electron_transport"]["active"]
     elif particle_type == PARTICLE_PROTON:
         return settings["proton_transport"]["active"]

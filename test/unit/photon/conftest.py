@@ -208,11 +208,12 @@ def write_photon_library(
 BREMSSTRAHLUNG_LOSS_FRACTION = 0.1
 
 
-def write_electron_bremsstrahlung(path):
+def write_electron_bremsstrahlung(path, brems_spectrum=False):
     """Add a bremsstrahlung-only electron library to an element file.
 
     Bremsstrahlung is the only electron reaction that creates a photon, so it
-    is the only one the coupling tests need.
+    is the only one the coupling tests need. With ``brems_spectrum``, the
+    photon energy is uniform in ``[0, E]``.
     """
     with h5py.File(path, "a") as file:
         reactions = file.create_group("electron_reactions")
@@ -233,14 +234,21 @@ def write_electron_bremsstrahlung(path):
         )
         value.attrs["unit"] = "eV"
 
+        if brems_spectrum:
+            spectrum = mt_group.create_group("photon_energy")
+            spectrum.create_dataset("energy_grid", data=np.array([1.0e2, 1.0e8]))
+            spectrum.create_dataset("energy_offset", data=np.array([0, 2]))
+            spectrum.create_dataset("value", data=np.array([0.0, 1.0e2, 0.0, 1.0e8]))
+            spectrum.create_dataset("CDF", data=np.array([0.0, 1.0, 0.0, 1.0]))
+
 
 @pytest.fixture
 def coupled_model(tmp_path, monkeypatch, prepare_simulation):
     """A one-element material with photon and electron transport both active."""
 
-    def build(density=1.0, **library):
+    def build(density=1.0, brems_spectrum=False, **library):
         write_photon_library(tmp_path / "X.h5", **library)
-        write_electron_bremsstrahlung(tmp_path / "X.h5")
+        write_electron_bremsstrahlung(tmp_path / "X.h5", brems_spectrum)
         monkeypatch.setenv("MCDC_LIB", str(tmp_path))
 
         material = mcdc.Material(element_composition={"X": density})

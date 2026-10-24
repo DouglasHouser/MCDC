@@ -13,7 +13,12 @@ import mcdc.mcdc_get as mcdc_get
 import mcdc.transport.physics.electron.native as electron
 import mcdc.transport.physics.photon.native as native
 
-from mcdc.constant import ELECTRON_MASS, PARTICLE_ELECTRON, PARTICLE_PHOTON
+from mcdc.constant import (
+    ELECTRON_MASS,
+    PARTICLE_ELECTRON,
+    PARTICLE_PHOTON,
+    PARTICLE_POSITRON,
+)
 
 from conftest import (
     BREMSSTRAHLUNG_LOSS_FRACTION,
@@ -94,8 +99,8 @@ def test_photoelectric_banks_the_photoelectron_and_auger_electron(coupled_model)
     assert deposited + sum(energies) == pytest.approx(E, rel=1e-12)
 
 
-def test_pair_production_banks_the_electron_share(coupled_model):
-    """Deposit + electron + two annihilation photons = the incident energy."""
+def test_pair_production_banks_the_electron_and_positron(coupled_model):
+    """Deposit + electron + positron + rest masses = the incident energy."""
     simulation, data = coupled_model()
     _banked(simulation)
     E = 1.0e7
@@ -106,17 +111,37 @@ def test_pair_production_banks_the_electron_share(coupled_model):
         container, interaction, simulation["elements"][0], simulation, data
     )
 
-    banked = _banked(simulation)
-    (pair_electron,) = [p for p in banked if p["particle_type"] == PARTICLE_ELECTRON]
-    T = pair_electron["E"]
-    assert 0.0 < T < E - 2.0 * ELECTRON_MASS
+    # The photon is gone; the positron annihilates where it stops
+    assert not container[0]["alive"]
+    electron_, positron = sorted(_banked(simulation), key=lambda p: p["particle_type"])
+    assert electron_["particle_type"] == PARTICLE_ELECTRON
+    assert positron["particle_type"] == PARTICLE_POSITRON
+    T = electron_["E"] + positron["E"]
+    assert interaction[0]["energy_deposition"] == pytest.approx(0.0, abs=1e-6)
+    assert T == pytest.approx(E - 2.0 * ELECTRON_MASS, rel=1e-12)
 
-    photons = container[0]["E"] + sum(
-        p["E"] for p in banked if p["particle_type"] == PARTICLE_PHOTON
-    )
-    assert photons == pytest.approx(2.0 * ELECTRON_MASS, rel=1e-12)
-    deposited = interaction[0]["energy_deposition"]
-    assert deposited + T + photons == pytest.approx(E, rel=1e-12)
+    # Both leave forward, on opposite azimuths
+    assert electron_["uz"] > 0.0 and positron["uz"] > 0.0
+    assert electron_["ux"] * positron["ux"] + electron_["uy"] * positron["uy"] < 0.0
+
+
+def test_stopped_positron_annihilates_into_two_back_to_back_photons(coupled_model):
+    """The stopped positron's rest mass leaves as two 511 keV photons."""
+    simulation, data = coupled_model()
+    _banked(simulation)
+    T = 50.0  # Below the electron cutoff
+    container = make_photon(T, seed=9)
+    container[0]["particle_type"] = PARTICLE_POSITRON
+    interaction = make_interaction_data()
+
+    electron.collision(container, interaction, simulation, data)
+
+    assert not container[0]["alive"]
+    first, second = _banked(simulation)
+    assert first["particle_type"] == second["particle_type"] == PARTICLE_PHOTON
+    assert first["E"] == second["E"] == pytest.approx(ELECTRON_MASS)
+    assert np.allclose(_direction(first), -_direction(second))
+    assert interaction[0]["energy_deposition"] == pytest.approx(T, rel=1e-9)
 
 
 @pytest.mark.parametrize("E", [1.5e6, 1.0e7, 1.0e8])
@@ -158,3 +183,34 @@ def test_bremsstrahlung_banks_the_photon_along_the_electron(coupled_model):
     assert np.allclose(_direction(photon), _direction(container[0]))
     assert container[0]["E"] + photon["E"] == pytest.approx(E, rel=1e-12)
     assert interaction[0]["energy_deposition"] == pytest.approx(0.0, abs=1e-6)
+
+
+def test_bremsstrahlung_photon_energy_follows_the_spectrum(coupled_model):
+    """With a spectrum, k is sampled from it, and the electron loses k."""
+    simulation, data = coupled_model(brems_spectrum=True)
+    element = simulation["elements"][0]
+    reaction_ID = int(
+        mcdc_get.element.electron_bremsstrahlung_reaction_IDs(0, element, data)
+    )
+    reaction = simulation["electron_reactions"][reaction_ID]
+
+    E = 1.0e6
+    k = []
+    for seed in range(1, 2001):
+        _banked(simulation)
+        container = make_photon(E, seed=seed)
+        container[0]["particle_type"] = PARTICLE_ELECTRON
+        interaction = make_interaction_data()
+        electron.sample_bremsstrahlung(
+            reaction, container, interaction, simulation, data
+        )
+        banked = _banked(simulation)
+        k_i = banked[0]["E"] if banked else 0.0
+        E_left = container[0]["E"] + interaction[0]["energy_deposition"]
+        assert E_left + k_i == pytest.approx(E, rel=1e-12)
+        k.append(k_i)
+
+    # Uniform in [0, E]: mean E / 2, against the tabulated mean loss of 0.1 E
+    k = np.array(k)
+    assert k.max() <= E
+    assert k.mean() == pytest.approx(0.5 * E, rel=0.05)

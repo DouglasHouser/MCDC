@@ -12,6 +12,8 @@ import mcdc.transport.rng as rng
 import mcdc.transport.util as util
 
 from mcdc.constant import (
+    BREMSSTRAHLUNG_PHOTON_CUTOFF_ENERGY,
+    DISTRIBUTION_MULTITABLE,
     EVENT_TIME_CENSUS,
     ELECTRON_CUTOFF_ENERGY,
     ELECTRON_MASS,
@@ -22,8 +24,9 @@ from mcdc.constant import (
     ELECTRON_REACTION_TOTAL,
     INTERPOLATION_LINEAR,
     LIGHT_SPEED,
+    PARTICLE_ELECTRON,
     PARTICLE_PHOTON,
-    PHOTON_CUTOFF_ENERGY,
+    PARTICLE_POSITRON,
     PI,
 )
 from mcdc.transport.data import evaluate_data
@@ -31,7 +34,11 @@ from mcdc.transport.physics.cross_species_production import (
     emit_cross_species,
     is_transported,
 )
-from mcdc.transport.distribution import invert_tabulated_segment, sample_distribution
+from mcdc.transport.distribution import (
+    invert_tabulated_segment,
+    sample_distribution,
+    sample_isotropic_direction,
+)
 from mcdc.transport.physics.util import (
     evaluate_electron_xs_energy_grid,
     scatter_direction,
@@ -132,6 +139,45 @@ def _reaction_micro_xs(E, idx, E0, E1, reaction, data):
 
 @njit
 def collision(particle_container, interaction_data_container, program, data):
+    """Collide an electron or positron.
+
+    A positron uses the electron reactions and annihilates where it stops.
+    """
+    _collision(particle_container, interaction_data_container, program, data)
+
+    particle = particle_container[0]
+    if particle["particle_type"] == PARTICLE_POSITRON and not particle["alive"]:
+        annihilate(particle_container, interaction_data_container, program)
+
+
+@njit
+def annihilate(particle_container, interaction_data_container, program):
+    """Annihilate a stopped positron into two back-to-back 511 keV photons."""
+    simulation = util.access_simulation(program)
+    if not is_transported(PARTICLE_PHOTON, simulation["settings"]):
+        return
+
+    particle = particle_container[0]
+    interaction_data = interaction_data_container[0]
+
+    # The rest mass is the photons' available energy
+    interaction_data["energy_deposition"] += 2.0 * ELECTRON_MASS * particle["w"]
+    ux, uy, uz = sample_isotropic_direction(particle_container)
+    for sign in (1.0, -1.0):
+        emit_cross_species(
+            PARTICLE_PHOTON,
+            ELECTRON_MASS,
+            sign * ux,
+            sign * uy,
+            sign * uz,
+            particle_container,
+            interaction_data_container,
+            program,
+        )
+
+
+@njit
+def _collision(particle_container, interaction_data_container, program, data):
     simulation = util.access_simulation(program)
     particle = particle_container[0]
     interaction_data = interaction_data_container[0]
@@ -422,11 +468,13 @@ def evaluate_eloss(E, reaction, simulation, data):
 def sample_bremsstrahlung(
     reaction, particle_container, interaction_data_container, program, data
 ):
-    """Lose the tabulated mean bremsstrahlung photon energy.
+    """Emit a bremsstrahlung photon.
 
-    When photons are transported, that energy leaves as a photon along the
-    electron's direction (as in MCNP's thick-target bremsstrahlung model);
-    otherwise the photon is not tracked.
+    When photons are transported, the photon energy is sampled from the
+    library's spectrum (the tabulated mean energy loss if the library has
+    none), and the photon leaves along the electron's direction. Otherwise the
+    electron loses the tabulated mean photon energy and the photon is not
+    tracked.
     """
     simulation = util.access_simulation(program)
     particle = particle_container[0]
@@ -439,12 +487,14 @@ def sample_bremsstrahlung(
     E = particle["E"]
 
     dE = evaluate_eloss(E, bremsstrahlung, simulation, data)
-    E_out = E - dE
 
     # The photon is available energy: banked when transported, else deposited.
     if is_transported(PARTICLE_PHOTON, simulation["settings"]):
+        spectrum = simulation["distributions"][bremsstrahlung["photon_energy_ID"]]
+        if spectrum["sub_type"] == DISTRIBUTION_MULTITABLE:
+            dE = sample_photon_energy(E, spectrum, particle_container, simulation, data)
         interaction_data["energy_deposition"] += dE * particle["w"]
-        if dE > PHOTON_CUTOFF_ENERGY:
+        if dE > BREMSSTRAHLUNG_PHOTON_CUTOFF_ENERGY:
             emit_cross_species(
                 PARTICLE_PHOTON,
                 dE,
@@ -455,6 +505,7 @@ def sample_bremsstrahlung(
                 interaction_data_container,
                 program,
             )
+    E_out = E - dE
 
     # Check for cutoff
     if E_out <= ELECTRON_CUTOFF_ENERGY:
@@ -465,6 +516,36 @@ def sample_bremsstrahlung(
 
     # If above cutoff, update the electron energy
     particle["E"] = E_out
+
+
+@njit
+def sample_photon_energy(E, spectrum, rng_state, simulation, data):
+    """Sample the bremsstrahlung photon energy from the library spectrum.
+
+    One random number inverts the two tables bounding E. Each sample is taken
+    as a fraction of its table's incident energy, and the fraction is
+    interpolated linearly in log E, so the photon energy scales with E between
+    the coarse EPRDATA14 incident grid points and never exceeds E.
+    """
+    multi_table = simulation["multi_table_distributions"][spectrum["sub_ID"]]
+    grid = mcdc_get.multi_table_distribution.grid_all(multi_table, data)
+
+    xi = rng.lcg(rng_state)
+
+    if E <= grid[0]:
+        y = _invert_spectrum_table(0, xi, multi_table, simulation, data) / grid[0]
+    elif E >= grid[-1]:
+        idx = len(grid) - 1
+        y = _invert_spectrum_table(idx, xi, multi_table, simulation, data) / grid[idx]
+    else:
+        idx = find_bin(E, grid)
+        E0 = grid[idx]
+        E1 = grid[idx + 1]
+        y0 = _invert_spectrum_table(idx, xi, multi_table, simulation, data) / E0
+        y1 = _invert_spectrum_table(idx + 1, xi, multi_table, simulation, data) / E1
+        y = y0 + (y1 - y0) * math.log(E / E0) / math.log(E1 / E0)
+
+    return min(y, 1.0) * E
 
 
 # ======================================================================================
@@ -577,6 +658,8 @@ def sample_ionization(
     particle_new = particle_container_new[0]
     particle_module.copy_as_child(particle_container_new, particle_container)
 
+    # A positron's knock-on is an electron
+    particle_new["particle_type"] = PARTICLE_ELECTRON
     particle_new["E"] = T_delta
     particle_new["ux"] = ux_delta
     particle_new["uy"] = uy_delta
@@ -621,19 +704,21 @@ def sample_delta_energy(E, B, distribution, rng_state, simulation, data):
 
     # Below the first table above B: scale its sample to reach zero at E = B
     if E <= grid[first]:
-        T_delta = _invert_delta_table(first, xi, multi_table, simulation, data)
+        T_delta = _invert_spectrum_table(first, xi, multi_table, simulation, data)
         T_delta *= (E - B) / (grid[first] - B)
 
     # Above the grid: use the last table
     elif E >= grid[-1]:
-        T_delta = _invert_delta_table(len(grid) - 1, xi, multi_table, simulation, data)
+        T_delta = _invert_spectrum_table(
+            len(grid) - 1, xi, multi_table, simulation, data
+        )
 
     else:
         idx = find_bin(E, grid)
         E0 = grid[idx]
         E1 = grid[idx + 1]
-        T0 = _invert_delta_table(idx, xi, multi_table, simulation, data)
-        T1 = _invert_delta_table(idx + 1, xi, multi_table, simulation, data)
+        T0 = _invert_spectrum_table(idx, xi, multi_table, simulation, data)
+        T1 = _invert_spectrum_table(idx + 1, xi, multi_table, simulation, data)
 
         if T0 > 0.0 and T1 > 0.0:
             T_delta = log_interpolation(E, E0, E1, T0, T1)
@@ -646,7 +731,7 @@ def sample_delta_energy(E, B, distribution, rng_state, simulation, data):
 
 
 @njit
-def _invert_delta_table(idx, xi, multi_table, simulation, data):
+def _invert_spectrum_table(idx, xi, multi_table, simulation, data):
     """Invert the spectrum table at grid index idx with a given random number."""
 
     ID = mcdc_get.multi_table_distribution.table_IDs(idx, multi_table, data)

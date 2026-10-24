@@ -18,7 +18,11 @@ from mcdc.constant import (
 from mcdc.object_.secondary_product import SecondaryProduct
 from mcdc.object_.base import MCDCPolymorphic
 from mcdc.object_.data import DataBase, DataTable
-from mcdc.object_.distribution import DistributionBase, DistributionMultiTable
+from mcdc.object_.distribution import (
+    DistributionBase,
+    DistributionMultiTable,
+    DistributionNone,
+)
 from mcdc.print_ import print_1d_array, print_error
 
 # ======================================================================================
@@ -258,17 +262,23 @@ class ElectronReactionElasticScattering(ElectronReactionBase):
 
 
 class ElectronReactionBremsstrahlung(ElectronReactionBase):
-    """Electron bremsstrahlung reaction with tabulated energy loss."""
+    """Electron bremsstrahlung reaction with tabulated energy loss.
+
+    ``photon_energy`` is the photon energy spectrum, sampled when photons are
+    transported.
+    """
 
     # MC/DC framework metadata
     label = "electron_bremsstrahlung_reaction"
     sub_type = ELECTRON_REACTION_BREMSSTRAHLUNG
 
     eloss: DataBase
+    photon_energy: DistributionBase
 
-    def __init__(self, MT, xs, xs_offset, reference_frame, eloss):
+    def __init__(self, MT, xs, xs_offset, reference_frame, eloss, photon_energy):
         super().__init__(MT, xs, xs_offset, reference_frame)
         self.eloss = eloss
+        self.photon_energy = photon_energy
 
     @classmethod
     def from_h5_group(cls, h5_group):
@@ -282,11 +292,24 @@ class ElectronReactionBremsstrahlung(ElectronReactionBase):
             INTERPOLATION_LINEAR,
         )
 
-        return cls(MT, xs, xs_offset, reference_frame, eloss)
+        # Older libraries have no photon spectrum; the photon then takes the
+        # mean energy loss
+        photon_energy = DistributionNone()
+        if "photon_energy" in h5_group:
+            spectrum = h5_group["photon_energy"]
+            photon_energy = DistributionMultiTable(
+                read_energy(spectrum["energy_grid"]),
+                spectrum["energy_offset"][()],
+                read_energy(spectrum["value"]),
+                cdf=spectrum["CDF"][()],
+            )
+
+        return cls(MT, xs, xs_offset, reference_frame, eloss, photon_energy)
 
     def __repr__(self):
         text = super().__repr__()
         text += f"  - Energy loss: DataTable [ID: {self.eloss.ID}]\n"
+        text += f"  - Photon energy: {distribution.decode_type(self.photon_energy.type)} [ID: {self.photon_energy.ID}]\n"
         return text
 
 
