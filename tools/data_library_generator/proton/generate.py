@@ -1107,7 +1107,7 @@ def main():
     )
 
     ace_files = sorted(f for f in os.listdir(ace_dir) if f.endswith(".ace"))
-    print(f'{len(ace_files)} ACE files found')
+    print(f"{len(ace_files)} ACE files found")
     if args.only:
         missing = [f for f in args.only if f not in ace_files]
         if missing:

@@ -40,7 +40,9 @@ def _write_proton_library(path):
             file["radiation_length"] = np.float64(1.0)
 
             neutron_reactions = file.create_group("neutron_reactions")
-            neutron_reactions["xs_energy_grid"] = np.array([0.1, 1.0, 10.0], dtype=np.float64)
+            neutron_reactions["xs_energy_grid"] = np.array(
+                [0.1, 1.0, 10.0], dtype=np.float64
+            )
             neutron_reactions.create_group("elastic_scattering")
             neutron_reactions.create_group("capture")
             neutron_reactions.create_group("inelastic_scattering")
@@ -56,14 +58,18 @@ def _write_proton_library(path):
                 reaction["xs"].attrs["offset"] = 0
                 reaction["reference_frame"] = np.bytes_("LAB")
                 reaction["Q-value"] = np.float64(q_value)
-                _write_angular_distribution(reaction.create_group("angular_cosine_distribution"))
+                _write_angular_distribution(
+                    reaction.create_group("angular_cosine_distribution")
+                )
                 return reaction
 
             add_reaction("elastic_scattering", 2, [1.0, 1.0, 1.0], 0.0)
             capture = add_reaction("capture", 103, [0.5, 0.5, 0.5], 1.0)
             inelastic = add_reaction("inelastic_scattering", 4, [0.5, 0.5, 0.5], 0.5)
             inelastic["multiplicity"] = np.int64(1)
-            inelastic["spectrum_probability_grid"] = np.array([0.0, 1.0], dtype=np.float64)
+            inelastic["spectrum_probability_grid"] = np.array(
+                [0.0, 1.0], dtype=np.float64
+            )
             inelastic["spectrum_probability"] = np.array([[1.0]], dtype=np.float64)
             _write_tabulated_distribution(
                 inelastic.create_group("energy_spectrum-1"),
@@ -83,7 +89,9 @@ def _write_proton_library(path):
                 value=[0.0, 1.0],
                 pdf=[1.0, 1.0],
             )
-            _write_angular_distribution(neutron.create_group("angular_cosine_distribution"))
+            _write_angular_distribution(
+                neutron.create_group("angular_cosine_distribution")
+            )
 
     for nuclide_name, mass in [("H1", 1), ("H2", 2)]:
         write_nuclide_library(nuclide_name, mass)
