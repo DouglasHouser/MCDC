@@ -59,6 +59,10 @@ docs/source/reference/python_api/generated/
 dummy_nuclide.h5
 source_particles.h5
 
+# Local benchmark studies (merged data libraries, production runs, analyses).
+# Only their regression decks, test/regression/photon_electron_*, are tracked.
+benchmarks/
+
 # Container artifacts
 *.sif
 *_sandbox
