@@ -994,15 +994,14 @@ def write_nuclide(h5, table, nuclide, Z, A, S, pstar_dir, verbose):
 
 def process_ace_file(ace_path, output_dir, pstar_dir=None, verbose=False):
     """Convert one proton ACE file to HDF5. Returns the output file name."""
-    with open(ace_path) as f:
-        header = ACEtk.Header.from_string(f.readline())
+    table = ACEtk.ContinuousEnergyTable.from_file(ace_path)
+    header = table.header
     Z, A, S = decode_ace_zaid(header.zaid)
     if not 1 <= Z <= len(ELEMENT_SYMBOLS):
         fail(f"Unsupported Z={Z} in {ace_path}")
     symbol = ELEMENT_SYMBOLS[Z - 1]
     nuclide = f"{symbol}{A}" if S == 0 else f"{symbol}{A}m{S}"
 
-    table = ACEtk.ContinuousEnergyTable.from_file(ace_path)
     out_name = f"{nuclide}-{T_KELVIN}K.h5"
     out_path = os.path.join(output_dir, out_name)
     tmp_path = out_path + ".partial"
@@ -1072,8 +1071,7 @@ def process_pstar_only_file(symbol, A, awr, output_dir, pstar_dir, verbose=False
 
 def nuclide_of(ace_path):
     """Nuclide name (e.g. 'Al27') of an ACE file, from its header."""
-    with open(ace_path) as f:
-        header = ACEtk.Header.from_string(f.readline())
+    header = ACEtk.Table.from_file(ace_path).header
     Z, A, S = decode_ace_zaid(header.zaid)
     symbol = ELEMENT_SYMBOLS[Z - 1] if 1 <= Z <= len(ELEMENT_SYMBOLS) else f"Z{Z}"
     return f"{symbol}{A}" if S == 0 else f"{symbol}{A}m{S}"
@@ -1109,6 +1107,7 @@ def main():
     )
 
     ace_files = sorted(f for f in os.listdir(ace_dir) if f.endswith(".ace"))
+    print(f'{len(ace_files)} ACE files found')
     if args.only:
         missing = [f for f in args.only if f not in ace_files]
         if missing:
