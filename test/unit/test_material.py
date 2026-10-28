@@ -369,6 +369,7 @@ def weighted_simulation(monkeypatch):
         return MCDCObject._compile_into_simulation(nuclide, simulation)
 
     def compile_element(element, simulation):
+        element.atomic_weight_ratio = element_weight(element.name) / AMU
         return MCDCObject._compile_into_simulation(element, simulation)
 
     monkeypatch.setattr(Nuclide, "_compile_into_simulation", compile_nuclide)
@@ -525,19 +526,6 @@ def test_mass_inputs_are_validated(kwargs, expected_message, capsys):
     assert expected_message in capsys.readouterr().out
 
 
-def test_mass_density_of_an_element_without_abundance_data_is_rejected(
-    weighted_simulation, capsys
-):
-    material = Material(mass_density={"Xx": 1.0})
-
-    with pytest.raises(SystemExit):
-        material._compile_into_simulation(weighted_simulation)
-
-    assert (
-        "No natural isotopic abundance data for element Xx" in capsys.readouterr().out
-    )
-
-
 @pytest.fixture
 def compile_without_data(monkeypatch):
     # Full simulation compilation without reading data-library files
@@ -552,7 +540,9 @@ def compile_without_data(monkeypatch):
 
     def compile_element(element, simulation):
         element.atomic_number = 1
-        element.atomic_weight_ratio = 1.0
+        element.atomic_weight_ratio = (
+            element_weight(element.name) / AMU if element.name == "O" else 1.0
+        )
         return MCDCObject._compile_into_simulation(element, simulation)
 
     monkeypatch.setattr(Nuclide, "_compile_into_simulation", compile_nuclide)
@@ -686,16 +676,6 @@ def test_mass_inputs_combine_with_hybrid_multigroup_data(weighted_simulation):
 
     assert material.has_neutron_multigroup
     assert material.nuclide_densities == pytest.approx([atoms(0.1, AWR["H1"])])
-
-
-def test_element_isotopes_use_the_material_temperature(weighted_simulation):
-    material = Material(mass_density={"O": 1.0}, temperature=650.0)
-
-    material._compile_into_simulation(weighted_simulation)
-
-    # 650 K snaps to the nearest supported temperature, 600 K
-    assert {n.temperature for n in weighted_simulation.nuclides} == {600.0}
-    assert {n.name for n in weighted_simulation.nuclides} == set(natural("O", 1.0))
 
 
 def test_material_docstring_examples_are_valid_python():

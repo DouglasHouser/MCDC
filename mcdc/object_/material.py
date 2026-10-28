@@ -355,7 +355,7 @@ class Material(MCDCObject):
             if self.mass_density:
                 density = _number_density_from_mass(
                     self.mass_density[element.name],
-                    _element_weight(element.name, self.temperature, simulation),
+                    _element_weight(element, simulation),
                 )
                 converted[element.name] = density
             element_composition[element] = density
@@ -538,28 +538,10 @@ def _nuclide_weight(nuclide, simulation):
     return nuclide.atomic_weight_ratio * NEUTRON_MASS_AMU
 
 
-def _element_weight(element_name, temperature, simulation):
-    """Atomic weight of a natural element in amu."""
-    if element_name not in ISOTOPIC_ABUNDANCE:
-        print_error(
-            f"No natural isotopic abundance data for element {element_name}; "
-            "specify its nuclides directly."
-        )
-
-    # Average the isotope weights by natural abundance. This needs the isotope
-    # files, even for problems that never transport neutrons; reading the
-    # element's own atomic_weight_ratio from its library file might be preferable.
-    nearest_temperature = _get_supported_temperature(temperature)
-    abundances = ISOTOPIC_ABUNDANCE[element_name]
-    weighted = sum(
-        abundance
-        * _nuclide_weight(
-            _get_or_create_nuclide(isotope, nearest_temperature, simulation),
-            simulation,
-        )
-        for isotope, abundance in abundances.items()
-    )
-    return weighted / sum(abundances.values())
+def _element_weight(element, simulation):
+    """Atomic weight of a natural element in amu, from the element's own data."""
+    element._compile_into_simulation(simulation)
+    return element.atomic_weight_ratio * NEUTRON_MASS_AMU
 
 
 def _get_supported_temperature(temperature):
