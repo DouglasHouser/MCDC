@@ -64,9 +64,9 @@ class Material(MCDCObject):
 
     Notes
     -----
-    A nuclide or element composition connects the material to MC/DC's native
-    transport physics through its data libraries. Particle-specific data can
-    augment native interaction data or support specialized and reduced
+    Material composition connects the material to MC/DC's native
+    transport physics through its data libraries by specifying the nuclides or elements to use data from.
+    Particle-specific data can augment native interaction data or support specialized and reduced
     transport treatments.
 
     ``NeutronMultigroupData`` describes discrete neutron energy groups and
@@ -74,8 +74,7 @@ class Material(MCDCObject):
     alone or alongside a native composition.
 
     ``number_density`` allows nuclides and elements to be mixed in a single dict.
-    Specify only one of ``number_density``, ``mass_density``, and
-    ``mass_fractions``.
+    Specify only one of ``number_density``, ``mass_density``, or ``mass_fractions``.
 
     Atomic symbols ("U", "Si") are interpreted as elements, and atomic symbols with
     mass numbers ("U235", "O16") are interpreted as nuclides. For neutrons, elements
