@@ -45,11 +45,11 @@ def test_multigroup_factory_returns_a_material_and_forwards_transport_data():
 
 
 def test_material_accepts_native_multigroup_and_hybrid_data():
-    native = Material(nuclide_composition={"H1": 0.1})
+    native = Material(number_density={"H1": 0.1})
     neutron_multigroup = mcdc.NeutronMultigroupData(capture=[0.2])
     multigroup = Material(neutron_multigroup=neutron_multigroup)
     hybrid = Material(
-        element_composition={"H": 0.1},
+        number_density={"H": 0.1},
         neutron_multigroup=mcdc.NeutronMultigroupData(
             scatter=[[0.3]],
             energy_grid=[1.0e-5, 20.0e6],
@@ -72,8 +72,22 @@ def test_material_accepts_native_multigroup_and_hybrid_data():
         ({}, "Material requires"),
         (
             {
-                "nuclide_composition": {"H1": 0.1},
-                "element_composition": {"H": 0.1},
+                "number_density": {"H1": 0.1},
+                "mass_density": {"H1": 0.1},
+            },
+            "Cannot specify more than one of",
+        ),
+        (
+            {
+                "number_density": {"H1": 0.1},
+                "mass_fractions": {"H1": 0.1},
+            },
+            "Cannot specify more than one of",
+        ),
+        (
+            {
+                "mass_fractions": {"H1": 0.1},
+                "mass_density": {"H1": 0.1},
             },
             "Cannot specify more than one of",
         ),
@@ -87,14 +101,7 @@ def test_material_accepts_native_multigroup_and_hybrid_data():
         ),
         (
             {
-                "nuclide_composition": {"H1": 0.1},
-                "neutron_multigroup": mcdc.NeutronMultigroupData(capture=[0.2]),
-            },
-            "requires an explicit neutron multigroup energy_grid",
-        ),
-        (
-            {
-                "element_composition": {"H": 0.1},
+                "number_density": {"H1": 0.1},
                 "neutron_multigroup": mcdc.NeutronMultigroupData(capture=[0.2]),
             },
             "requires an explicit neutron multigroup energy_grid",
@@ -119,7 +126,7 @@ def test_absent_mg_points_to_the_reserved_simulation_object(monkeypatch):
     simulation = mcdc.Simulation()
     simulation.set_model([mcdc.Cell()])
     simulation.compile()
-    material = Material(nuclide_composition={"H1": 0.1})
+    material = Material(number_density={"H1": 0.1})
 
     material._compile_into_simulation(simulation)
 
@@ -184,7 +191,7 @@ def test_element_symbol_from_nuclide_name():
 def test_elements_from_nuclides_do_not_merge_prefix_symbols(monkeypatch):
     monkeypatch.setattr(Element, "_compile_into_simulation", lambda self, sim: True)
     material = Material(
-        nuclide_composition={"C12": 1.0, "Cr52": 10.0, "H1": 100.0, "He4": 1000.0}
+        number_density={"C12": 1.0, "Cr52": 10.0, "H1": 100.0, "He4": 1000.0}
     )
     set_elements_from_nuclides(material, SimpleNamespace(elements=[]))
 
@@ -483,7 +490,7 @@ def test_mass_fractions_close_to_one_are_normalized_without_a_warning(capsys):
             "Cannot specify more than one of",
         ),
         (
-            {"mass_density": {"H1": 1.0}, "nuclide_composition": {"H1": 0.1}},
+            {"mass_fractions": {"H1": 1.0}, "number_density": {"H1": 0.1}},
             "Cannot specify more than one of",
         ),
         (
@@ -608,13 +615,6 @@ def test_mass_inputs_survive_electron_simulation_compilation(compile_without_dat
 )
 def test_is_nuclide_name(name, expected):
     assert is_nuclide_name(name) is expected
-
-
-def test_number_density_cannot_be_combined_with_an_alias(capsys):
-    with pytest.raises(SystemExit):
-        Material(number_density={"H1": 0.1}, nuclide_composition={"H1": 0.1})
-
-    assert "Cannot specify more than one of" in capsys.readouterr().out
 
 
 def test_mass_inputs_are_packed_as_atomic_densities(

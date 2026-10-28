@@ -38,10 +38,6 @@ class Material(MCDCObject):
         User-facing material name.
     number_density : dict of str to float, optional
         Nuclide or element names and atomic densities in atoms/(barn cm).
-    nuclide_composition : dict of str to float, optional
-        Nuclide names and atomic densities in atoms/(barn cm). Alias for number_density.
-    element_composition : dict of str to float, optional
-        Element symbols and atomic densities in atoms/(barn cm). Alias for number_density.
     temperature : float, optional
         Material temperature in kelvin. Each nuclide uses the closest
         temperature available in the data library (elements do not have temperature).
@@ -78,10 +74,8 @@ class Material(MCDCObject):
     alone or alongside a native composition.
 
     ``number_density`` allows nuclides and elements to be mixed in a single dict.
-    ``element_composition`` and ``nuclide_composition`` are aliases for
-    ``number_density``. Specify only one of ``number_density``,
-    ``nuclide_composition``, ``element_composition``, ``mass_density``, and
-    ``mass_fractions``; the first three have the same behavior.
+    Specify only one of ``number_density``, ``mass_density``, and
+    ``mass_fractions``.
 
     Atomic symbols ("U", "Si") are interpreted as elements, and atomic symbols with
     mass numbers ("U235", "O16") are interpreted as nuclides. For neutrons, elements
@@ -160,8 +154,6 @@ class Material(MCDCObject):
     label = "material"
     non_numba = [
         "number_density",
-        "nuclide_composition",
-        "element_composition",
         "mass_density",
     ]
 
@@ -172,8 +164,6 @@ class Material(MCDCObject):
 
     number_density: dict[str, float]  # Non-Numba
     mass_density: dict[str, float]  # Non-Numba
-    nuclide_composition: dict[Nuclide, float]  # Non-Numba
-    element_composition: dict[Element, float]  # Non-Numba
     neutron_multigroup: NeutronMultigroupData
 
     nuclides: list[Nuclide]
@@ -191,8 +181,6 @@ class Material(MCDCObject):
         self,
         name: str = "",
         number_density: dict[str, float] | NoneType = None,
-        nuclide_composition: dict[str, float] | NoneType = None,
-        element_composition: dict[str, float] | NoneType = None,
         temperature: float = 293.6,
         neutron_multigroup: NeutronMultigroupData | NoneType = None,
         mass_density: dict[str, float] | NoneType = None,
@@ -203,22 +191,13 @@ class Material(MCDCObject):
 
         # Normalize optional compositions without mutable argument defaults
         number_density = number_density or {}
-        nuclide_composition = nuclide_composition or {}
-        element_composition = element_composition or {}
         mass_density = mass_density or {}
         mass_fractions = mass_fractions or {}
 
         # Require one valid material-data representation
-        if (
-            bool(nuclide_composition)
-            + bool(element_composition)
-            + bool(number_density)
-            + bool(mass_density)
-            + bool(mass_fractions)
-        ) > 1:
+        if (bool(number_density) + bool(mass_density) + bool(mass_fractions)) > 1:
             print_error(
-                "Cannot specify more than one of nuclide_composition, "
-                "element_composition, number_density, mass_density, or mass_fractions."
+                "Cannot specify more than one of number_density, mass_density, or mass_fractions."
             )
         if bool(mass_fractions) != (density is not None):
             print_error("mass_fractions and density must be specified together.")
@@ -228,14 +207,7 @@ class Material(MCDCObject):
             value < 0.0 for value in (*mass_density.values(), *mass_fractions.values())
         ):
             print_error("mass_density and mass_fractions must be non-negative.")
-        if any(
-            value < 0.0
-            for value in (
-                *number_density.values(),
-                *nuclide_composition.values(),
-                *element_composition.values(),
-            )
-        ):
+        if any(value < 0.0 for value in number_density.values()):
             print_error("Atomic densities must be non-negative.")
 
         # Reduce mass fractions to per-name mass densities
@@ -253,16 +225,9 @@ class Material(MCDCObject):
                 for name, fraction in mass_fractions.items()
             }
 
-        if (
-            not nuclide_composition
-            and not element_composition
-            and not number_density
-            and not mass_density
-            and neutron_multigroup is None
-        ):
+        if not number_density and not mass_density and neutron_multigroup is None:
             print_error(
-                "Material requires nuclide_composition, element_composition, "
-                "number_density, mass_density, mass_fractions, or neutron_multigroup."
+                "Material requires number_density, mass_density, mass_fractions, or neutron_multigroup."
             )
         if neutron_multigroup is not None and not isinstance(
             neutron_multigroup, NeutronMultigroupData
@@ -273,12 +238,7 @@ class Material(MCDCObject):
                 "Material neutron_multigroup must define at least one energy group."
             )
         if (
-            (
-                nuclide_composition
-                or element_composition
-                or number_density
-                or mass_density
-            )
+            (number_density or mass_density)
             and neutron_multigroup is not None
             and neutron_multigroup.G > 0
             and not np.any(neutron_multigroup.energy_grid)
@@ -300,10 +260,6 @@ class Material(MCDCObject):
         self.has_neutron_multigroup = self.neutron_multigroup.G > 0
         self.fissionable = self.neutron_multigroup.fissionable
 
-        if nuclide_composition:
-            number_density = nuclide_composition
-        if element_composition:
-            number_density = element_composition
         if mass_density:
             # Atomic densities need atomic weights, which are read at compile time
             number_density = dict.fromkeys(mass_density, 0.0)
