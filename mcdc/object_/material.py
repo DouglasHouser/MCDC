@@ -8,7 +8,7 @@ import h5py
 import os
 
 from mcdc.constant import (
-    AMU_PER_NEUTRON_MASS,
+    NEUTRON_MASS_AMU,
     AVOGADRO_BARN_CM,
     INTERPOLATION_LINEAR,
 )
@@ -579,7 +579,7 @@ def _number_density_from_mass(mass_density, weight):
 def _nuclide_weight(nuclide, simulation):
     """Atomic weight of a nuclide in amu, read from the data library."""
     nuclide._compile_into_simulation(simulation)
-    return nuclide.atomic_weight_ratio * AMU_PER_NEUTRON_MASS
+    return nuclide.atomic_weight_ratio * NEUTRON_MASS_AMU
 
 
 def _element_weight(element_name, temperature, simulation):
