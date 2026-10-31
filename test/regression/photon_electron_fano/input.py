@@ -2,19 +2,19 @@
 
 Three layers along z -- wall, cavity, wall -- hold lead, the cavity at 1% of
 the wall density. Every face is reflective, so the layers repeat into an
-infinite periodic medium. A uniform isotropic 6 MeV photon source emits in
+infinite periodic medium. A uniform isotropic 100 keV photon source emits in
 proportion to mass, the same number of photons per gram in every layer.
 
 By Fano's theorem, with a uniform source per unit mass and cross sections
 per unit mass that do not depend on density, the fluence of every species is
 independent of density. So per source photon the dose in each layer is
 E0 / M_total, the photon and electron fluences are the same in every layer,
-and the total deposition is E0. Nothing escapes, so this closes the coupling's
-energy books through pair production, bremsstrahlung, fluorescence and
-annihilation; any lost or misplaced energy shows up as a layer-to-layer bias.
+and the total deposition is E0. Nothing escapes, so the regression exercises
+photoelectric and Compton electron production, fluorescence, and electron
+energy deposition.
 
-At production statistics (5000 histories) every layer agrees with the theorem
-within 1 sigma. This deck runs a handful of histories for regression.
+The source energy is reduced to keep Python regression runs short; pair
+production and annihilation are covered by the coupling unit tests.
 """
 
 import os
@@ -31,7 +31,7 @@ simulation = mcdc.Simulation("Photon Fano test in lead")
 # Set model
 # ======================================================================================
 
-ENERGY = 6.0e6  # eV
+ENERGY = 1.0e5  # eV
 HALF_WIDTH = 0.5  # cm; physically irrelevant, the lateral faces reflect
 
 # Lead: n = rho / 207.2 g/mol * 6.02214076e23 /mol * 1e-24 atoms/barn-cm
