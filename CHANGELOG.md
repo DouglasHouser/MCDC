@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 ### Added
 
 - Add photon-electron coupling: Compton, photoelectric, Auger, and pair-production electrons and positrons, and bremsstrahlung photons with energies sampled from the EPRDATA14 spectrum, are transported when the other species is active, from [@DouglasHouser]
+- Add 'mass_density', 'mass_fraction', and 'number_density' to Material.__init__, each of which allows mixing elements and nuclides, from [@hansenkyle]
 - Add photon transport with coherent and incoherent scattering, photoelectric absorption with atomic relaxation, and pair production, from [@DouglasHouser]
 - Adopt Coveralls for unit test coverage reporting, from [@nglaser3]
 - Add cone surfaces with a half-angle interface in degrees, specialized transport kernels for all cone orientations, and a specialized arbitrary-axis cylinder kernel, from [@ilhamv]
@@ -53,6 +54,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 - Optimize tally moments memory allocation — only allocate to non-master rank if necessary, from [@ilhamv]
 
 ### Deprecated
+
+- `Material` initialization using `element_composition` or `nuclide_composition` is deprecated in favor of `number_density`, from [@hansenkyle]
 
 ### Removed
 

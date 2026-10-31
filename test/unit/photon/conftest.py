@@ -274,7 +274,7 @@ def photon_model(tmp_path, monkeypatch, prepare_simulation):
         write_photon_library(tmp_path / "X.h5", **library)
         monkeypatch.setenv("MCDC_LIB", str(tmp_path))
 
-        material = mcdc.Material(element_composition={"X": density})
+        material = mcdc.Material(number_density={"X": density})
         cell = mcdc.Cell(fill=material)
 
         def configure(simulation):
