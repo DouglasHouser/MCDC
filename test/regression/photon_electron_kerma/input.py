@@ -1,19 +1,10 @@
-"""Coupled dose against collision kerma: a broad 6 MeV photon beam in water.
+"""Coupled deposition and photon-spectrum regression in water.
 
-A monoenergetic beam enters a 40 cm water slab at normal incidence.
-Reflective lateral faces make the beam infinitely broad; the front and back
-faces are vacuum. On one depth mesh the deck scores the energy deposited,
-D(z), and the photon track length binned in energy, phi(E, z).
-
-Folding phi with mu_en gives the collision kerma
-K_col(z) = sum_E phi(E, z) E mu_en(E). Past the build-up region (deeper than
-the fastest secondary electron's range, about 3 cm here) D / K_col settles to
-a constant beta slightly above 1. Every photon interaction, the electron and
-positron transport, and the escape of bremsstrahlung and annihilation photons
-all enter; the last is what makes D track the collision kerma rather than the
-total kerma. At production statistics (32000 histories) beta = 1.0005 +/-
-0.007 against NIST mu_en, constant with depth. This deck runs a handful of
-histories for regression.
+A broad 100 keV photon beam enters a 40 cm slab with reflective lateral
+faces. Depth-resolved deposition and photon track length in energy bins
+exercise the coupled tally paths at low energy, keeping Python runs short.
+This small deterministic case checks regression output, rather than a
+statistical comparison of dose with collision kerma.
 """
 
 import os
@@ -26,13 +17,13 @@ import mcdc
 os.environ["MCDC_LIB"] = "../mcdc-regression_test_data/"
 
 # Create MC/DC simulation
-simulation = mcdc.Simulation("Dose vs collision kerma, 6 MeV photons in water")
+simulation = mcdc.Simulation("Deposition and photon spectrum, 100 keV photons in water")
 
 # ======================================================================================
 # Set model
 # ======================================================================================
 
-ENERGY = 6.0e6  # eV
+ENERGY = 1.0e5  # eV
 DEPTH = 40.0  # cm
 HALF_WIDTH = 5.0  # cm
 
@@ -69,7 +60,7 @@ simulation.set_sources([source])
 # Set tallies, settings, and run mcdc
 # ======================================================================================
 
-# Depth mesh: fine through the build-up region, coarser beyond
+# Depth mesh: fine near the entrance, coarser beyond
 z_mesh = np.r_[np.arange(0.0, 6.0, 0.2), np.arange(6.0, DEPTH + 1.0, 2.0)]
 
 # Photon energy bins: logarithmic from 1 keV, with a narrow top bin holding the

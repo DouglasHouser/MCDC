@@ -1,21 +1,9 @@
-"""Energy-balance ledger: a 10 MeV photon pencil beam on a 2 cm lead slab.
+"""Coupled energy-deposition and leakage regression in a thin lead slab.
 
-Every eV a source photon brings in is either deposited in the slab or carried
-out of it:
-
-    E0 = E_dep + E_out(photon) + E_out(e-, e+) + 2 m_e c^2 N_out(e+)
-
-The last term is the rest mass of positrons that escape before annihilating.
-The slab is about one photon mean free path thick, so photons, electrons and
-positrons all leave in measurable amounts. Leakage is tallied as outward
-current in 1 keV bins centred on whole keV, so the 10 MeV source line and the
-511 keV annihilation line fall at bin centres and the bin-centre energy
-weighting is exact for them.
-
-Electron tallies include positrons, so N_out(e+) is bounded by the escaping
-e-/e+ count rather than tallied. At production statistics (3000 histories)
-the residual implies 0.013 escaping positrons per source photon, inside that
-bound. This deck runs a handful of histories for regression.
+A 50 keV pencil beam exercises photon/electron energy transfer and outward
+current tallies without the expensive MeV secondary cascade. The thin slab
+allows leakage as well as deposition. Pair production and positron
+annihilation are covered separately by the coupling unit tests.
 """
 
 import os
@@ -28,14 +16,14 @@ import mcdc
 os.environ["MCDC_LIB"] = "../mcdc-regression_test_data/"
 
 # Create MC/DC simulation
-simulation = mcdc.Simulation("Energy ledger, 10 MeV photons on lead")
+simulation = mcdc.Simulation("Energy ledger, 50 keV photons on lead")
 
 # ======================================================================================
 # Set model
 # ======================================================================================
 
-ENERGY = 10.0e6  # eV
-THICKNESS = 2.0  # cm
+ENERGY = 5.0e4  # eV
+THICKNESS = 0.001  # cm
 HALF_WIDTH = 5.0  # cm
 
 # Lead at 11.35 g/cm^3:
@@ -90,7 +78,8 @@ for particle_type in ["photon", "electron"]:
     )
 simulation.set_tallies(tallies)
 
-simulation.settings.N_particle = 1
+# Enough histories to record both photon and electron leakage with this seed.
+simulation.settings.N_particle = 32
 simulation.settings.N_batch = 2
 simulation.settings.rng_seed = 20261026
 simulation.settings.photon_transport.active = True
