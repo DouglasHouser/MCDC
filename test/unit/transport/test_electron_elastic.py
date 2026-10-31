@@ -42,7 +42,7 @@ def elastic_model(tmp_path, monkeypatch, prepare_simulation):
     def build(transport=True):
         _write_elastic_library(tmp_path / "H.h5", transport)
         monkeypatch.setenv("MCDC_LIB", str(tmp_path))
-        cell = mcdc.Cell(fill=mcdc.Material(element_composition={"H": 1.0}))
+        cell = mcdc.Cell(fill=mcdc.Material(number_density={"H": 1.0}))
 
         def configure(simulation):
             simulation.settings.electron_transport.active = True

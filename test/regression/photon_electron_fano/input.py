@@ -47,7 +47,7 @@ LAYERS = [
 
 def lead(density, name):
     n = density / 207.2 * 6.02214076e23 * 1.0e-24
-    return mcdc.Material(element_composition={"Pb": n}, name=name)
+    return mcdc.Material(number_density={"Pb": n}, name=name)
 
 
 x0 = mcdc.Surface.PlaneX(x=-HALF_WIDTH, boundary_condition="reflective")

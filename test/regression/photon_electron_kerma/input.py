@@ -38,7 +38,7 @@ HALF_WIDTH = 5.0  # cm
 
 # Water at 1.0 g/cm^3:
 #   n(H2O) = 1.0 g/cm^3 / 18.0153 g/mol * 6.02214076e23 /mol * 1e-24 = 0.033428
-water = mcdc.Material(element_composition={"H": 0.066856, "O": 0.033428}, name="water")
+water = mcdc.Material(number_density={"H": 0.066856, "O": 0.033428}, name="water")
 
 x0 = mcdc.Surface.PlaneX(x=-HALF_WIDTH, boundary_condition="reflective")
 x1 = mcdc.Surface.PlaneX(x=HALF_WIDTH, boundary_condition="reflective")
