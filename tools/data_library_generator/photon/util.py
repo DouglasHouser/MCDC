@@ -509,7 +509,74 @@ def write_reference_frame(group, frame="LAB"):
     return group.create_dataset("reference_frame", data=frame.encode())
 
 
+# ======================================================================================
+# Compton profiles
+# ======================================================================================
+
+#: Inverse fine-structure constant (CODATA 2022). The atomic unit of momentum is
+#: ``m_e c / 137.036``, so this converts the source's momenta to ``m_e c``.
+FINE_STRUCTURE_INVERSE = 137.035999177
+
+#: Provenance written with every Compton profile group.
+COMPTON_PROFILE_SOURCE = (
+    "Hartree-Fock Compton profiles of F. Biggs, L. B. Mendelsohn and J. B. Mann, "
+    "At. Data Nucl. Data Tables 16, 201 (1975), as distributed in OpenMC's "
+    "compton_profiles.h5 (MIT license)"
+)
+
+
+def write_compton_profile(group, profiles, Z, source_sha256=""):
+    """Write one element's Compton profiles into an incoherent-scattering group.
+
+    Parameters
+    ----------
+    group : h5py.Group
+        The ``incoherent_scattering/MT504`` group to write into.
+    profiles : h5py.File
+        OpenMC's ``compton_profiles.h5``: a shared momentum grid ``pz`` in
+        atomic units, and per element ``<ZZZ>/{J, num_electrons,
+        binding_energy}`` with binding energies in MeV.
+    Z : int
+        Atomic number.
+    source_sha256 : str, optional
+        Checksum of the source file, recorded for provenance.
+
+    Notes
+    -----
+    Momentum is written in ``m_e c`` and the profile per ``m_e c``, so that the
+    integral of each profile over all momenta stays one per electron and the
+    runtime needs no unit conversion. The binding energies and occupancies are
+    the ones the profiles were computed with; they are deliberately not
+    replaced by EADL's, whose subshell structure differs for the outer shells.
+    """
+    source = profiles[f"{Z:03d}"]
+
+    compton_profile = group.create_group("compton_profile")
+    dataset = compton_profile.create_dataset(
+        "momentum",
+        data=np.asarray(profiles["pz"][()], dtype=np.float64) / FINE_STRUCTURE_INVERSE,
+    )
+    dataset.attrs["unit"] = "m_e c"
+    dataset = compton_profile.create_dataset(
+        "value",
+        data=np.asarray(source["J"][()], dtype=np.float64) * FINE_STRUCTURE_INVERSE,
+    )
+    dataset.attrs["unit"] = "1/(m_e c)"
+    compton_profile.create_dataset(
+        "n_electrons", data=np.asarray(source["num_electrons"][()], dtype=np.float64)
+    )
+    write_energy(
+        compton_profile, "binding_energy", source["binding_energy"][()] * 1.0e6
+    )
+    compton_profile.attrs["source"] = COMPTON_PROFILE_SOURCE
+    if source_sha256:
+        compton_profile.attrs["source_sha256"] = source_sha256
+    return compton_profile
+
+
 __all__ = [
+    "COMPTON_PROFILE_SOURCE",
+    "FINE_STRUCTURE_INVERSE",
     "MF27_ANOMALOUS_IMAGINARY",
     "MF27_ANOMALOUS_REAL",
     "MF27_FORM_FACTOR",
@@ -535,6 +602,7 @@ __all__ = [
     "read_tab1",
     "subshell_designator",
     "subshell_mt",
+    "write_compton_profile",
     "write_energy",
     "write_momentum_transfer",
     "write_reference_frame",

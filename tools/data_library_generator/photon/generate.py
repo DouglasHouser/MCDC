@@ -1,5 +1,6 @@
 import argparse
 import glob
+import hashlib
 import h5py
 import numpy as np
 import os
@@ -32,9 +33,20 @@ if eadl_dir is None:
     # photoelectric absorption simply emits no fluorescence.
     eadl_dir = ""
 
+# Compton profiles (OpenMC's compton_profiles.h5). Without them the library
+# still loads; incoherent scattering is simply not Doppler broadened.
+compton_profiles_path = os.getenv("MCDC_COMPTON_PROFILES") or ""
+compton_profiles = None
+compton_profiles_sha256 = ""
+if compton_profiles_path:
+    with open(compton_profiles_path, "rb") as source:
+        compton_profiles_sha256 = hashlib.sha256(source.read()).hexdigest()
+    compton_profiles = h5py.File(compton_profiles_path, "r")
+
 os.makedirs(output_dir, exist_ok=True)
 print(f"\nEPDL dir    : {epdl_dir}")
 print(f"EADL dir    : {eadl_dir or '(none -- no atomic relaxation)'}")
+print(f"Profiles    : {compton_profiles_path or '(none -- no Doppler broadening)'}")
 print(f"Output dir  : {output_dir}\n")
 
 _ZA_PATTERN = re.compile(r"ZA(\d{3})000", re.IGNORECASE)
@@ -190,6 +202,12 @@ for Z, symbol, mcdc_name, path in pbar:
                 util.write_momentum_transfer(scattering_function, q)
                 scattering_function.create_dataset("value", data=S)
 
+            # Bound-electron momentum distributions, for Doppler broadening.
+            if compton_profiles is not None and f"{Z:03d}" in compton_profiles:
+                util.write_compton_profile(
+                    mt_group, compton_profiles, Z, compton_profiles_sha256
+                )
+
         # ==============================================================================
         # Photoelectric subshells
         # ==============================================================================
@@ -277,5 +295,8 @@ for Z, symbol, mcdc_name, path in pbar:
                     transitions.create_dataset(
                         "secondary_designator", data=entry["secondary_designator"]
                     )
+
+if compton_profiles is not None:
+    compton_profiles.close()
 
 print("\nDone.\n")

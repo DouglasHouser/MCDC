@@ -10,6 +10,10 @@ Library (EADL) into the HDF5 format MC/DC reads for photon transport.
 - An EADL distribution in the same layout, named `EADL.ZA<ZZZ>000.endf`, for
   atomic relaxation. Optional: without it the library still loads, and
   photoelectric absorption simply emits no fluorescence.
+- OpenMC's `compton_profiles.h5` (in OpenMC's `openmc/data/`, MIT license),
+  for the Hartree-Fock Compton profiles of Biggs, Mendelsohn and Mann (1975).
+  Optional: without it the library still loads, and incoherent scattering is
+  simply not Doppler broadened.
 - No ACE reader is needed. EPDL and EADL are plain text and are parsed directly,
   so unlike the electron generator this one has no ACEtk dependency.
 
@@ -18,11 +22,13 @@ Library (EADL) into the HDF5 format MC/DC reads for photon transport.
 |-------------------|----------------------------------------------------|
 | `MCDC_EPDL_LIB`   | Path to the directory of EPDL ENDF files.          |
 | `MCDC_EADL_LIB`   | Path to the directory of EADL ENDF files.          |
+| `MCDC_COMPTON_PROFILES` | Path to OpenMC's `compton_profiles.h5`.      |
 | `MCDC_LIB_PHOTON` | Path to the output directory for MC/DC HDF5 files. |
 
 ```bash
 export MCDC_EPDL_LIB=/path/to/endf/epdl
 export MCDC_EADL_LIB=/path/to/endf/eadl
+export MCDC_COMPTON_PROFILES=/path/to/compton_profiles.h5
 export MCDC_LIB_PHOTON=/path/to/mcdc/photon/library
 ```
 
@@ -32,6 +38,15 @@ export MCDC_LIB_PHOTON=/path/to/mcdc/photon/library
 python generate.py              # convert elements missing from the output directory
 python generate.py --rewrite    # reconvert every element
 python generate.py --verbose    # print each element instead of a progress bar
+```
+
+`generate.py` writes each element file from scratch. To add Compton profiles to
+libraries that already exist -- including element files that have had other
+data merged into them -- run instead:
+
+```bash
+python add_compton_profiles.py            # add profiles where missing
+python add_compton_profiles.py --rewrite  # replace existing profiles
 ```
 
 ## What it Does
@@ -58,6 +73,11 @@ For each element found in `$MCDC_EPDL_LIB`:
    channels: zero is radiative, so a characteristic X-ray is emitted and
    transported, and non-zero is non-radiative (Auger), whose electron is not
    transported and therefore deposits locally.
+6. **Copies the Compton profiles** from `MCDC_COMPTON_PROFILES`, when given:
+   per shell, the one-sided profile `J(p_z)`, the occupancy and the binding
+   energy the profile was computed with. Momentum is converted from atomic
+   units to `m_e c` (and `J` to per `m_e c`), and binding energies from MeV to
+   eV. These shells are the profile's own, not EADL's subshells.
 
 Energies are written in **eV** and cross sections in **barns**, each declaring
 its unit, which is what `read_energy` and the runtime expect.
@@ -80,6 +100,11 @@ its unit, which is what `read_energy` and the runtime expect.
 │   ├── incoherent_scattering/MT504/
 │   │   ├── xs
 │   │   ├── scattering_function/{momentum_transfer, value}
+│   │   ├── compton_profile/                 attrs: source, source_sha256
+│   │   │   ├── momentum                     attrs: unit="m_e c"
+│   │   │   ├── value                        [shell, momentum], attrs: unit="1/(m_e c)"
+│   │   │   ├── n_electrons                  [shell]
+│   │   │   └── binding_energy               [shell], attrs: unit="eV"
 │   │   └── reference_frame
 │   ├── photoelectric/MT522/
 │   │   ├── xs
