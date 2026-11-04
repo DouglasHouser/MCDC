@@ -65,6 +65,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/2.0.0/),
 
 ### Fixed
 
+- Sample photon coherent scattering at the momentum transfer its form factor is tabulated against (it was looked up at twice that, over-peaking every coherent event forward), and sample incoherent scattering from bound electrons: Klein-Nishina weighted by the incoherent scattering function, Doppler broadened with the Biggs Compton profiles the photon data generator now writes, from [@DouglasHouser]
 - Correct flattened outgoing-energy bounds and conditional angular indices in the Kalbach-Mann and correlated energy-angle samplers, from [@ilhamv]
 - Sample delayed-fission groups with their proper yields and assign each delayed neutron its group spectrum and isotropic direction, from [@ilhamv]
 - Fix delayed neutron data preparation, from [@hansenkyle]

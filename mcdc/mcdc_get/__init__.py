@@ -30,6 +30,8 @@ import mcdc.mcdc_get.secondary_product as secondary_product
 
 import mcdc.mcdc_get.element as element
 
+import mcdc.mcdc_get.photon_incoherent_scattering_reaction as photon_incoherent_scattering_reaction
+
 import mcdc.mcdc_get.photon_photoelectric_reaction as photon_photoelectric_reaction
 
 import mcdc.mcdc_get.neutron_multigroup_data as neutron_multigroup_data

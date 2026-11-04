@@ -142,11 +142,11 @@ def test_bound_sampler_follows_klein_nishina_times_scattering_function(photon_mo
     E = k * native.PLANCK_LIGHT_SPEED_EV_ANGSTROM
     count = 4000
     container = make_photon(E, seed=1)
-    element = simulation["elements"][0]
+    reaction = simulation["photon_incoherent_scattering_reactions"][0]
     mu = np.array(
         [
             native.sample_klein_nishina_with_binding(
-                E, element, container, simulation, data
+                E, float(Z), reaction, container, simulation, data
             )[1]
             for _ in range(count)
         ]
@@ -160,3 +160,53 @@ def test_bound_sampler_follows_klein_nishina_times_scattering_function(photon_mo
 
     # One advancing stream of 4000 draws; four standard errors of the mean.
     assert abs(mu.mean() - expected) < 4.0 * mu.std() / np.sqrt(count)
+
+
+# ======================================================================================
+# Doppler broadening
+# ======================================================================================
+
+
+def test_doppler_momentum_follows_the_restricted_compton_profile(photon_model):
+    """The ``p_z`` implied by each sampled ``E'`` follows ``J(p_z)`` on ``|p_z| <= p_max``.
+
+    ``p_max`` is where ``E' = E - U``, the least energy an ejected electron
+    needs. Here it sits a quarter of the profile width above zero, so the
+    restricted mean of ``|p_z|`` is 0.0062 m_e c against 0.040 for the whole
+    profile, tens of standard errors apart.
+    """
+    width = 0.05  # m_e c
+    momentum = np.linspace(0.0, 0.5, 201)
+    profile = np.exp(-0.5 * (momentum / width) ** 2) / (width * np.sqrt(2.0 * np.pi))
+    U = 15000.0  # eV
+    simulation, data = photon_model(
+        compton_profile=(momentum, profile[None, :], [82.0], [U])
+    )
+    reaction = simulation["photon_incoherent_scattering_reactions"][0]
+
+    E = 1.0e5
+    mu = 0.0
+    count = 4000
+    container = make_photon(E, seed=1)
+    samples = [
+        native.sample_doppler_energy(E, mu, reaction, container, simulation, data)
+        for _ in range(count)
+    ]
+    E_out = np.array([sample[0] for sample in samples])
+    assert all(sample[1] == U for sample in samples)
+    assert np.all(E_out <= E - U)
+
+    f = 1.0 + E / ELECTRON_MASS * (1.0 - mu)
+    p = np.abs(E_out * f - E) / np.sqrt(E**2 + E_out**2 - 2.0 * E * E_out * mu)
+
+    alpha = E / ELECTRON_MASS
+    p_max = ((E - U) * alpha * (1.0 - mu) - U) / np.sqrt(
+        2.0 * E * (E - U) * (1.0 - mu) + U**2
+    )
+    grid = np.linspace(0.0, p_max, 200001)
+    J = np.interp(grid, momentum, profile)
+    expected = np.sum(grid * J) / np.sum(J)
+
+    # One advancing stream of 4000 draws; four standard errors of the mean.
+    assert p.max() <= p_max * (1.0 + 1e-9)
+    assert abs(p.mean() - expected) < 4.0 * p.std() / np.sqrt(count)

@@ -435,6 +435,14 @@ photon_coherent_scattering_reaction = into_dtype([
 
 photon_incoherent_scattering_reaction = into_dtype([
     ('scattering_function_ID', int64),
+    ('compton_shell_n_electrons_offset', int64),
+    ('compton_shell_n_electrons_length', int64),
+    ('compton_shell_binding_energy_offset', int64),
+    ('compton_shell_binding_energy_length', int64),
+    ('N_compton_profile_cdf', int64),
+    ('compton_profile_cdf_IDs_offset', int64),
+    ('N_compton_profile_inverse_cdf', int64),
+    ('compton_profile_inverse_cdf_IDs_offset', int64),
     ('ID', int64),
     ('base_ID', int64),
 ])

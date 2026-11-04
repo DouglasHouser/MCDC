@@ -64,6 +64,7 @@ def write_photon_library(
     include_relaxation=True,
     cascade=False,
     scattering_function=None,
+    compton_profile=None,
 ):
     """Write a minimal but schema-complete photon element library.
 
@@ -75,7 +76,10 @@ def write_photon_library(
 
     ``scattering_function`` is an ``(x, S)`` pair for the incoherent scattering
     function. By default ``S = Z`` everywhere, the free-electron limit, so that
-    incoherent scattering samples pure Klein-Nishina.
+    incoherent scattering samples pure Klein-Nishina. ``compton_profile`` is a
+    ``(momentum, J, n_electrons, binding_energy)`` tuple, momentum in ``m_e c``
+    and ``J`` one row per shell; by default there is none, and the scattered
+    energy is not Doppler broadened.
     """
     N = _grid_length()
 
@@ -126,6 +130,21 @@ def write_photon_library(
         scattering_function_group.create_dataset(
             "value", data=np.asarray(scattering_function[1], dtype=float)
         )
+        if compton_profile is not None:
+            momentum, J, n_electrons, binding_energy = compton_profile
+            profile_group = incoherent_group.create_group("compton_profile")
+            dataset = profile_group.create_dataset(
+                "momentum", data=np.asarray(momentum, dtype=float)
+            )
+            dataset.attrs["unit"] = "m_e c"
+            profile_group.create_dataset("value", data=np.asarray(J, dtype=float))
+            profile_group.create_dataset(
+                "n_electrons", data=np.asarray(n_electrons, dtype=float)
+            )
+            dataset = profile_group.create_dataset(
+                "binding_energy", data=np.asarray(binding_energy, dtype=float)
+            )
+            dataset.attrs["unit"] = "eV"
 
         # Photoelectric opens at the K edge, with two subshells.
         photoelectric_group = channel("photoelectric", 522, photoelectric, 2)

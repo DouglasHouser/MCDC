@@ -318,22 +318,43 @@ def incoherent_scattering(
 
     The tabulated incoherent cross section sets the interaction probability; the
     outgoing angle comes from the Klein-Nishina distribution weighted by the
-    incoherent scattering function, and the energy from Compton kinematics. The
-    recoil electron carries ``E (1 - eps)``: it is banked when electrons are
-    transported, and otherwise its energy deposits at the collision site.
+    incoherent scattering function, and the energy from Compton kinematics,
+    Doppler broadened by the momentum of the struck electron. The recoil
+    electron carries ``E - E' - U``, ``U`` being the binding energy of its
+    shell: it is banked when electrons are transported, and otherwise its
+    energy deposits at the collision site, as ``U`` always does.
     """
     simulation = util.access_simulation(program)
     particle = particle_container[0]
     interaction_data = interaction_data_container[0]
 
-    E = particle["E"]
-    eps, mu = sample_klein_nishina_with_binding(
-        E, element, particle_container, simulation, data
+    # The ID list holds base-array indices; the base record carries sub_ID into
+    # the concrete subtype array.
+    reaction_ID = int(
+        mcdc_get.element.photon_incoherent_scattering_reaction_IDs(0, element, data)
     )
+    reaction_base = simulation["photon_reactions"][reaction_ID]
+    reaction = simulation["photon_incoherent_scattering_reactions"][
+        reaction_base["sub_ID"]
+    ]
 
-    # The scattered photon carries away E * eps; the recoil electron takes the
-    # rest, which deposits locally unless the electron is banked below.
-    particle["E"] = E * eps
+    E = particle["E"]
+    _, mu = sample_klein_nishina_with_binding(
+        E,
+        float(element["atomic_number"]),
+        reaction,
+        particle_container,
+        simulation,
+        data,
+    )
+    E_out, binding_energy = sample_doppler_energy(
+        E, mu, reaction, particle_container, simulation, data
+    )
+    eps = E_out / E
+
+    # The scattered photon carries away E * eps; the rest deposits locally,
+    # less the recoil electron's share if it is banked below.
+    particle["E"] = E_out
     interaction_data["energy_deposition"] += E * (1.0 - eps) * particle["w"]
 
     ux_in = particle["ux"]
@@ -346,7 +367,7 @@ def incoherent_scattering(
     particle["uz"] = uz
 
     # The recoil electron takes the momentum the photon lost, p_e = p - p'.
-    T = E * (1.0 - eps)
+    T = E * (1.0 - eps) - binding_energy
     if T > ELECTRON_CUTOFF_ENERGY and is_transported(
         PARTICLE_ELECTRON, simulation["settings"]
     ):
@@ -367,7 +388,9 @@ def incoherent_scattering(
 
 
 @njit
-def sample_klein_nishina_with_binding(E, element, particle_container, simulation, data):
+def sample_klein_nishina_with_binding(
+    E, Z, reaction, particle_container, simulation, data
+):
     """Sample ``(eps, mu)`` from Klein-Nishina weighted by ``S(x, Z)``.
 
     Notes
@@ -380,15 +403,7 @@ def sample_klein_nishina_with_binding(E, element, particle_container, simulation
     Klein-Nishina alone over-weights small momentum transfers, which binding
     suppresses, and so leaves scattered photons with too much energy.
     """
-    reaction_ID = int(
-        mcdc_get.element.photon_incoherent_scattering_reaction_IDs(0, element, data)
-    )
-    reaction_base = simulation["photon_reactions"][reaction_ID]
-    reaction = simulation["photon_incoherent_scattering_reactions"][
-        reaction_base["sub_ID"]
-    ]
     scattering_function = simulation["data"][reaction["scattering_function_ID"]]
-    Z = float(element["atomic_number"])
     k = E / PLANCK_LIGHT_SPEED_EV_ANGSTROM
 
     eps = 1.0
@@ -400,6 +415,116 @@ def sample_klein_nishina_with_binding(E, element, particle_container, simulation
         if rng.lcg(particle_container) * Z <= S:
             break
     return eps, mu
+
+
+@njit
+def sample_doppler_energy(E, mu, reaction, particle_container, simulation, data):
+    """Sample the Doppler-broadened scattered energy and the struck shell.
+
+    Returns
+    -------
+    (float, float)
+        The scattered photon energy ``E'`` and the binding energy ``U`` of the
+        shell the electron was ejected from. Without Compton profiles, or when
+        the chosen shell cannot be ionized at this angle, ``E'`` is the
+        free-electron Compton energy and ``U = 0``.
+
+    Notes
+    -----
+    An electron with momentum projection ``p_z`` (in ``m_e c``) on the
+    scattering vector scatters the photon to the ``E'`` that solves
+
+        (p_z^2 - f^2) E'^2 + 2 E (f - p_z^2 mu) E' + E^2 (p_z^2 - 1) = 0,
+
+    ``f = 1 + (E / m_e c^2)(1 - mu)``. For ``|p_z| < 1`` both roots are real and
+    positive, one either side of the Compton energy ``E / f``, and ``p_z > 0``
+    takes the upper one. The shell is chosen by occupancy, and ``p_z`` is drawn
+    from its profile restricted to ``|p_z| <= p_max``, where ``p_max`` is the
+    ``p_z`` at which ``E' = E - U``. Both roots then leave the electron enough
+    energy to escape, so nothing is rejected.
+
+    This is the scheme of MCNP (LA-UR-04-0487) and OpenMC, which MCNP's flux
+    spectra confirm: drawing ``p_z`` from the whole of ``(-inf, p_max]`` instead
+    put 18-48% more flux than MCNP into the deepest Pb spectral valleys.
+    """
+    alpha = E / ELECTRON_MASS
+    one_minus_mu = 1.0 - mu
+    f = 1.0 + alpha * one_minus_mu
+    E_compton = E / f
+
+    N_shell = reaction["N_compton_profile_cdf"]
+    if N_shell == 0:
+        return E_compton, 0.0
+
+    # Shell, by occupancy
+    N_electron = 0.0
+    for i in range(N_shell):
+        N_electron += (
+            mcdc_get.photon_incoherent_scattering_reaction.compton_shell_n_electrons(
+                i, reaction, data
+            )
+        )
+    xi = rng.lcg(particle_container) * N_electron
+    shell = N_shell - 1
+    cumulative = 0.0
+    for i in range(N_shell):
+        cumulative += (
+            mcdc_get.photon_incoherent_scattering_reaction.compton_shell_n_electrons(
+                i, reaction, data
+            )
+        )
+        if xi < cumulative:
+            shell = i
+            break
+
+    U = mcdc_get.photon_incoherent_scattering_reaction.compton_shell_binding_energy(
+        shell, reaction, data
+    )
+    if E <= U:
+        return E_compton, 0.0
+    p_max = ((E - U) * alpha * one_minus_mu - U) / math.sqrt(
+        2.0 * E * (E - U) * one_minus_mu + U * U
+    )
+    if p_max < 0.0:
+        return E_compton, 0.0
+
+    # p_z, from the shell's profile restricted to [-p_max, p_max]
+    cdf = simulation["data"][
+        int(
+            mcdc_get.photon_incoherent_scattering_reaction.compton_profile_cdf_IDs(
+                shell, reaction, data
+            )
+        )
+    ]
+    inverse_cdf = simulation["data"][
+        int(
+            mcdc_get.photon_incoherent_scattering_reaction.compton_profile_inverse_cdf_IDs(
+                shell, reaction, data
+            )
+        )
+    ]
+    probability_low = evaluate_data_clamped(-p_max, cdf, simulation, data)
+    probability_high = evaluate_data_clamped(p_max, cdf, simulation, data)
+    probability = probability_low + rng.lcg(particle_container) * (
+        probability_high - probability_low
+    )
+    p = evaluate_data_clamped(probability, inverse_cdf, simulation, data)
+
+    # E', from the root on p_z's side of the Compton energy
+    p2 = p * p
+    a = p2 - f * f
+    b = 2.0 * E * (f - p2 * mu)
+    c = E * E * (p2 - 1.0)
+    root = math.sqrt(max(0.0, b * b - 4.0 * a * c))
+    E_1 = (-b + root) / (2.0 * a)
+    E_2 = (-b - root) / (2.0 * a)
+    if p >= 0.0:
+        E_out = max(E_1, E_2)
+    else:
+        E_out = min(E_1, E_2)
+
+    # |p_z| <= p_max already gives E' <= E - U; the bound guards rounding only.
+    return min(E_out, E - U), U
 
 
 @njit

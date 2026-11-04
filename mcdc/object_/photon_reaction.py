@@ -158,6 +158,13 @@ class PhotonReactionIncoherentScattering(PhotonReactionBase):
     Klein-Nishina cross section weighted by the incoherent scattering function
     ``S(x, Z)``, with ``x = sin(theta / 2) / lambda``, so the angle is sampled
     from that same product in :mod:`mcdc.transport.physics.photon.native`.
+
+    When the library carries Compton profiles, the scattered energy is Doppler
+    broadened by the momentum of the struck electron. Each shell's profile
+    ``J(p_z)`` is tabulated one-sided in ``m_e c``; it is mirrored to both signs
+    and stored as a cumulative distribution and its inverse, so the kernel only
+    looks them up. A library without profiles leaves the shell lists empty, and
+    the scattered energy is the free-electron Compton energy.
     """
 
     # MC/DC framework metadata
@@ -165,10 +172,29 @@ class PhotonReactionIncoherentScattering(PhotonReactionBase):
     sub_type = PHOTON_REACTION_INCOHERENT_SCATTERING
 
     scattering_function: DataBase
+    compton_shell_n_electrons: NDArray[float64]
+    compton_shell_binding_energy: NDArray[float64]
+    compton_profile_cdfs: list[DataBase]
+    compton_profile_inverse_cdfs: list[DataBase]
 
-    def __init__(self, MT, xs, xs_offset, reference_frame, scattering_function):
+    def __init__(
+        self,
+        MT,
+        xs,
+        xs_offset,
+        reference_frame,
+        scattering_function,
+        compton_shell_n_electrons,
+        compton_shell_binding_energy,
+        compton_profile_cdfs,
+        compton_profile_inverse_cdfs,
+    ):
         super().__init__(MT, xs, xs_offset, reference_frame)
         self.scattering_function = scattering_function
+        self.compton_shell_n_electrons = compton_shell_n_electrons
+        self.compton_shell_binding_energy = compton_shell_binding_energy
+        self.compton_profile_cdfs = compton_profile_cdfs
+        self.compton_profile_inverse_cdfs = compton_profile_inverse_cdfs
 
     @classmethod
     def from_h5_group(cls, h5_group):
@@ -183,7 +209,42 @@ class PhotonReactionIncoherentScattering(PhotonReactionBase):
             INTERPOLATION_LINEAR,
         )
 
-        return cls(MT, xs, xs_offset, reference_frame, scattering_function)
+        # Compton profiles, optional: libraries generated before they were
+        # added do not carry them.
+        n_electrons = np.zeros(0)
+        binding_energy = np.zeros(0)
+        cdfs = []
+        inverse_cdfs = []
+        if "compton_profile" in h5_group:
+            profile_group = h5_group["compton_profile"]
+            momentum = profile_group["momentum"][()]
+            profiles = profile_group["value"][()]
+            n_electrons = np.asarray(profile_group["n_electrons"][()], dtype=float64)
+            binding_energy = np.asarray(
+                read_energy(profile_group["binding_energy"]), dtype=float64
+            )
+
+            # The profiles are even in p_z and tabulated from p_z = 0.
+            p = np.concatenate((-momentum[:0:-1], momentum))
+            for profile in profiles:
+                J = np.concatenate((profile[:0:-1], profile))
+                cdf, inverse_cdf = build_cumulative_tables(
+                    *refine_linear_table(p, J), normalize=True
+                )
+                cdfs.append(cdf)
+                inverse_cdfs.append(inverse_cdf)
+
+        return cls(
+            MT,
+            xs,
+            xs_offset,
+            reference_frame,
+            scattering_function,
+            n_electrons,
+            binding_energy,
+            cdfs,
+            inverse_cdfs,
+        )
 
     def __repr__(self):
         text = super().__repr__()
@@ -191,6 +252,7 @@ class PhotonReactionIncoherentScattering(PhotonReactionBase):
             f"  - Scattering function: DataTable [ID: "
             f"{self.scattering_function.ID}]\n"
         )
+        text += f"  - Compton profile shells: {len(self.compton_profile_cdfs)}\n"
         return text
 
 
