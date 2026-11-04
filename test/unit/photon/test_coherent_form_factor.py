@@ -69,6 +69,38 @@ def test_form_factor_forward_value_equals_z(photon_model, Z):
 # ======================================================================================
 
 
+def test_sampled_cosine_follows_the_form_factor_distribution(photon_model):
+    """``<mu>`` matches ``(1 + mu^2) F(x)^2`` with ``x = k sqrt((1 - mu) / 2)``.
+
+    ``x = sin(theta / 2) / lambda`` is the variable the library tabulates ``F``
+    against. Looking ``F`` up at ``2 x`` instead moves the mean at this energy
+    from 0.244 to 0.500, some 25 standard errors away.
+    """
+    from mcdc.mcdc_get import table_data
+
+    simulation, data = photon_model()
+    k = 4.0  # inverse angstroms
+    count = 4000
+    mu = _sample_cosines(
+        simulation, data, k * native.PLANCK_LIGHT_SPEED_EV_ANGSTROM, count=count
+    )
+
+    reaction = simulation["photon_coherent_scattering_reactions"][0]
+    table = simulation["table_data"][
+        simulation["data"][reaction["form_factor_ID"]]["sub_ID"]
+    ]
+    x_table = table_data.x_all(table, data)
+    F_table = table_data.y_all(table, data)
+    grid = np.linspace(-1.0, 1.0, 200001)
+    weight = (1.0 + grid**2) * np.interp(
+        k * np.sqrt(0.5 * (1.0 - grid)), x_table, F_table
+    ) ** 2
+    expected = np.sum(grid * weight) / np.sum(weight)
+
+    # One advancing stream of 4000 draws; four standard errors of the mean.
+    assert abs(mu.mean() - expected) < 4.0 * mu.std() / np.sqrt(count)
+
+
 def test_forward_peaking_sharpens_with_energy(photon_model):
     # Higher energy means larger accessible momentum transfer, so the form
     # factor cuts off the large angles more aggressively.

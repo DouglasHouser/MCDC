@@ -25,7 +25,7 @@ from mcdc.constant import (
     PHOTON_REACTION_TOTAL,
     PI,
 )
-from mcdc.transport.data import evaluate_data
+from mcdc.transport.data import evaluate_data, evaluate_data_clamped
 from mcdc.transport.physics.cross_species_production import (
     emit_cross_species,
     is_transported,
@@ -256,25 +256,20 @@ def coherent_scattering(particle_container, element, simulation, data):
     particle["uz"] = uz
 
 
-# Cap on the coherent-scattering rejection loop. At high energy F(q)^2 is
-# negligible outside a narrow forward cone, the acceptance rate collapses, and
-# exhausting the cap falls back to mu = 1. That fallback is a small forward bias,
-# to be replaced by direct inversion or a better envelope (tracked upstream).
-COHERENT_SCATTERING_MAX_REJECTION_ATTEMPTS = 1000
-
-
 @njit
 def sample_coherent_scattering_cosine(particle_container, element, simulation, data):
-    """Sample ``mu`` from ``(1 + mu^2) F(q, Z)^2`` by rejection.
+    """Sample ``mu`` from ``(1 + mu^2) F(x, Z)^2``.
 
-    The Thomson factor ``(1 + mu^2) / 2`` is applied by rejection, which is at
-    least 50% efficient at any energy. ``F(q, Z)^2`` is applied by rejection
-    against the forward-scattering maximum ``F(0, Z) = Z``, which the library
-    tabulates as the first form-factor point.
-
-    Momentum transfer and angle are related through the wavenumber
-    ``k = E / (h c)`` by ``q^2 = 2 k^2 (1 - mu)``, so ``q`` ranges from 0 at
-    forward scattering to ``2 k`` at backscatter.
+    Notes
+    -----
+    The form factor is tabulated against ``x = sin(theta / 2) / lambda``, which
+    with ``k = E / (h c)`` gives ``x^2 = k^2 (1 - mu) / 2``: ``x`` runs from 0 at
+    forward scattering to ``k`` at backscatter. ``x^2`` is drawn by inverting
+    ``A(x^2)``, the running integral of ``F^2`` over ``x^2``, on ``[0, k^2]``,
+    and the Thomson factor ``(1 + mu^2) / 2`` is applied by rejection, which is
+    at least 50% efficient at every energy. This is the method MCNP and OpenMC
+    use; unlike rejection on ``F^2``, its efficiency does not collapse as the
+    distribution sharpens with energy.
     """
     particle = particle_container[0]
     E = particle["E"]
@@ -292,31 +287,21 @@ def sample_coherent_scattering_cosine(particle_container, element, simulation, d
     reaction = simulation["photon_coherent_scattering_reactions"][
         reaction_base["sub_ID"]
     ]
-    form_factor = simulation["data"][reaction["form_factor_ID"]]
+    integrated = simulation["data"][reaction["integrated_form_factor_ID"]]
+    inverse = simulation["data"][reaction["inverse_integrated_form_factor_ID"]]
 
-    # Wavenumber in inverse angstroms, matching the tabulated q grid.
+    # Wavenumber in inverse angstroms, the largest x reachable at this energy.
     k = E / PLANCK_LIGHT_SPEED_EV_ANGSTROM
-    q_max = 2.0 * k
+    k2 = k * k
+    A_max = evaluate_data_clamped(k2, integrated, simulation, data)
 
-    # Forward-scattering maximum of the form factor, F(q = 0, Z) = Z.
-    form_factor_max = evaluate_data(0.0, form_factor, simulation, data)
-    if form_factor_max <= 0.0:
-        return 1.0
-
-    # Rejection on F(q)^2 and on the Thomson factor together.
-    for _ in range(COHERENT_SCATTERING_MAX_REJECTION_ATTEMPTS):
-        mu = 2.0 * rng.lcg(particle_container) - 1.0
-        q = q_max * math.sqrt(0.5 * (1.0 - mu))
-        form_factor_value = evaluate_data(q, form_factor, simulation, data)
-        weight = (form_factor_value / form_factor_max) ** 2
-        weight *= 0.5 * (1.0 + mu * mu)
-        if rng.lcg(particle_container) <= weight:
+    mu = 1.0
+    while True:
+        A = rng.lcg(particle_container) * A_max
+        x2 = evaluate_data_clamped(A, inverse, simulation, data)
+        mu = max(-1.0, 1.0 - 2.0 * x2 / k2)
+        if rng.lcg(particle_container) <= 0.5 * (1.0 + mu * mu):
             return mu
-
-    # Every attempt rejected: fall back to forward scattering (see the cap above).
-    # TODO: Replace capped rejection with an unbiased sampler efficient for
-    # sharply forward-peaked form factors; this fallback adds artificial mass at mu=1.
-    return 1.0
 
 
 # ======================================================================================

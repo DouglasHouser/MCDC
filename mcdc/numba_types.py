@@ -427,6 +427,8 @@ element = into_dtype([
 
 photon_coherent_scattering_reaction = into_dtype([
     ('form_factor_ID', int64),
+    ('integrated_form_factor_ID', int64),
+    ('inverse_integrated_form_factor_ID', int64),
     ('ID', int64),
     ('base_ID', int64),
 ])

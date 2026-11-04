@@ -1,3 +1,5 @@
+import numpy as np
+
 from numpy import float64
 from numpy.typing import NDArray
 
@@ -88,11 +90,20 @@ def decode_reference_frame(type_):
 
 
 class PhotonReactionCoherentScattering(PhotonReactionBase):
-    """Coherent scattering with the tabulated atomic form factor F(q, Z).
+    """Coherent scattering with the tabulated atomic form factor F(x, Z).
 
     Elastic: the photon energy is unchanged and only the direction is deflected.
     The form factor carries its own momentum-transfer grid, so it is stored as a
     :class:`DataTable` rather than packed against the element energy grid.
+
+    Notes
+    -----
+    The library tabulates ``F`` against ``x = sin(theta / 2) / lambda`` in
+    inverse angstroms, as EPDL does. The angular distribution is
+    ``(1 + mu^2) F(x, Z)^2`` with ``x^2 = k^2 (1 - mu) / 2`` and ``k = E / (h c)``,
+    so ``x^2`` is sampled by inverting ``A(x^2)``, the running integral of
+    ``F^2`` over ``x^2``, and the Thomson factor is applied by rejection. ``A``
+    and its inverse are built here, once, so that the kernel only looks them up.
     """
 
     # MC/DC framework metadata
@@ -100,10 +111,18 @@ class PhotonReactionCoherentScattering(PhotonReactionBase):
     sub_type = PHOTON_REACTION_COHERENT_SCATTERING
 
     form_factor: DataBase
+    integrated_form_factor: DataBase
+    inverse_integrated_form_factor: DataBase
 
     def __init__(self, MT, xs, xs_offset, reference_frame, form_factor):
         super().__init__(MT, xs, xs_offset, reference_frame)
         self.form_factor = form_factor
+
+        # F is linear in x, so refine in x first; the density in x^2 is F^2.
+        x, F = refine_linear_table(form_factor.x, form_factor.y)
+        self.integrated_form_factor, self.inverse_integrated_form_factor = (
+            build_cumulative_tables(x * x, F * F)
+        )
 
     @classmethod
     def from_h5_group(cls, h5_group):
@@ -111,7 +130,7 @@ class PhotonReactionCoherentScattering(PhotonReactionBase):
         MT, xs, xs_offset, reference_frame = set_basic_properties(h5_group)
 
         # Linear, not log-log: the library's momentum-transfer grid starts at
-        # q = 0, where log(q) is undefined.
+        # x = 0, where log(x) is undefined.
         form_factor_group = h5_group["form_factor"]
         form_factor = DataTable(
             form_factor_group["momentum_transfer"][()],
@@ -252,3 +271,57 @@ def set_basic_properties(h5_group):
         if frame_name == "COM":
             reference_frame = REFERENCE_FRAME_COM
     return MT, xs, xs_offset, reference_frame
+
+
+#: Each tabulated interval is split this many times before a running integral is
+#: taken. The kernel inverts the integral by linear interpolation, which is exact
+#: only where the density is constant; subdividing keeps that error well below
+#: the statistical resolution of the sampler tests.
+CUMULATIVE_TABLE_REFINEMENT = 8
+
+
+def refine_linear_table(x, y):
+    """Subdivide a lin-lin table, interpolating ``y`` linearly onto the new points."""
+    x = np.asarray(x, dtype=float64)
+    y = np.asarray(y, dtype=float64)
+    fractions = np.arange(CUMULATIVE_TABLE_REFINEMENT) / CUMULATIVE_TABLE_REFINEMENT
+    x_fine = np.append(
+        (x[:-1, None] + fractions[None, :] * np.diff(x)[:, None]).ravel(), x[-1]
+    )
+    y_fine = np.append(
+        (y[:-1, None] + fractions[None, :] * np.diff(y)[:, None]).ravel(), y[-1]
+    )
+    return x_fine, y_fine
+
+
+def build_cumulative_tables(t, density, normalize=False):
+    """Return the running integral of a sampled density and its inverse.
+
+    Parameters
+    ----------
+    t : ndarray
+        Increasing abscissa.
+    density : ndarray
+        Non-negative density at ``t``, integrated by the trapezoid rule.
+    normalize : bool, optional
+        Scale the integral to end at one, making it a cumulative distribution.
+
+    Returns
+    -------
+    (DataTable, DataTable)
+        ``A(t)`` and ``t(A)``, both lin-lin. Flat stretches of ``A``, where the
+        density vanishes, are dropped from the inverse so that its abscissa is
+        strictly increasing.
+    """
+    t = np.asarray(t, dtype=float64)
+    density = np.asarray(density, dtype=float64)
+    A = np.concatenate(
+        ([0.0], np.cumsum(0.5 * (density[1:] + density[:-1]) * np.diff(t)))
+    )
+    if normalize:
+        A = A / A[-1]
+    rising = np.concatenate(([True], np.diff(A) > 0.0))
+    return (
+        DataTable(t, A, INTERPOLATION_LINEAR),
+        DataTable(A[rising], t[rising], INTERPOLATION_LINEAR),
+    )
