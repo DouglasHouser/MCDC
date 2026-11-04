@@ -434,6 +434,7 @@ photon_coherent_scattering_reaction = into_dtype([
 ])
 
 photon_incoherent_scattering_reaction = into_dtype([
+    ('scattering_function_ID', int64),
     ('ID', int64),
     ('base_ID', int64),
 ])

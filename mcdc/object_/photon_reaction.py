@@ -152,22 +152,46 @@ class PhotonReactionCoherentScattering(PhotonReactionBase):
 
 
 class PhotonReactionIncoherentScattering(PhotonReactionBase):
-    """Incoherent scattering, sampled with Klein-Nishina kinematics.
+    """Incoherent scattering from bound electrons.
 
-    The tabulated cross section sets the interaction probability; the outgoing
-    energy and angle come from the Klein-Nishina distribution sampled by Kahn's
-    composition-rejection method in
-    :mod:`mcdc.transport.physics.photon.native`.
+    The tabulated cross section sets the interaction probability. It is the
+    Klein-Nishina cross section weighted by the incoherent scattering function
+    ``S(x, Z)``, with ``x = sin(theta / 2) / lambda``, so the angle is sampled
+    from that same product in :mod:`mcdc.transport.physics.photon.native`.
     """
 
     # MC/DC framework metadata
     label = "photon_incoherent_scattering_reaction"
     sub_type = PHOTON_REACTION_INCOHERENT_SCATTERING
 
+    scattering_function: DataBase
+
+    def __init__(self, MT, xs, xs_offset, reference_frame, scattering_function):
+        super().__init__(MT, xs, xs_offset, reference_frame)
+        self.scattering_function = scattering_function
+
     @classmethod
     def from_h5_group(cls, h5_group):
         """Build an incoherent-scattering reaction from a library HDF5 group."""
-        return cls(*set_basic_properties(h5_group))
+        MT, xs, xs_offset, reference_frame = set_basic_properties(h5_group)
+
+        # Linear, as EPDL declares, and because the grid starts at x = 0.
+        scattering_function_group = h5_group["scattering_function"]
+        scattering_function = DataTable(
+            scattering_function_group["momentum_transfer"][()],
+            scattering_function_group["value"][()],
+            INTERPOLATION_LINEAR,
+        )
+
+        return cls(MT, xs, xs_offset, reference_frame, scattering_function)
+
+    def __repr__(self):
+        text = super().__repr__()
+        text += (
+            f"  - Scattering function: DataTable [ID: "
+            f"{self.scattering_function.ID}]\n"
+        )
+        return text
 
 
 # ======================================================================================

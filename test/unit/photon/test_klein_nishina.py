@@ -117,3 +117,46 @@ def test_sampled_spectrum_matches_the_klein_nishina_formula(E):
         expected[populated]
     )
     assert deviation.max() < 4.0
+
+
+# ======================================================================================
+# Binding: the incoherent scattering function
+# ======================================================================================
+
+
+def test_bound_sampler_follows_klein_nishina_times_scattering_function(photon_model):
+    """``<mu>`` matches the Klein-Nishina density weighted by ``S(x, Z)``.
+
+    The library's incoherent cross section integrates Klein-Nishina against
+    ``S``, so the angle must follow the same product. With ``S`` rising
+    linearly to ``Z`` at ``x = 1`` per angstrom and ``k = 1`` per angstrom,
+    free-electron sampling gives ``<mu> = 0.019`` and the bound density
+    ``-0.232``, some 25 standard errors apart.
+    """
+    Z = 82
+    simulation, data = photon_model(
+        atomic_number=Z,
+        scattering_function=(np.array([0.0, 1.0, 1.0e9]), np.array([0.0, Z, Z])),
+    )
+    k = 1.0  # inverse angstroms
+    E = k * native.PLANCK_LIGHT_SPEED_EV_ANGSTROM
+    count = 4000
+    container = make_photon(E, seed=1)
+    element = simulation["elements"][0]
+    mu = np.array(
+        [
+            native.sample_klein_nishina_with_binding(
+                E, element, container, simulation, data
+            )[1]
+            for _ in range(count)
+        ]
+    )
+
+    grid = np.linspace(-1.0, 1.0, 200001)
+    eps = 1.0 / (1.0 + E / ELECTRON_MASS * (1.0 - grid))
+    weight = eps**2 * (eps + 1.0 / eps - (1.0 - grid**2))
+    weight *= np.interp(k * np.sqrt(0.5 * (1.0 - grid)), [0.0, 1.0, 1.0e9], [0, Z, Z])
+    expected = np.sum(grid * weight) / np.sum(weight)
+
+    # One advancing stream of 4000 draws; four standard errors of the mean.
+    assert abs(mu.mean() - expected) < 4.0 * mu.std() / np.sqrt(count)

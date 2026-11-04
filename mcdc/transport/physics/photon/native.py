@@ -48,8 +48,9 @@ from mcdc.transport.physics.util import (
 PAIR_PRODUCTION_THRESHOLD = 2.0 * ELECTRON_MASS
 
 #: ``h c`` in eV-angstrom. Converts a photon energy to the wavenumber
-#: ``k = E / (h c)`` in inverse angstroms, which is the unit the library's
-#: coherent form-factor momentum-transfer grid is tabulated against.
+#: ``k = E / (h c)`` in inverse angstroms, the largest value of the momentum
+#: transfer ``x = sin(theta / 2) / lambda`` that the library's coherent form
+#: factor and incoherent scattering function are tabulated against.
 PLANCK_LIGHT_SPEED_EV_ANGSTROM = 12398.42
 
 
@@ -212,7 +213,7 @@ def collision(particle_container, interaction_data_container, program, data):
         coherent_scattering(particle_container, element, simulation, data)
     elif xi < sigma_coherent + sigma_incoherent:
         incoherent_scattering(
-            particle_container, interaction_data_container, program, data
+            particle_container, interaction_data_container, element, program, data
         )
     elif xi < sigma_coherent + sigma_incoherent + sigma_photoelectric:
         photoelectric(
@@ -311,22 +312,24 @@ def sample_coherent_scattering_cosine(particle_container, element, simulation, d
 
 @njit
 def incoherent_scattering(
-    particle_container, interaction_data_container, program, data
+    particle_container, interaction_data_container, element, program, data
 ):
-    """Scatter the photon off a free electron with Klein-Nishina kinematics.
+    """Scatter the photon off a bound electron.
 
-    The tabulated incoherent cross section set the interaction probability; the
-    outgoing energy and angle come from the Klein-Nishina distribution, sampled
-    by Kahn's composition-rejection method. The recoil electron carries
-    ``E (1 - eps)``: it is banked when electrons are transported, and otherwise
-    its energy deposits at the collision site.
+    The tabulated incoherent cross section sets the interaction probability; the
+    outgoing angle comes from the Klein-Nishina distribution weighted by the
+    incoherent scattering function, and the energy from Compton kinematics. The
+    recoil electron carries ``E (1 - eps)``: it is banked when electrons are
+    transported, and otherwise its energy deposits at the collision site.
     """
     simulation = util.access_simulation(program)
     particle = particle_container[0]
     interaction_data = interaction_data_container[0]
 
     E = particle["E"]
-    eps, mu = sample_klein_nishina(E, particle_container)
+    eps, mu = sample_klein_nishina_with_binding(
+        E, element, particle_container, simulation, data
+    )
 
     # The scattered photon carries away E * eps; the recoil electron takes the
     # rest, which deposits locally unless the electron is banked below.
@@ -361,6 +364,42 @@ def incoherent_scattering(
             interaction_data_container,
             program,
         )
+
+
+@njit
+def sample_klein_nishina_with_binding(E, element, particle_container, simulation, data):
+    """Sample ``(eps, mu)`` from Klein-Nishina weighted by ``S(x, Z)``.
+
+    Notes
+    -----
+    The library's incoherent cross section is the Klein-Nishina cross section
+    integrated against the incoherent scattering function ``S(x, Z)``, with
+    ``x = sin(theta / 2) / lambda = k sqrt((1 - mu) / 2)``, so the angle has to
+    follow the same product. A Klein-Nishina sample is kept with probability
+    ``S(x, Z) / Z``, ``Z`` being the large-``x`` limit of ``S``. Sampling
+    Klein-Nishina alone over-weights small momentum transfers, which binding
+    suppresses, and so leaves scattered photons with too much energy.
+    """
+    reaction_ID = int(
+        mcdc_get.element.photon_incoherent_scattering_reaction_IDs(0, element, data)
+    )
+    reaction_base = simulation["photon_reactions"][reaction_ID]
+    reaction = simulation["photon_incoherent_scattering_reactions"][
+        reaction_base["sub_ID"]
+    ]
+    scattering_function = simulation["data"][reaction["scattering_function_ID"]]
+    Z = float(element["atomic_number"])
+    k = E / PLANCK_LIGHT_SPEED_EV_ANGSTROM
+
+    eps = 1.0
+    mu = 1.0
+    while True:
+        eps, mu = sample_klein_nishina(E, particle_container)
+        x = k * math.sqrt(0.5 * (1.0 - mu))
+        S = evaluate_data_clamped(x, scattering_function, simulation, data)
+        if rng.lcg(particle_container) * Z <= S:
+            break
+    return eps, mu
 
 
 @njit

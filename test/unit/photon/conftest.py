@@ -63,6 +63,7 @@ def write_photon_library(
     fluorescence_yield=1.0,
     include_relaxation=True,
     cascade=False,
+    scattering_function=None,
 ):
     """Write a minimal but schema-complete photon element library.
 
@@ -71,6 +72,10 @@ def write_photon_library(
     interpolation detail. Photoelectric opens at the K edge and pair production
     at its physical threshold, both expressed through the ``offset`` attribute
     the loader reads.
+
+    ``scattering_function`` is an ``(x, S)`` pair for the incoherent scattering
+    function. By default ``S = Z`` everywhere, the free-electron limit, so that
+    incoherent scattering samples pure Klein-Nishina.
     """
     N = _grid_length()
 
@@ -107,7 +112,20 @@ def write_photon_library(
         dataset.attrs["unit"] = "1/angstrom"
         form_factor.create_dataset("value", data=form_factor_value)
 
-        channel("incoherent_scattering", 504, incoherent, 0)
+        incoherent_group = channel("incoherent_scattering", 504, incoherent, 0)
+        if scattering_function is None:
+            scattering_function = (
+                np.array([0.0, 1.0e9]),
+                np.array([float(atomic_number), float(atomic_number)]),
+            )
+        scattering_function_group = incoherent_group.create_group("scattering_function")
+        dataset = scattering_function_group.create_dataset(
+            "momentum_transfer", data=np.asarray(scattering_function[0], dtype=float)
+        )
+        dataset.attrs["unit"] = "1/angstrom"
+        scattering_function_group.create_dataset(
+            "value", data=np.asarray(scattering_function[1], dtype=float)
+        )
 
         # Photoelectric opens at the K edge, with two subshells.
         photoelectric_group = channel("photoelectric", 522, photoelectric, 2)

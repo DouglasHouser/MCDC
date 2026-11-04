@@ -56,7 +56,9 @@ def test_compton_recoil_electron_takes_the_lost_energy_and_momentum(coupled_mode
     container = make_photon(E, seed=3)
     interaction = make_interaction_data()
 
-    native.incoherent_scattering(container, interaction, simulation, data)
+    native.incoherent_scattering(
+        container, interaction, simulation["elements"][0], simulation, data
+    )
 
     (recoil,) = _banked(simulation)
     photon = container[0]
