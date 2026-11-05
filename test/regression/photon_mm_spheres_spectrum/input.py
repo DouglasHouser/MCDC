@@ -24,11 +24,12 @@ simulation = mcdc.Simulation("Multi-material sphere spectrum")
 # ======================================================================================
 # Material compositions
 # ======================================================================================
-# n_i = rho [g/cm^3] * w_i * (N_A * 1e-24) / A_i,  with N_A * 1e-24 = 0.602214,
-# giving atom densities in 10^24 atoms/cm^3 -- the unit macro_xs assumes, so no
-# barn-to-cm^2 conversion appears anywhere.
-
-AVOGADRO_BARN = 0.602214
+# The same four materials as the photon_mm_slabs_* decks, with the same atom
+# densities. MCNP renormalizes weight fractions that do not sum to one (this
+# concrete's sum to 0.986) and converts with its own atomic weights, so each
+# element density is MCNP's total atom density (atoms/b-cm, print table 60 of
+# the slab-stack reference outputs) split in proportion to w_i / A_i. The
+# comments give the MCNP mass densities.
 
 MOLAR_MASS = {
     "H": 1.008,
@@ -45,34 +46,42 @@ MOLAR_MASS = {
 }
 
 
-def composition(density, weight_fractions):
-    """Convert a bulk density and weight fractions to an element composition."""
-    return {
-        symbol: density * fraction * AVOGADRO_BARN / MOLAR_MASS[symbol]
+def composition(atom_density, weight_fractions):
+    """Split a total atom density over elements in proportion to w_i / A_i."""
+    moles = {
+        symbol: fraction / MOLAR_MASS[symbol]
         for symbol, fraction in weight_fractions.items()
     }
+    total = sum(moles.values())
+    return {symbol: atom_density * mole / total for symbol, mole in moles.items()}
 
 
-lead = mcdc.Material(mass_fractions={"Pb": 1.0}, density=11.34, name="lead")
-water = mcdc.Material(
-    mass_fractions={"H": 0.111898, "O": 0.888102}, density=1.0, name="water"
+lead = mcdc.Material(  # 11.34 g/cm^3
+    number_density=composition(3.29558e-02, {"Pb": 1.0}), name="lead"
 )
-concrete = mcdc.Material(
-    mass_fractions={
-        "O": 0.529107,
-        "Na": 0.016,
-        "Mg": 0.002,
-        "Al": 0.033872,
-        "Si": 0.337021,
-        "Ca": 0.044,
-        "Fe": 0.014,
-        "H": 0.010,
-    },
-    density=2.3,
+water = mcdc.Material(  # 1.0 g/cm^3
+    number_density=composition(1.00280e-01, {"H": 0.111898, "O": 0.888102}),
+    name="water",
+)
+concrete = mcdc.Material(  # 2.3 g/cm^3
+    number_density=composition(
+        8.19993e-02,
+        {
+            "O": 0.529107,
+            "Na": 0.016,
+            "Mg": 0.002,
+            "Al": 0.033872,
+            "Si": 0.337021,
+            "Ca": 0.044,
+            "Fe": 0.014,
+            "H": 0.010,
+        },
+    ),
     name="concrete",
 )
-air = mcdc.Material(
-    mass_fractions={"N": 0.7818, "O": 0.2097, "Ar": 0.0085}, density=0.00129, name="air"
+air = mcdc.Material(  # 0.00129 g/cm^3
+    number_density=composition(5.37076e-05, {"N": 0.7818, "O": 0.2097, "Ar": 0.0085}),
+    name="air",
 )
 
 
